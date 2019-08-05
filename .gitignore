@@ -1,2 +1,4 @@
 logs
 azure_logs
+__pycache__
+dbclient/*.pyc
