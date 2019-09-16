@@ -59,7 +59,7 @@ def main():
 
     if args.users:
         print("Export all users and groups at {0}".format(now))
-        ws_c = WorkspaceClient(token, url, export_dir)
+        ws_c = ScimClient(token, url, export_dir)
         start = timer()
         # log all users
         ws_c.log_all_users()
