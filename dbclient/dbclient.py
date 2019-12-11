@@ -32,12 +32,15 @@ class dbclient:
         if version:
             ver = version
         if json_params:
-            results = requests.get(self._url + '/api/{0}'.format(ver) + endpoint, headers=self._token,
-                                   params=json_params).json()
+            raw_results = requests.get(self._url + '/api/{0}'.format(ver) + endpoint, headers=self._token,
+                                   params=json_params)
+            results = raw_results.json()
         else:
-            results = requests.get(self._url + '/api/{0}'.format(ver) + endpoint, headers=self._token).json()
+            raw_results = requests.get(self._url + '/api/{0}'.format(ver) + endpoint, headers=self._token)
+            results = raw_results.json()
         if printJson:
             print(json.dumps(results, indent=4, sort_keys=True))
+        results['http_status_code'] = raw_results.status_code
         return results
 
     def post(self, endpoint, json_params={}, printJson=True, version='2.0'):

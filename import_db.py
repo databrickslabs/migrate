@@ -46,72 +46,64 @@ def main():
         print("Complete Workspace Import Time: " + str(timedelta(seconds=end - start)))
 
     if args.download:
-        print("Starting complete workspace download at {0}".format(now))
-        ws_c = WorkspaceClient(token, url, export_dir)
-        start = timer()
-        # log notebooks and libraries
-        ws_c.download_notebooks()
-        end = timer()
-        print("Complete Workspace Download Time: " + str(timedelta(seconds=end - start)))
+        print("Not a valid option for import process. Please try again!")
+        raise ValueError
 
     if args.libs:
-        print("Starting complete library log at {0}".format(now))
         lib_c = LibraryClient(token, url, export_dir)
         start = timer()
-        lib_c.log_library_details()
+        ########### TO DO #######################
         end = timer()
-        print("Complete Library Download Time: " + str(timedelta(seconds=end - start)))
+        #print("Complete Library Import Time: " + str(timedelta(seconds=end - start)))
 
     if args.users:
-        print("Export all users and groups at {0}".format(now))
+        print("Import all users and groups at {0}".format(now))
         ws_c = WorkspaceClient(token, url, export_dir)
         start = timer()
         # log all users
-        ws_c.log_all_users()
+        ################## TO DO : IMPORT USERS ############################
         end = timer()
-        print("Complete Users Export Time: " + str(timedelta(seconds=end - start)))
+        print("Complete Users Import Time: " + str(timedelta(seconds=end - start)))
         start = timer()
         # log all groups
-        ws_c.log_all_groups()
+        ################## TO DO : IMPORT GROUPS
         end = timer()
-        print("Complete Group Export Time: " + str(timedelta(seconds=end - start)))
+        print("Complete Group Import Time: " + str(timedelta(seconds=end - start)))
     if args.clusters:
         print("Export the cluster configs at {0}".format(now))
         cl_c = ClustersClient(token, url, export_dir)
         start = timer()
-        # log the cluster json
-        cl_c.log_cluster_configs()
+        ################ TO DO #######################################
         end = timer()
         print("Complete Cluster Export Time: " + str(timedelta(seconds=end - start)))
         # log the instance profiles
         if is_aws:
             start = timer()
-            cl_c.log_instance_profiles()
+            ################# TO DO : REIMPORT INSTANCE PROFILES ############################
             end = timer()
             print("Complete Instance Profile Export Time: " + str(timedelta(seconds=end - start)))
         # log the instance pools
         start = timer()
-        cl_c.log_instance_pools()
+        ############### TO DO : REIMPORT INSTANCE POOLS ##################################
         end = timer()
         print("Complete Instance Pools Export Time: " + str(timedelta(seconds=end - start)))
 
     if args.jobs:
-        print("Export the jobs configs at {0}".format(now))
+        #print("Importing the jobs configs at {0}".format(now))
         start = timer()
         jobs_c = JobsClient(token, url, export_dir)
-        # log job configs
-        jobs_c.log_job_configs()
+        ####################### TO DO ###############################
         end = timer()
-        print("Complete Jobs Export Time: " + str(timedelta(seconds=end - start)))
+        #print("Complete Jobs Export Time: " + str(timedelta(seconds=end - start)))
 
     if args.metastore:
-        print("Export the metastore configs at {0}".format(now))
+        print("Importing the metastore configs at {0}".format(now))
         start = timer()
         hive_c = HiveClient(token, url, export_dir)
         # log job configs
-        hive_c.export_hive_metastore(is_aws)
+        hive_c.import_hive_metastore(is_aws)
         end = timer()
-        print("Complete Metastore Export Time: " + str(timedelta(seconds=end - start)))
+        print("Complete Metastore Import Time: " + str(timedelta(seconds=end - start)))
 
 
 if __name__ == '__main__':

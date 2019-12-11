@@ -98,3 +98,38 @@ class HiveClient(dbclient):
         for db_name in all_dbs:
             self.log_all_tables(db_name, cid, ec_id, ms_dir)
         print(all_dbs)
+
+    def create_database_db(self, db_name, ec_id, cid):
+        create_db_statement = 'spark.sql("CREATE DATABASE IF NOT EXISTS {0}")'.format(db_name.replace('\n', ''))
+        db_results = self.submit_command(cid, ec_id, create_db_statement)
+        return db_results
+
+    def apply_table_ddl(self, local_table_dir, ec_id, cid):
+        with open(local_table_dir, "r") as fp:
+            ddl_statement = fp.read()
+            ddl_results = self.submit_command(cid, ec_id, ddl_statement)
+            return ddl_results
+
+    def import_hive_metastore(self, is_aws=True, ms_dir='metastore'):
+        ms_local_dir = self._export_dir + ms_dir
+        cid = self.launch_cluster(is_aws)
+        time.sleep(2)
+        ec_id = self.get_execution_context(cid)
+        # get local databases
+        db_list = os.listdir(ms_local_dir)
+        # iterate over the databases saved locally
+        for db in db_list:
+            # get the local database path to list tables
+            local_db_path = ms_local_dir + '/' + db
+            self.create_database_db(db, ec_id, cid)
+            if os.path.isdir(local_db_path):
+                # all databases should be directories, no files at this level
+                # list all the tables in the database local dir
+                tables = os.listdir(local_db_path)
+                for x in tables:
+                    # build the path for the table where the ddl is stored
+                    local_table_ddl = ms_local_dir + '/' + db + '/' + x
+                    is_successful = self.apply_table_ddl(local_table_ddl, ec_id, cid)
+            else:
+                print("Error: Only databases should exist at this level: {0}".format(db))
+
