@@ -9,7 +9,7 @@ from datetime import datetime
 
 def main():
     # define a parser to identify what component to import / export
-    parser = get_migration_parser()
+    parser = get_export_parser()
     # parse the args
     args = parser.parse_args()
 
@@ -80,11 +80,13 @@ def main():
         print("Complete Cluster Export Time: " + str(timedelta(seconds=end - start)))
         # log the instance profiles
         if is_aws:
+            print("Start instance profile logging ...")
             start = timer()
             cl_c.log_instance_profiles()
             end = timer()
             print("Complete Instance Profile Export Time: " + str(timedelta(seconds=end - start)))
         # log the instance pools
+        print("Start instance pool logging ...")
         start = timer()
         cl_c.log_instance_pools()
         end = timer()

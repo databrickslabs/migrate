@@ -9,7 +9,7 @@ from datetime import datetime
 
 def main():
     # define a parser to identify what component to import / export
-    parser = get_migration_parser()
+    parser = get_import_parser()
     # parse the args
     args = parser.parse_args()
 
@@ -45,10 +45,6 @@ def main():
         end = timer()
         print("Complete Workspace Import Time: " + str(timedelta(seconds=end - start)))
 
-    if args.download:
-        print("Not a valid option for import process. Please try again!")
-        raise ValueError
-
     if args.libs:
         lib_c = LibraryClient(token, url, export_dir)
         start = timer()
@@ -69,24 +65,26 @@ def main():
         ################## TO DO : IMPORT GROUPS
         end = timer()
         print("Complete Group Import Time: " + str(timedelta(seconds=end - start)))
+
     if args.clusters:
-        print("Export the cluster configs at {0}".format(now))
+        print("Import the cluster configs at {0}".format(now))
         cl_c = ClustersClient(token, url, export_dir)
-        start = timer()
-        ################ TO DO #######################################
-        end = timer()
-        print("Complete Cluster Export Time: " + str(timedelta(seconds=end - start)))
-        # log the instance profiles
         if is_aws:
+            print("Start import of instance profiles ...")
             start = timer()
-            ################# TO DO : REIMPORT INSTANCE PROFILES ############################
+            cl_c.import_instance_profiles()
             end = timer()
-            print("Complete Instance Profile Export Time: " + str(timedelta(seconds=end - start)))
-        # log the instance pools
+            print("Complete Instance Profile Import Time: " + str(timedelta(seconds=end - start)))
+        print("Start import of instance pool configurations ...")
         start = timer()
-        ############### TO DO : REIMPORT INSTANCE POOLS ##################################
+        cl_c.import_instance_pools()
         end = timer()
-        print("Complete Instance Pools Export Time: " + str(timedelta(seconds=end - start)))
+        print("Complete Instance Pools Creation Time: " + str(timedelta(seconds=end - start)))
+        print("Start import of cluster configurations ...")
+        start = timer()
+        cl_c.import_cluster_configs()
+        end = timer()
+        print("Complete Cluster Import Time: " + str(timedelta(seconds=end - start)))
 
     if args.jobs:
         #print("Importing the jobs configs at {0}".format(now))

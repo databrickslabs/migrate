@@ -34,8 +34,8 @@ def get_login_credentials(creds_path='~/.databrickscfg', profile='DEFAULT'):
                             split_index = clean_l.find('=')
                             x = clean_l[:split_index].rstrip()
                             cred_dict[x] = clean_l[split_index + 1:].lstrip()
-                    if (clean_l[0] == '['):
-                        if (clean_l[1:-1] == profile):
+                    if clean_l[0] == '[':
+                        if clean_l[1:-1] == profile:
                             # next couple of lines are the credentials
                             hit_profile = True
                             continue
@@ -45,41 +45,78 @@ def get_login_credentials(creds_path='~/.databrickscfg', profile='DEFAULT'):
         raise ValueError('Unable to find credentials to load.')
 
 
-def get_migration_parser():
+def get_export_parser():
     # export workspace items
-    parser = argparse.ArgumentParser(description='Migrate user workspaces in Databricks')
+    parser = argparse.ArgumentParser(description='Export user workspace artifacts from Databricks')
 
     # export all users and groups
     parser.add_argument('--users', action='store_true',
-                        help='Collect all the users and groups in the workspace')
+                        help='Download all the users and groups in the workspace')
 
-    # add all user workspace
+    # log all user workspace paths
     parser.add_argument('--workspace', action='store_true',
-                        help='Collect all the users workspaces for the environment')
+                        help='Log all the notebook paths in the workspace. (metadata only)')
 
-    # add all user workspace
+    # download all user workspace notebooks
     parser.add_argument('--download', action='store_true',
                         help='Download all notebooks for the environment')
 
     # add all lib configs
     parser.add_argument('--libs', action='store_true',
-                        help='Collect all the libs for the environment')
+                        help='Log all the libs for the environment')
 
     # add all clusters configs
     parser.add_argument('--clusters', action='store_true',
-                        help='Collect all the clusters for the environment')
+                        help='Log all the clusters for the environment')
 
     # get all job configs
     parser.add_argument('--jobs', action='store_true',
-                        help='Collect all the job configs for the environment')
+                        help='Log all the job configs for the environment')
     # get all metastore
     parser.add_argument('--metastore', action='store_true',
-                        help='Collect all the metastore details')
+                        help='Log all the metastore table definitions')
 
     # get azure logs
     parser.add_argument('--azure', action='store_true',
                         help='Run on Azure. (Default is AWS)')
     #
-    parser.add_argument('--profile', action='store',
+    parser.add_argument('--profile', action='store', default='DEFAULT', 
+                        help='Profile to parse the credentials')
+    return parser
+
+
+def get_import_parser():
+    # import workspace items parser
+    parser = argparse.ArgumentParser(description='Import user workspace artifacts into Databricks')
+
+    # import all users and groups
+    parser.add_argument('--users', action='store_true',
+                        help='Import all the users and groups from the logfile.')
+
+    # import all notebooks
+    parser.add_argument('--workspace', action='store_true',
+                        help='Import all notebooks from export dir into the workspace.')
+
+    # import all lib configs
+    parser.add_argument('--libs', action='store_true',
+                        help='Import all the libs from the logfile into the workspace.')
+
+    # import all clusters configs
+    parser.add_argument('--clusters', action='store_true',
+                        help='Import all the cluster configs for the environment')
+
+    # import all job configs
+    parser.add_argument('--jobs', action='store_true',
+                        help='Import all job configurations to the environment.')
+
+    # import all metastore
+    parser.add_argument('--metastore', action='store_true',
+                        help='Import the metastore to the workspace.')
+
+    # get azure logs
+    parser.add_argument('--azure', action='store_true',
+                        help='Run on Azure. (Default is AWS)')
+    #
+    parser.add_argument('--profile', action='store', default='DEFAULT',
                         help='Profile to parse the credentials')
     return parser

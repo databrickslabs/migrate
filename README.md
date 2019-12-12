@@ -32,17 +32,18 @@ usage: export_db.py [-h] [--users] [--workspace] [--download] [--libs]
                     [--clusters] [--jobs] [--metastore] [--azure]
                     [--profile PROFILE]
 
-Migrate user workspaces in Databricks
+Export user workspace artifacts from Databricks
 
 optional arguments:
   -h, --help         show this help message and exit
-  --users            Collect all the users and groups in the workspace
-  --workspace        Collect all the users workspaces for the environment
+  --users            Download all the users and groups in the workspace
+  --workspace        Log all the notebook paths in the workspace. (metadata
+                     only)
   --download         Download all notebooks for the environment
-  --libs             Collect all the libs for the environment
-  --clusters         Collect all the clusters for the environment
-  --jobs             Collect all the job configs for the environment
-  --metastore        Collect all the metastore details
+  --libs             Log all the libs for the environment
+  --clusters         Log all the clusters for the environment
+  --jobs             Log all the job configs for the environment
+  --metastore        Log all the metastore table definitions
   --azure            Run on Azure. (Default is AWS)
   --profile PROFILE  Profile to parse the credentials
 ```
@@ -50,21 +51,28 @@ optional arguments:
 Import help text:
 ```
 $ python import_db.py --help
-usage: import_db.py [-h] [--users] [--workspace] [--download] [--libs]
-                    [--clusters] [--jobs] [--metastore] [--azure]
-                    [--profile PROFILE]
+usage: import_db.py [-h] [--users] [--workspace] [--libs] [--clusters]
+                    [--jobs] [--metastore] [--azure] [--profile PROFILE]
 
-Migrate user workspaces in Databricks
+Import user workspace artifacts into Databricks
 
 optional arguments:
   -h, --help         show this help message and exit
-  --users            Collect all the users and groups in the workspace
-  --workspace        Collect all the users workspaces for the environment
-  --download         Download all notebooks for the environment
-  --libs             Collect all the libs for the environment
-  --clusters         Collect all the clusters for the environment
-  --jobs             Collect all the job configs for the environment
-  --metastore        Collect all the metastore details
+  --users            Import all the users and groups from the logfile.
+  --workspace        Import all notebooks from export dir into the workspace.
+  --libs             Import all the libs from the logfile into the workspace.
+  --clusters         Import all the cluster configs for the environment
+  --jobs             Import all job configurations to the environment.
+  --metastore        Import the metastore to the workspace.
   --azure            Run on Azure. (Default is AWS)
   --profile PROFILE  Profile to parse the credentials
 ```
+
+
+Limitations:
+* Instance profiles: User access cannot be handled by the apis. ACLs need to be reconfigured manually 
+* Notebooks: ACLs to folders will need to be reconfigured by users. By default, it will be restricted if Notebook ACLs are enabled. 
+* Clusters: Cluster creator will be seen as the single admin user who migrated all the clusters. (Relevant for billing purposes)
+  * Cluster permissions would need to manually be modified (Possibly available via private preview APIs)
+* Jobs: Job owners will be seen as the single admin user who migrate the job configurations. (Relevant for billing purposes)
+
