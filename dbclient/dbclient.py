@@ -14,12 +14,16 @@ class dbclient:
 
     def __init__(self, token="ABCDEFG1234", url="https://myenv.cloud.databricks.com", export_dir='logs/'):
         self._token = {'Authorization': 'Bearer {0}'.format(token)}
-        self._url = url
+        self._url = url.rstrip("/")
         self._export_dir = export_dir
         makedirs(self._export_dir, exist_ok=True)
 
     def test_connection(self):
-        results = requests.get(self._url + 'api/2.0/clusters/spark-versions', headers=self._token)
+        # verify the proper url settings to configure this client
+        if self._url[-4:] != '.com':
+            print("Hostname should end in '.com'")
+            return -1
+        results = requests.get(self._url + '/api/2.0/clusters/spark-versions', headers=self._token)
         http_status_code = results.status_code
         if http_status_code != 200:
             print("Error. Either the credentails have expired or the credentials don't have proper permissions.")

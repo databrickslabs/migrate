@@ -7,6 +7,8 @@ auth_key = ['host',
 
 
 def get_login_credentials(creds_path='~/.databrickscfg', profile='DEFAULT'):
+    if profile is None:
+        profile = 'DEFAULT'
     if creds_path == '~/.databrickscfg':
         fname = path.expanduser(creds_path)
     elif creds_path[0] == '~':
