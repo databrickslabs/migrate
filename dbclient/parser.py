@@ -34,13 +34,15 @@ def get_login_credentials(creds_path='~/.databrickscfg', profile='DEFAULT'):
                             split_index = clean_l.find('=')
                             x = clean_l[:split_index].rstrip()
                             cred_dict[x] = clean_l[split_index + 1:].lstrip()
-
                     if (clean_l[0] == '['):
                         if (clean_l[1:-1] == profile):
                             # next couple of lines are the credentials
                             hit_profile = True
                             continue
+    if cred_dict:
         return cred_dict
+    else:
+        raise ValueError('Unable to find credentials to load.')
 
 
 def get_migration_parser():
