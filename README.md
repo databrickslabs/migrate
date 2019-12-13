@@ -12,7 +12,7 @@ Support Matrix for Import and Export Operations:
 | Notebooks      | Supported    | Supported    |
 | Users / Groups | Supported    | Unsupported  |
 | Metastore      | Supported    | Supported    |
-| Clusters       | Supported    | Unsupported  |
+| Clusters       | Supported    | Supported    |
 | Jobs           | Supported    | Unsupported  |
 | Libraries      | Supported    | Unsupported  |
 | Secrets        | Unsupported  | Unsupported  |

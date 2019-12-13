@@ -70,6 +70,7 @@ def main():
         ws_c.log_all_groups()
         end = timer()
         print("Complete Group Export Time: " + str(timedelta(seconds=end - start)))
+
     if args.clusters:
         print("Export the cluster configs at {0}".format(now))
         cl_c = ClustersClient(token, url, export_dir)

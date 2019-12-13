@@ -73,17 +73,31 @@ class ClustersClient(dbclient):
 
     def import_cluster_configs(self, log_file='clusters.log'):
         cluster_log = self._export_dir + log_file
+        # get instance pool id mappings
+        pool_id_dict = self.get_instance_pool_id_mapping()
         with open(cluster_log, 'r') as fp:
             for line in fp:
                 cluster_conf = json.loads(line)
-                # temp workaround to restrict to 1 profile
-                aws_attr = cluster_conf.pop('aws_attributes')
-                aws_attr['instance_profile_arn'] = '***REMOVED***'
-                cluster_conf['aws_attributes'] = aws_attr
-                #################################################
+                # check for instance pools and modify cluster attributes
+                if 'instance_pool_id' in cluster_conf:
+                    # if pool id exists, remove instance types
+                    cluster_conf.pop('node_type_id')
+                    cluster_conf.pop('driver_node_type_id')
+                    cluster_conf.pop('enable_elastic_disk')
+                    if 'aws_attributes' in cluster_conf:
+                        aws_conf = cluster_conf.pop('aws_attributes')
+                        iam_role = aws_conf.get('instance_profile_arn', None)
+                        if not iam_role:
+                            cluster_conf['aws_attributes'] = {'instance_profile_arn': iam_role}
+                    # map old pool ids to new pool ids
+                    old_pool_id = cluster_conf['instance_pool_id']
+                    cluster_conf['instance_pool_id'] = pool_id_dict[old_pool_id]
                 print("Creating cluster: {0}".format(cluster_conf['cluster_name']))
                 cluster_resp = self.post('/clusters/create', cluster_conf)
                 stop_resp = self.post('/clusters/delete', {'cluster_id': cluster_resp['cluster_id']})
+                if 'pinned_by_user_name' in cluster_conf:
+                    pin_resp = self.post('/clusters/pin', {'cluster_id': cluster_resp['cluster_id']})
+
 
     def delete_all_clusters(self):
         cl = self.get_cluster_list(False)
@@ -124,6 +138,26 @@ class ClustersClient(dbclient):
             for line in fp:
                 pool_conf = json.loads(line)
                 pool_resp = self.post('/instance-pools/create', pool_conf)
+
+    def get_instance_pool_id_mapping(self, log_file='instance_pools.log'):
+        pool_log = self._export_dir + log_file
+        current_pools = self.get('/instance-pools/list').get('instance_pools', None)
+        if not current_pools:
+            return None
+        new_pools = {}
+        # build dict of pool name and id mapping
+        for p in current_pools:
+            new_pools[p['instance_pool_name']] = p['instance_pool_id']
+        # mapping id from old_pool_id to new_pool_id
+        pool_mapping_dict = {}
+        with open(pool_log, 'r') as fp:
+            for line in fp:
+                pool_conf = json.loads(line)
+                old_pool_id = pool_conf['instance_pool_id']
+                pool_name = pool_conf['instance_pool_name']
+                new_pool_id = new_pools[pool_name]
+                pool_mapping_dict[old_pool_id] = new_pool_id
+        return pool_mapping_dict
 
     def get_global_init_scripts(self):
         """ return a list of global init scripts. Currently not logged """
