@@ -20,6 +20,7 @@ class ClustersClient(dbclient):
                       'enable_elastic_disk',
                       'instance_pool_id',
                       'pinned_by_user_name',
+                      'creator_user_name',
                       'cluster_id'}
 
     def get_spark_versions(self):
@@ -71,37 +72,60 @@ class ClustersClient(dbclient):
                     del x[p]
                 log_fp.write(json.dumps(x) + '\n')
 
+    def cleanup_cluster_pool_configs(self, cluster_json, cluster_creator):
+        pool_id_dict = self.get_instance_pool_id_mapping()
+        # if pool id exists, remove instance types
+        cluster_json.pop('node_type_id')
+        cluster_json.pop('driver_node_type_id')
+        cluster_json.pop('enable_elastic_disk')
+        # add custom tag for original cluster creator for cost tracking
+        if 'custom_tags' in cluster_json:
+            tags = cluster_json['custom_tags']
+            tags['OriginalCreator'] = cluster_creator
+            cluster_json['custom_tags'] = tags
+        else:
+            cluster_json['custom_tags'] = {'OriginalCreator' : cluster_creator}
+        # remove all aws_attr except for IAM role if it exists
+        if 'aws_attributes' in cluster_json:
+            aws_conf = cluster_json.pop('aws_attributes')
+            iam_role = aws_conf.get('instance_profile_arn', None)
+            if not iam_role:
+                cluster_json['aws_attributes'] = {'instance_profile_arn': iam_role}
+        # map old pool ids to new pool ids
+        old_pool_id = cluster_json['instance_pool_id']
+        cluster_json['instance_pool_id'] = pool_id_dict[old_pool_id]
+        return cluster_json
+
     def import_cluster_configs(self, log_file='clusters.log'):
         cluster_log = self._export_dir + log_file
         # get instance pool id mappings
-        pool_id_dict = self.get_instance_pool_id_mapping()
         with open(cluster_log, 'r') as fp:
             for line in fp:
                 cluster_conf = json.loads(line)
+                cluster_creator = cluster_conf.pop('creator_user_name')
                 # check for instance pools and modify cluster attributes
                 if 'instance_pool_id' in cluster_conf:
-                    # if pool id exists, remove instance types
-                    cluster_conf.pop('node_type_id')
-                    cluster_conf.pop('driver_node_type_id')
-                    cluster_conf.pop('enable_elastic_disk')
-                    if 'aws_attributes' in cluster_conf:
-                        aws_conf = cluster_conf.pop('aws_attributes')
-                        iam_role = aws_conf.get('instance_profile_arn', None)
-                        if not iam_role:
-                            cluster_conf['aws_attributes'] = {'instance_profile_arn': iam_role}
-                    # map old pool ids to new pool ids
-                    old_pool_id = cluster_conf['instance_pool_id']
-                    cluster_conf['instance_pool_id'] = pool_id_dict[old_pool_id]
-                print("Creating cluster: {0}".format(cluster_conf['cluster_name']))
-                cluster_resp = self.post('/clusters/create', cluster_conf)
+                    new_cluster_conf = self.cleanup_cluster_pool_configs(cluster_conf, cluster_creator)
+                else:
+                    # update cluster configs for non-pool clusters
+                    # add original creator tag to help with DBU tracking
+                    if 'custom_tags' in cluster_conf:
+                        tags = cluster_conf['custom_tags']
+                        tags['OriginalCreator'] = cluster_creator
+                        cluster_conf['custom_tags'] = tags
+                    else:
+                        cluster_conf['custom_tags'] = {'OriginalCreator' : cluster_creator}
+                    new_cluster_conf = cluster_conf
+                print("Creating cluster: {0}".format(new_cluster_conf['cluster_name']))
+                cluster_resp = self.post('/clusters/create', new_cluster_conf)
                 stop_resp = self.post('/clusters/delete', {'cluster_id': cluster_resp['cluster_id']})
                 if 'pinned_by_user_name' in cluster_conf:
                     pin_resp = self.post('/clusters/pin', {'cluster_id': cluster_resp['cluster_id']})
 
-
     def delete_all_clusters(self):
         cl = self.get_cluster_list(False)
         for x in cl:
+            self.post('/clusters/unpin', {'cluster_id': x['cluster_id']})
             self.post('/clusters/permanent-delete', {'cluster_id': x['cluster_id']})
 
     def log_instance_profiles(self, log_file='instance_profiles.log'):

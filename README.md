@@ -74,5 +74,6 @@ Limitations:
 * Notebooks: ACLs to folders will need to be reconfigured by users. By default, it will be restricted if Notebook ACLs are enabled. 
 * Clusters: Cluster creator will be seen as the single admin user who migrated all the clusters. (Relevant for billing purposes)
   * Cluster permissions would need to manually be modified (Possibly available via private preview APIs)
+  * Cluster creator tags cannot be updated. Added a custom tag with the original cluster creator for DBU tracking. 
 * Jobs: Job owners will be seen as the single admin user who migrate the job configurations. (Relevant for billing purposes)
 
