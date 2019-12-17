@@ -13,7 +13,7 @@ Support Matrix for Import and Export Operations:
 | Users / Groups | Supported    | Unsupported  |
 | Metastore      | Supported    | Supported    |
 | Clusters       | Supported    | Supported    |
-| Jobs           | Supported    | Unsupported  |
+| Jobs           | Supported    | Supported    |
 | Libraries      | Supported    | Unsupported  |
 | Secrets        | Unsupported  | Unsupported  |
 | ML Models      | Unsupported  | Unsupported  |
