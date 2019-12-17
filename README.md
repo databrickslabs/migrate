@@ -76,4 +76,6 @@ Limitations:
   * Cluster permissions would need to manually be modified (Possibly available via private preview APIs)
   * Cluster creator tags cannot be updated. Added a custom tag with the original cluster creator for DBU tracking. 
 * Jobs: Job owners will be seen as the single admin user who migrate the job configurations. (Relevant for billing purposes)
+  * Jobs with existing clusters that no longer exist will be reset to the default cluster type
+  * Jobs with older legacy instances will fail with unsupported DBR or instance types. See release notes for the latest supported releases. 
 

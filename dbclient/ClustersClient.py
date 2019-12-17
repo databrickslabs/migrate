@@ -59,6 +59,11 @@ class ClustersClient(dbclient):
         return clean_cluster_list
 
     def log_cluster_configs(self, log_file='clusters.log'):
+        """
+        Log the current cluster configs in json file
+        :param log_file:
+        :return:
+        """
         cluster_log = self._export_dir + log_file
         # pinned by cluster_user is a flag per cluster
         cl_raw = self.get_cluster_list(False)
@@ -73,6 +78,12 @@ class ClustersClient(dbclient):
                 log_fp.write(json.dumps(x) + '\n')
 
     def cleanup_cluster_pool_configs(self, cluster_json, cluster_creator):
+        """
+        Pass in cluster json and cluster_creator to update fields that are not needed for clusters submitted to pools
+        :param cluster_json:
+        :param cluster_creator:
+        :return:
+        """
         pool_id_dict = self.get_instance_pool_id_mapping()
         # if pool id exists, remove instance types
         cluster_json.pop('node_type_id')
@@ -97,6 +108,11 @@ class ClustersClient(dbclient):
         return cluster_json
 
     def import_cluster_configs(self, log_file='clusters.log'):
+        """
+        Import cluster configs and update appropriate properties / tags in the new env
+        :param log_file:
+        :return:
+        """
         cluster_log = self._export_dir + log_file
         # get instance pool id mappings
         with open(cluster_log, 'r') as fp:

@@ -87,12 +87,12 @@ def main():
         print("Complete Cluster Import Time: " + str(timedelta(seconds=end - start)))
 
     if args.jobs:
-        #print("Importing the jobs configs at {0}".format(now))
+        print("Importing the jobs configs at {0}".format(now))
         start = timer()
         jobs_c = JobsClient(token, url, export_dir)
-        ####################### TO DO ###############################
+        jobs_c.import_job_configs()
         end = timer()
-        #print("Complete Jobs Export Time: " + str(timedelta(seconds=end - start)))
+        print("Complete Jobs Export Time: " + str(timedelta(seconds=end - start)))
 
     if args.metastore:
         print("Importing the metastore configs at {0}".format(now))
