@@ -23,6 +23,8 @@ class WorkspaceClient(dbclient):
 
     def download_notebooks(self, ws_log_file='user_workspace.log', ws_dir='artifacts/'):
         ws_log = self._export_dir + ws_log_file
+        if not os.path.exists(ws_log):
+            raise Exception("Run --workspace first to download full log of all notebooks.")
         with open(ws_log, "r") as fp:
             for nb in fp:
                 self.download_notebook_helper(nb.rstrip(), export_dir=self._export_dir + ws_dir)

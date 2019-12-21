@@ -19,6 +19,11 @@ Support Matrix for Import and Export Operations:
 | ML Models      | Unsupported  | Unsupported  |
 | Table ACLs     | Unsupported  | Unsupported  |
 
+
+**Note**: To download **notebooks**, run `--workspace` first to log all notebook paths so we can easily scan and download all notebooks. 
+Once complete, run `--download` to download the full set of logged notebooks. 
+
+
 Usage example:
 ```
 # export the cluster profiles to the demo environment profile in the Databricks CLI
