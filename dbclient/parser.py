@@ -97,6 +97,10 @@ def get_import_parser():
     parser.add_argument('--workspace', action='store_true',
                         help='Import all notebooks from export dir into the workspace.')
 
+    # import all notebooks
+    parser.add_argument('--archive', action='store_true',
+                        help='Import all missing users into the top level /Archive/ directory.')
+
     # import all lib configs
     parser.add_argument('--libs', action='store_true',
                         help='Import all the libs from the logfile into the workspace.')
