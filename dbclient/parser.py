@@ -82,6 +82,9 @@ def get_export_parser():
     #
     parser.add_argument('--profile', action='store', default='DEFAULT', 
                         help='Profile to parse the credentials')
+
+    parser.add_argument('--export-home', action='store',
+                        help='User workspace name to export, typically the users email address')
     return parser
 
 
@@ -98,7 +101,7 @@ def get_import_parser():
                         help='Import all notebooks from export dir into the workspace.')
 
     # import all notebooks
-    parser.add_argument('--archive', action='store_true',
+    parser.add_argument('--archive-missing', action='store_true',
                         help='Import all missing users into the top level /Archive/ directory.')
 
     # import all lib configs

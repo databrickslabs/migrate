@@ -23,6 +23,8 @@ Support Matrix for Import and Export Operations:
 **Note**: To download **notebooks**, run `--workspace` first to log all notebook paths so we can easily scan and download all notebooks. 
 Once complete, run `--download` to download the full set of logged notebooks. 
 
+**Note**: Please verify that Workspace Access Control is enabled prior to migrating users to the new environment. 
+
 
 Usage example:
 ```

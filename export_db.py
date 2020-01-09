@@ -28,9 +28,20 @@ def main():
         export_dir = 'azure_logs/'
 
     makedirs('logs', exist_ok=True)
-    makedirs('artifacts', exist_ok=True)
 
     now = str(datetime.now())
+
+    if args.export_home:
+        username = args.export_home
+        print("Exporting home directory: {0}".format(username))
+        print("Export path: /Users/{0}".format(username))
+        ws_c = WorkspaceClient(token, url, export_dir)
+        start = timer()
+        # log notebooks and libraries
+        ws_c.export_user_home(username)
+        end = timer()
+        print("Complete User Export Time: " + str(timedelta(seconds=end - start)))
+
     if args.workspace:
         print("Export the complete workspace at {0}".format(now))
         ws_c = WorkspaceClient(token, url, export_dir)
@@ -70,6 +81,14 @@ def main():
         ws_c.log_all_groups()
         end = timer()
         print("Complete Group Export Time: " + str(timedelta(seconds=end - start)))
+        # log the instance profiles
+        if is_aws:
+            cl_c = ClustersClient(token, url, export_dir)
+            print("Start instance profile logging ...")
+            start = timer()
+            cl_c.log_instance_profiles()
+            end = timer()
+            print("Complete Instance Profile Export Time: " + str(timedelta(seconds=end - start)))
 
     if args.clusters:
         print("Export the cluster configs at {0}".format(now))
@@ -79,13 +98,6 @@ def main():
         cl_c.log_cluster_configs()
         end = timer()
         print("Complete Cluster Export Time: " + str(timedelta(seconds=end - start)))
-        # log the instance profiles
-        if is_aws:
-            print("Start instance profile logging ...")
-            start = timer()
-            cl_c.log_instance_profiles()
-            end = timer()
-            print("Complete Instance Profile Export Time: " + str(timedelta(seconds=end - start)))
         # log the instance pools
         print("Start instance pool logging ...")
         start = timer()

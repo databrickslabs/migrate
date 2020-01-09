@@ -24,14 +24,14 @@ class ClustersClient(dbclient):
                       'cluster_id'}
 
     def get_spark_versions(self):
-        return self.get("/clusters/spark-versions", printJson=True)
+        return self.get("/clusters/spark-versions", print_json=True)
 
     def get_cluster_list(self, alive=True):
         """
         Returns an array of json objects for the running clusters.
         Grab the cluster_name or cluster_id
         """
-        cl = self.get("/clusters/list", printJson=False)
+        cl = self.get("/clusters/list", print_json=False)
         if alive:
             running = filter(lambda x: x['state'] == "RUNNING", cl['clusters'])
             return list(running)
@@ -146,10 +146,11 @@ class ClustersClient(dbclient):
 
     def log_instance_profiles(self, log_file='instance_profiles.log'):
         ip_log = self._export_dir + log_file
-        ips = self.get('/instance-profiles/list')['instance_profiles']
-        with open(ip_log, "w") as fp:
-            for x in ips:
-                fp.write(json.dumps(x) + '\n')
+        ips = self.get('/instance-profiles/list').get('instance_profiles', None)
+        if ips:
+            with open(ip_log, "w") as fp:
+                for x in ips:
+                    fp.write(json.dumps(x) + '\n')
 
     def import_instance_profiles(self, log_file='instance_profiles.log'):
         ip_log = self._export_dir + log_file

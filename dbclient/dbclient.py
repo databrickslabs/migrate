@@ -12,7 +12,7 @@ def pprint_j(i):
 class dbclient:
     """A class to define wrappers for the REST API"""
 
-    def __init__(self, token="ABCDEFG1234", url="https://myenv.cloud.databricks.com", export_dir='logs/'):
+    def __init__(self, token='foobarfoobar', url="https://myenv.cloud.databricks.com", export_dir='logs/'):
         self._token = {'Authorization': 'Bearer {0}'.format(token)}
         self._url = url.rstrip("/")
         self._export_dir = export_dir
@@ -32,32 +32,37 @@ class dbclient:
             return -1
         return 0
 
-    def get(self, endpoint, json_params={}, printJson=False, version='2.0'):
+    def get(self, endpoint, json_params=None, version='2.0', print_json=False):
         if version:
             ver = version
+        full_endpoint = self._url + '/api/{0}'.format(ver) + endpoint
         if json_params:
-            raw_results = requests.get(self._url + '/api/{0}'.format(ver) + endpoint, headers=self._token,
-                                   params=json_params)
+            raw_results = requests.get(full_endpoint, headers=self._token, params=json_params)
             results = raw_results.json()
         else:
-            raw_results = requests.get(self._url + '/api/{0}'.format(ver) + endpoint, headers=self._token)
+            raw_results = requests.get(full_endpoint, headers=self._token)
             results = raw_results.json()
-        if printJson:
+        if print_json:
             print(json.dumps(results, indent=4, sort_keys=True))
         results['http_status_code'] = raw_results.status_code
         return results
 
-    def post(self, endpoint, json_params={}, printJson=True, version='2.0'):
+    def http_req(self, http_type, endpoint, json_params, version='2.0', print_json=False):
         if version:
             ver = version
+        full_endpoint = self._url + '/api/{0}'.format(ver) + endpoint
         if json_params:
-            raw_results = requests.post(self._url + '/api/{0}'.format(ver) + endpoint, headers=self._token,
-                                        json=json_params)
+            if http_type == 'post':
+                raw_results = requests.post(full_endpoint, headers=self._token, json=json_params)
+            if http_type == 'put':
+                raw_results = requests.put(full_endpoint, headers=self._token, json=json_params)
+            if http_type == 'patch':
+                raw_results = requests.patch(full_endpoint, headers=self._token, json=json_params)
             results = raw_results.json()
         else:
             print("Must have a payload in json_args param.")
             return {}
-        if printJson:
+        if print_json:
             print(json.dumps(results, indent=4, sort_keys=True))
         # if results are empty, let's return the return status
         if results:
@@ -65,6 +70,15 @@ class dbclient:
             return results
         else:
             return {'http_status_code': raw_results.status_code}
+
+    def post(self, endpoint, json_params, version='2.0', print_json=False):
+        return self.http_req('post', endpoint, json_params, version, print_json)
+
+    def put(self, endpoint, json_params, version='2.0', print_json=False):
+        return self.http_req('put', endpoint, json_params, version, print_json)
+
+    def patch(self, endpoint, json_params, version='2.0', print_json=False):
+        return self.http_req('patch', endpoint, json_params, version, print_json)
 
     @staticmethod
     def my_map(F, items):

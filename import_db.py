@@ -28,7 +28,6 @@ def main():
         export_dir = 'azure_logs/'
 
     makedirs('logs', exist_ok=True)
-    makedirs('artifacts', exist_ok=True)
 
     debug = False
     if debug:
@@ -41,7 +40,7 @@ def main():
         ws_c = WorkspaceClient(token, url, export_dir)
         start = timer()
         # log notebooks and libraries
-        if args.archive:
+        if args.archive_missing:
             ws_c.import_all_workspace_items(archive_missing=True)
         else:
             ws_c.import_all_workspace_items(archive_missing=False)
@@ -57,17 +56,18 @@ def main():
 
     if args.users:
         print("Import all users and groups at {0}".format(now))
-        ws_c = WorkspaceClient(token, url, export_dir)
+        scim_c = ScimClient(token, url, export_dir)
+        if is_aws:
+            print("Start import of instance profiles first to ensure they exist...")
+            cl_c = ClustersClient(token, url, export_dir)
+            start = timer()
+            cl_c.import_instance_profiles()
+            end = timer()
+            print("Complete Instance Profile Import Time: " + str(timedelta(seconds=end - start)))
         start = timer()
-        # log all users
-        ################## TO DO : IMPORT USERS ############################
+        scim_c.import_all_users_and_groups()
         end = timer()
-        print("Complete Users Import Time: " + str(timedelta(seconds=end - start)))
-        start = timer()
-        # log all groups
-        ################## TO DO : IMPORT GROUPS
-        end = timer()
-        print("Complete Group Import Time: " + str(timedelta(seconds=end - start)))
+        print("Complete Users and Groups Import Time: " + str(timedelta(seconds=end - start)))
 
     if args.clusters:
         print("Import the cluster configs at {0}".format(now))
@@ -75,7 +75,7 @@ def main():
         if is_aws:
             print("Start import of instance profiles ...")
             start = timer()
-            cl_c.import_instance_profiles()
+            cl_c.import_instance_profiles(is_aws=is_aws)
             end = timer()
             print("Complete Instance Profile Import Time: " + str(timedelta(seconds=end - start)))
         print("Start import of instance pool configurations ...")

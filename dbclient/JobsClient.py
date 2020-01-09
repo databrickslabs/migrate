@@ -14,9 +14,9 @@ class JobsClient(dbclient):
         "enable_elastic_disk": False,
     }
 
-    def get_jobs_list(self, printJson=False):
+    def get_jobs_list(self, print_json=False):
         """ Returns an array of json objects for jobs """
-        jobs = self.get("/jobs/list", printJson)
+        jobs = self.get("/jobs/list", print_json)
         return jobs['jobs']
 
     def get_job_id(self, name):

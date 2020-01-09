@@ -6,7 +6,7 @@ class LibraryClient(dbclient):
 
     def get_cluster_list(self, alive=True):
         """ Returns an array of json objects for the running clusters. Grab the cluster_name or cluster_id """
-        cl = self.get("/clusters/list", printJson=False)
+        cl = self.get("/clusters/list", print_json=False)
         if alive:
             running = filter(lambda x: x['state'] == "RUNNING", cl['clusters'])
             return list(running)

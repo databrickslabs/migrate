@@ -11,6 +11,17 @@ LS_ZONES = "/clusters/list-zones"
 
 class WorkspaceClient(dbclient):
 
+    def export_user_home(self, username, ws_dir='user_exports/'):
+        """
+        Export the provided user's home directory
+        :param username: user's home directory to export
+        :return: None
+        """
+        user_root = '/Users/' + username.rstrip().lstrip()
+        print(user_root)
+        self.log_all_workspace_items(ws_path=user_root, workspace_log_file=ws_dir + username,
+                                     libs_log_file=ws_dir + username + '_libs/')
+
     def get_user_import_args(self, full_local_path, nb_full_path):
         fp = open(full_local_path, "rb")
 
@@ -22,6 +33,12 @@ class WorkspaceClient(dbclient):
         return in_args
 
     def download_notebooks(self, ws_log_file='user_workspace.log', ws_dir='artifacts/'):
+        """
+        Loop through all notebook paths in the logfile and download individual notebooks
+        :param ws_log_file: logfile for all notebook paths in the workspace
+        :param ws_dir: export directory to store all notebooks
+        :return: None
+        """
         ws_log = self._export_dir + ws_log_file
         if not os.path.exists(ws_log):
             raise Exception("Run --workspace first to download full log of all notebooks.")
@@ -30,6 +47,12 @@ class WorkspaceClient(dbclient):
                 self.download_notebook_helper(nb.rstrip(), export_dir=self._export_dir + ws_dir)
 
     def download_notebook_helper(self, notebook_path, export_dir='artifacts/'):
+        """
+        Helper function to download an individual notebook, or log the failure in the failure logfile
+        :param notebook_path: an individual notebook path
+        :param export_dir: directory to store all notebooks
+        :return: return the notebook path that's succssfully downloaded
+        """
         get_args = {'path': notebook_path, 'format': 'DBC'}
         resp = self.get(WS_EXPORT, get_args)
         with open(self._export_dir + 'failed_notebooks.log', 'a') as err_log:
@@ -52,6 +75,13 @@ class WorkspaceClient(dbclient):
 
     def log_all_workspace_items(self, ws_path='/', workspace_log_file='user_workspace.log',
                                 libs_log_file='libraries.log'):
+        """
+        Loop and log all workspace items to download them at a later time
+        :param ws_path: root path to log all the items of the notebook workspace
+        :param workspace_log_file: logfile to store all the paths of the notebooks
+        :param libs_log_file: library logfile to store workspace libraries
+        :return:
+        """
         if ws_path == '/':
             # default is the root path
             get_args = {'path': '/'}
