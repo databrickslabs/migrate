@@ -30,6 +30,9 @@ Usage example:
 ```
 # export the cluster profiles to the demo environment profile in the Databricks CLI
 $ python export_db.py --profile DEMO --clusters
+
+# export a single users workspace
+$ python export_db.py --profile DEMO --export-home example@foobar.com
 ```
 
 Export help text:
@@ -53,6 +56,9 @@ optional arguments:
   --metastore        Log all the metastore table definitions
   --azure            Run on Azure. (Default is AWS)
   --profile PROFILE  Profile to parse the credentials
+  --export-home EXPORT_HOME
+                        User workspace name to export, typically the users
+                        email address
 ```
 
 Import help text:
