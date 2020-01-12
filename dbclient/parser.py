@@ -15,7 +15,7 @@ def get_login_credentials(creds_path='~/.databrickscfg', profile='DEFAULT'):
         # relative path, still need to resolve using the above os api
         fname = path.expanduser(creds_path)
     else:
-        fname = cred_path
+        fname = creds_path
     hit_profile = False
     cred_dict = {}
     with open(fname, 'r') as fp:
