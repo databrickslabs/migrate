@@ -10,7 +10,7 @@ Support Matrix for Import and Export Operations:
 | Component      | Export       | Import       |
 | -------------- | ------------ | ------------ |
 | Notebooks      | Supported    | Supported    |
-| Users / Groups | Supported    | Unsupported  |
+| Users / Groups | Supported    | Supported    |
 | Metastore      | Supported    | Supported    |
 | Clusters       | Supported    | Supported    |
 | Jobs           | Supported    | Supported    |
