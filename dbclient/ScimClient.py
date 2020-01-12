@@ -61,6 +61,8 @@ class ScimClient(dbclient):
 
     @staticmethod
     def assign_roles_args(roles_list):
+        # roles list passed from file, which is in proper patch arg format already
+        # this method is used to patch the group IAM roles
         assign_args = {"schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
                        "Operations": [{"op": "add",
                                        "path": "roles",
@@ -78,7 +80,6 @@ class ScimClient(dbclient):
                     g_id = group_ids[group_name]
                     update_roles = self.assign_roles_args(roles)
                     up_resp = self.patch('/preview/scim/v2/Groups/{0}'.format(g_id), update_roles)
-                    print(up_resp)
 
     def get_user_ids(self):
         # return a dict of username to user id mappings
@@ -96,25 +97,62 @@ class ScimClient(dbclient):
             group_ids[group['displayName']] = group['id']
         return group_ids
 
+    @staticmethod
+    def add_roles_arg(roles_list):
+        # this builds the args from a list of IAM roles. diff built from user logfile
+        role_values = [{'value': x} for x in roles_list]
+        patch_roles_arg = {
+            "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+            "Operations": [
+                {
+                    "op": "add",
+                    "path": "roles",
+                    "value": role_values
+                }
+            ]
+        }
+        return patch_roles_arg
+
     def assign_user_roles(self, user_log_file='users.log'):
+        """
+        assign user roles that are missing after adding group assignment
+        Note: There is a limitation in the exposed API. If a user is assigned a role permission & the permission
+        is granted via a group, we can't distinguish the difference. Only group assignment will be migrated.
+        :param user_log_file: logfile of all user properties
+        :return:
+        """
         user_log = self._export_dir + user_log_file
         # keys to filter from the user log to get the user / role mapping
-        role_keys = ('userName', 'roles')
+        old_role_keys = ('userName', 'roles')
+        cur_role_keys = ('schemas', 'userName', 'entitlements', 'roles', 'groups')
         # get current user id of the new environment, k,v = email, id
         user_ids = self.get_user_id_mapping()
         with open(user_log, 'r') as fp:
-            for x in fp:
-                user = json.loads(x)
-                user_roles = {k: user[k] for k in role_keys if k in user}
+            # loop through each user in the file
+            for line in fp:
+                user = json.loads(line)
+                user_roles = {k: user[k] for k in old_role_keys if k in user}
+                # get the current registered user id
                 user_id = user_ids[user['userName']]
-                role_keys = ('schemas', 'userName', 'entitlements', 'roles', 'groups')
+                # get the current users settings
                 cur_user = self.get('/preview/scim/v2/Users/{0}'.format(user_id))
-                update_user = {k: cur_user[k] for k in role_keys if k in cur_user}
-                if 'roles' in update_user:
-                    update_user['roles'] = update_user['roles'] + user_roles['roles']
+                # get the current users IAM roles
+                current_roles = cur_user.get('roles', None)
+                if current_roles:
+                    cur_role_values = set([x['value'] for x in current_roles])
                 else:
-                    update_user['roles'] = user_roles['roles']
-                update_resp = self.put('/preview/scim/v2/Users/{0}'.format(user_id), update_user)
+                    cur_role_values = set()
+                # get the users saved IAM roles from the export
+                saved_roles = user_roles.get('roles', None)
+                if saved_roles:
+                    saved_role_values = set([y['value'] for y in saved_roles])
+                else:
+                    saved_role_values = set()
+                roles_needed = list(saved_role_values - cur_role_values)
+                if roles_needed:
+                    # get the json to add the roles to the user profile
+                    patch_roles = self.add_roles_arg(roles_needed)
+                    update_resp = self.patch('/preview/scim/v2/Users/{0}'.format(user_id), patch_roles)
 
     @staticmethod
     def get_member_args(member_id_list):
@@ -181,5 +219,5 @@ class ScimClient(dbclient):
         # assign the users to IAM roles if on AWS
         if is_aws:
             self.assign_group_roles(group_dir)
+            self.assign_user_roles(user_log_file)
             print("Done")
-#            self.assign_user_roles(user_log_file)

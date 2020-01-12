@@ -11,16 +11,18 @@ LS_ZONES = "/clusters/list-zones"
 
 class WorkspaceClient(dbclient):
 
-    def export_user_home(self, username, ws_dir='user_exports/'):
+    def export_user_home(self, username, local_export_dir):
         """
         Export the provided user's home directory
         :param username: user's home directory to export
         :return: None
         """
+        user_export_dir = self._export_dir + local_export_dir
         user_root = '/Users/' + username.rstrip().lstrip()
-        print(user_root)
-        self.log_all_workspace_items(ws_path=user_root, workspace_log_file=ws_dir + username,
-                                     libs_log_file=ws_dir + username + '_libs/')
+        self._export_dir = user_export_dir + '/{0}/'.format(username)
+        print("Export path: {0}".format(self._export_dir))
+        self.log_all_workspace_items(ws_path=user_root)
+        self.download_notebooks(ws_dir='user_artifacts/')
 
     def get_user_import_args(self, full_local_path, nb_full_path):
         fp = open(full_local_path, "rb")
@@ -88,6 +90,8 @@ class WorkspaceClient(dbclient):
         else:
             get_args = {'path': ws_path}
 
+        if not os.path.exists(self._export_dir):
+            os.makedirs(self._export_dir, exist_ok=True)
         items = self.get(WS_LIST, get_args).get('objects', None)
         if items is not None:
             # list all the users folders only

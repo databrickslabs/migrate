@@ -77,7 +77,7 @@ optional arguments:
 
 
 Limitations:
-* Instance profiles: User access cannot be handled by the apis. ACLs need to be reconfigured manually 
+* Instance profiles (AWS only): Group access to instance profiles will take precedence. If a user is added to the role directly, and has access via a group, only the group access will be granted during a migration.  
 * Notebooks: ACLs to folders will need to be reconfigured by users. By default, it will be restricted if Notebook ACLs are enabled. 
 * Clusters: Cluster creator will be seen as the single admin user who migrated all the clusters. (Relevant for billing purposes)
   * Cluster permissions would need to manually be modified (Possibly available via private preview APIs)

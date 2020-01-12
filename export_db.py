@@ -34,11 +34,10 @@ def main():
     if args.export_home:
         username = args.export_home
         print("Exporting home directory: {0}".format(username))
-        print("Export path: /Users/{0}".format(username))
         ws_c = WorkspaceClient(token, url, export_dir)
         start = timer()
         # log notebooks and libraries
-        ws_c.export_user_home(username)
+        ws_c.export_user_home(username, 'user_exports')
         end = timer()
         print("Complete User Export Time: " + str(timedelta(seconds=end - start)))
 
