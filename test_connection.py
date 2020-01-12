@@ -5,7 +5,7 @@ import sys
 
 def main():
     # define a parser to identify what component to import / export
-    parser = get_migration_parser()
+    parser = get_export_parser()
     # parse the args
     args = parser.parse_args()
     p = args.profile
