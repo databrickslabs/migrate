@@ -12,11 +12,16 @@ def pprint_j(i):
 class dbclient:
     """A class to define wrappers for the REST API"""
 
-    def __init__(self, token='foobarfoobar', url="https://myenv.cloud.databricks.com", export_dir='logs/'):
+    def __init__(self, token='foobarfoobar', url="https://myenv.cloud.databricks.com",
+                 export_dir='logs/', is_aws=True):
         self._token = {'Authorization': 'Bearer {0}'.format(token)}
         self._url = url.rstrip("/")
         self._export_dir = export_dir
+        self._is_aws = is_aws
         makedirs(self._export_dir, exist_ok=True)
+
+    def is_aws(self):
+        return self._is_aws
 
     def test_connection(self):
         # verify the proper url settings to configure this client
@@ -36,6 +41,7 @@ class dbclient:
         if version:
             ver = version
         full_endpoint = self._url + '/api/{0}'.format(ver) + endpoint
+        print(full_endpoint)
         if json_params:
             raw_results = requests.get(full_endpoint, headers=self._token, params=json_params)
             results = raw_results.json()
@@ -44,6 +50,8 @@ class dbclient:
             results = raw_results.json()
         if print_json:
             print(json.dumps(results, indent=4, sort_keys=True))
+        if type(results) == list:
+            results = {'elements': results}
         results['http_status_code'] = raw_results.status_code
         return results
 

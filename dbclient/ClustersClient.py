@@ -153,6 +153,7 @@ class ClustersClient(dbclient):
                     fp.write(json.dumps(x) + '\n')
 
     def import_instance_profiles(self, log_file='instance_profiles.log'):
+        # currently an AWS only operation
         ip_log = self._export_dir + log_file
         # check current profiles and skip if the profile already exists
         ip_list = self.get('/instance-profiles/list')['instance_profiles']

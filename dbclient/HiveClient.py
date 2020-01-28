@@ -19,11 +19,11 @@ class HiveClient(dbclient):
             time.sleep(2)
         return cid
 
-    def launch_cluster(self, is_aws=True):
+    def launch_cluster(self):
         """ Launches a cluster to get DDL statements.
         Returns a cluster_id """
         version = self.get_latest_spark_version()
-        if is_aws:
+        if self.is_aws():
             with open('data/aws_cluster.json', 'r') as fp:
                 cluster_json = json.loads(fp.read())
         else:
@@ -90,8 +90,8 @@ class HiveClient(dbclient):
                     else:
                         err_log.write(json.dumps(results) + '\n')
 
-    def export_hive_metastore(self, is_aws=True, ms_dir='metastore/'):
-        cid = self.launch_cluster(is_aws)
+    def export_hive_metastore(self, ms_dir='metastore/'):
+        cid = self.launch_cluster()
         time.sleep(2)
         ec_id = self.get_execution_context(cid)
         all_dbs = self.log_all_databases(cid, ec_id, ms_dir)
@@ -110,9 +110,9 @@ class HiveClient(dbclient):
             ddl_results = self.submit_command(cid, ec_id, ddl_statement)
             return ddl_results
 
-    def import_hive_metastore(self, is_aws=True, ms_dir='metastore'):
+    def import_hive_metastore(self, ms_dir='metastore'):
         ms_local_dir = self._export_dir + ms_dir
-        cid = self.launch_cluster(is_aws)
+        cid = self.launch_cluster()
         time.sleep(2)
         ec_id = self.get_execution_context(cid)
         # get local databases

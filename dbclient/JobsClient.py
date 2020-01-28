@@ -4,7 +4,7 @@ import json, datetime
 
 
 class JobsClient(dbclient):
-    __new_cluster_conf = {
+    __new_aws_cluster_conf = {
         "num_workers": 8,
         "spark_version": "6.1.x-scala2.11",
         "node_type_id": "i3.xlarge",
@@ -12,6 +12,15 @@ class JobsClient(dbclient):
             "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
         },
         "enable_elastic_disk": False,
+    }
+
+    __new_azure_cluster_conf = {
+        "num_workers": 8,
+        "spark_version": "6.2.x-scala2.11",
+        "node_type_id": "Standard_DS3_v2",
+        "spark_env_vars": {
+            "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
+        },
     }
 
     def get_jobs_list(self, print_json=False):
@@ -49,7 +58,10 @@ class JobsClient(dbclient):
                     if not new_cid:
                         print("Existing cluster has been removed. Resetting job to use new cluster.")
                         job_settings.pop('existing_cluster_id')
-                        job_settings['new_cluster'] = self.__new_cluster_conf
+                        if self.is_aws():
+                            job_settings['new_cluster'] = self.__new_aws_cluster_conf
+                        else:
+                            job_settings['new_cluster'] = self.__new_azure_cluster_conf
                     else:
                         job_settings['existing_cluster_id'] = new_cid
                 print("Current JID: {0}".format(job_conf['job_id']))

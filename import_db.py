@@ -37,7 +37,7 @@ def main():
     if args.workspace:
         print("Import the complete workspace at {0}".format(now))
         print("Import on {0}".format(url))
-        ws_c = WorkspaceClient(token, url, export_dir)
+        ws_c = WorkspaceClient(token, url, export_dir, is_aws)
         start = timer()
         # log notebooks and libraries
         if args.archive_missing:
@@ -56,10 +56,10 @@ def main():
 
     if args.users:
         print("Import all users and groups at {0}".format(now))
-        scim_c = ScimClient(token, url, export_dir)
+        scim_c = ScimClient(token, url, export_dir, is_aws)
         if is_aws:
             print("Start import of instance profiles first to ensure they exist...")
-            cl_c = ClustersClient(token, url, export_dir)
+            cl_c = ClustersClient(token, url, export_dir, is_aws)
             start = timer()
             cl_c.import_instance_profiles()
             end = timer()
@@ -71,11 +71,11 @@ def main():
 
     if args.clusters:
         print("Import the cluster configs at {0}".format(now))
-        cl_c = ClustersClient(token, url, export_dir)
+        cl_c = ClustersClient(token, url, export_dir, is_aws)
         if is_aws:
             print("Start import of instance profiles ...")
             start = timer()
-            cl_c.import_instance_profiles(is_aws=is_aws)
+            cl_c.import_instance_profiles()
             end = timer()
             print("Complete Instance Profile Import Time: " + str(timedelta(seconds=end - start)))
         print("Start import of instance pool configurations ...")
@@ -92,7 +92,7 @@ def main():
     if args.jobs:
         print("Importing the jobs configs at {0}".format(now))
         start = timer()
-        jobs_c = JobsClient(token, url, export_dir)
+        jobs_c = JobsClient(token, url, export_dir, is_aws)
         jobs_c.import_job_configs()
         end = timer()
         print("Complete Jobs Export Time: " + str(timedelta(seconds=end - start)))
@@ -100,9 +100,9 @@ def main():
     if args.metastore:
         print("Importing the metastore configs at {0}".format(now))
         start = timer()
-        hive_c = HiveClient(token, url, export_dir)
+        hive_c = HiveClient(token, url, export_dir, is_aws)
         # log job configs
-        hive_c.import_hive_metastore(is_aws)
+        hive_c.import_hive_metastore()
         end = timer()
         print("Complete Metastore Import Time: " + str(timedelta(seconds=end - start)))
 

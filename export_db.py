@@ -34,7 +34,7 @@ def main():
     if args.export_home:
         username = args.export_home
         print("Exporting home directory: {0}".format(username))
-        ws_c = WorkspaceClient(token, url, export_dir)
+        ws_c = WorkspaceClient(token, url, export_dir, is_aws)
         start = timer()
         # log notebooks and libraries
         ws_c.export_user_home(username, 'user_exports')
@@ -43,7 +43,7 @@ def main():
 
     if args.workspace:
         print("Export the complete workspace at {0}".format(now))
-        ws_c = WorkspaceClient(token, url, export_dir)
+        ws_c = WorkspaceClient(token, url, export_dir, is_aws)
         start = timer()
         # log notebooks and libraries
         ws_c.log_all_workspace_items()
@@ -52,7 +52,7 @@ def main():
 
     if args.download:
         print("Starting complete workspace download at {0}".format(now))
-        ws_c = WorkspaceClient(token, url, export_dir)
+        ws_c = WorkspaceClient(token, url, export_dir, is_aws)
         start = timer()
         # log notebooks and libraries
         ws_c.download_notebooks()
@@ -61,7 +61,7 @@ def main():
 
     if args.libs:
         print("Starting complete library log at {0}".format(now))
-        lib_c = LibraryClient(token, url, export_dir)
+        lib_c = LibraryClient(token, url, export_dir, is_aws)
         start = timer()
         lib_c.log_library_details()
         end = timer()
@@ -69,7 +69,7 @@ def main():
 
     if args.users:
         print("Export all users and groups at {0}".format(now))
-        ws_c = ScimClient(token, url, export_dir)
+        ws_c = ScimClient(token, url, export_dir, is_aws)
         start = timer()
         # log all users
         ws_c.log_all_users()
@@ -82,7 +82,7 @@ def main():
         print("Complete Group Export Time: " + str(timedelta(seconds=end - start)))
         # log the instance profiles
         if is_aws:
-            cl_c = ClustersClient(token, url, export_dir)
+            cl_c = ClustersClient(token, url, export_dir, is_aws)
             print("Start instance profile logging ...")
             start = timer()
             cl_c.log_instance_profiles()
@@ -91,7 +91,7 @@ def main():
 
     if args.clusters:
         print("Export the cluster configs at {0}".format(now))
-        cl_c = ClustersClient(token, url, export_dir)
+        cl_c = ClustersClient(token, url, export_dir, is_aws)
         start = timer()
         # log the cluster json
         cl_c.log_cluster_configs()
@@ -107,7 +107,7 @@ def main():
     if args.jobs:
         print("Export the jobs configs at {0}".format(now))
         start = timer()
-        jobs_c = JobsClient(token, url, export_dir)
+        jobs_c = JobsClient(token, url, export_dir, is_aws)
         # log job configs
         jobs_c.log_job_configs()
         end = timer()
@@ -116,9 +116,9 @@ def main():
     if args.metastore:
         print("Export the metastore configs at {0}".format(now))
         start = timer()
-        hive_c = HiveClient(token, url, export_dir)
+        hive_c = HiveClient(token, url, export_dir, is_aws)
         # log job configs
-        hive_c.export_hive_metastore(is_aws)
+        hive_c.export_hive_metastore()
         end = timer()
         print("Complete Metastore Export Time: " + str(timedelta(seconds=end - start)))
 

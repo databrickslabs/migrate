@@ -17,7 +17,7 @@ class LibraryClient(dbclient):
         libs_log = self._export_dir + log_file
         all_libs = self.get('/libraries/list', version='1.2')
         with open(libs_log, "w") as fp:
-            for x in all_libs:
+            for x in all_libs.get('elements', None):
                 lib_details = self.get('/libraries/status?libraryId={0}'.format(x['id']), version='1.2')
                 fp.write(json.dumps(lib_details) + '\n')
 

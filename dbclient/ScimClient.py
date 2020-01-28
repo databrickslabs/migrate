@@ -21,15 +21,16 @@ class ScimClient(dbclient):
         # add the userName field to json since ids across environments may not match
         members = group_json.get('members', None)
         new_members = []
-        for m in members:
-            m_id = m['value']
-            if self.is_member_a_user(m):
-                user_resp = self.get('/preview/scim/v2/Users/{0}'.format(m_id))
-                m['userName'] = user_resp['userName']
-                m['type'] = 'user'
-            else:
-                m['type'] = 'group'
-            new_members.append(m)
+        if members:
+            for m in members:
+                m_id = m['value']
+                if self.is_member_a_user(m):
+                    user_resp = self.get('/preview/scim/v2/Users/{0}'.format(m_id))
+                    m['userName'] = user_resp['userName']
+                    m['type'] = 'user'
+                else:
+                    m['type'] = 'group'
+                new_members.append(m)
         group_json['members'] = new_members
         return group_json
 
@@ -210,14 +211,14 @@ class ScimClient(dbclient):
                 user_create = {k: user[k] for k in create_keys if k in user}
                 create_resp = self.post('/preview/scim/v2/Users', user_create)
 
-    def import_all_users_and_groups(self, user_log_file='users.log', group_log_dir='groups/', is_aws=True):
+    def import_all_users_and_groups(self, user_log_file='users.log', group_log_dir='groups/'):
         user_log = self._export_dir + user_log_file
         group_dir = self._export_dir + group_log_dir
 
         self.import_users(user_log)
         self.import_groups(group_dir)
         # assign the users to IAM roles if on AWS
-        if is_aws:
+        if self.is_aws():
             self.assign_group_roles(group_dir)
             self.assign_user_roles(user_log_file)
             print("Done")
