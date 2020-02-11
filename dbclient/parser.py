@@ -85,6 +85,9 @@ def get_export_parser():
 
     parser.add_argument('--export-home', action='store',
                         help='User workspace name to export, typically the users email address')
+
+    parser.add_argument('--silent', action='store_true',
+                        help='Silent all logging of export operations.')
     return parser
 
 

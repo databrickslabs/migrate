@@ -56,6 +56,8 @@ class WorkspaceClient(dbclient):
         :return: return the notebook path that's succssfully downloaded
         """
         get_args = {'path': notebook_path, 'format': 'DBC'}
+        if self.is_verbose():
+            print("Downloading: {0}".format(get_args['path']))
         resp = self.get(WS_EXPORT, get_args)
         with open(self._export_dir + 'failed_notebooks.log', 'a') as err_log:
             if resp.get('error_code', None):
@@ -93,6 +95,8 @@ class WorkspaceClient(dbclient):
         if not os.path.exists(self._export_dir):
             os.makedirs(self._export_dir, exist_ok=True)
         items = self.get(WS_LIST, get_args).get('objects', None)
+        if self.is_verbose():
+            print("Listing: {0}".format(get_args['path']))
         if items is not None:
             # list all the users folders only
             folders = list(self.my_map(lambda y: y.get('path', None),
@@ -108,6 +112,8 @@ class WorkspaceClient(dbclient):
             libs_log = self._export_dir + libs_log_file
             with open(workspace_log, "a") as ws_fp, open(libs_log, "a") as libs_fp:
                 for x in notebooks:
+                    if self.is_verbose():
+                        print("Saving path: {0}".format(x))
                     ws_fp.write(x + '\n')
                 for y in libraries:
                     libs_fp.write(y + '\n')
@@ -209,4 +215,6 @@ class WorkspaceClient(dbclient):
                     # generate json args with binary data for notebook to upload to the workspace path
                     nb_input_args = self.get_user_import_args(localFilePath, wsFilePath)
                     # call import to the workspace
+                    if self.is_verbose():
+                        print("Path: {0}".format(nb_input_args['path']))
                     resp_upload = self.post(WS_IMPORT, nb_input_args)

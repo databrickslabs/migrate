@@ -13,15 +13,19 @@ class dbclient:
     """A class to define wrappers for the REST API"""
 
     def __init__(self, token='foobarfoobar', url="https://myenv.cloud.databricks.com",
-                 export_dir='logs/', is_aws=True):
+                 export_dir='logs/', is_aws=True, verbose=False):
         self._token = {'Authorization': 'Bearer {0}'.format(token)}
         self._url = url.rstrip("/")
         self._export_dir = export_dir
         self._is_aws = is_aws
+        self._is_verbose = verbose
         makedirs(self._export_dir, exist_ok=True)
 
     def is_aws(self):
         return self._is_aws
+
+    def is_verbose(self):
+        return self._is_verbose
 
     def test_connection(self):
         # verify the proper url settings to configure this client
@@ -41,7 +45,8 @@ class dbclient:
         if version:
             ver = version
         full_endpoint = self._url + '/api/{0}'.format(ver) + endpoint
-        print(full_endpoint)
+        if self.is_verbose():
+            print("Get: {0}".format(full_endpoint))
         if json_params:
             raw_results = requests.get(full_endpoint, headers=self._token, params=json_params)
             results = raw_results.json()
@@ -59,6 +64,8 @@ class dbclient:
         if version:
             ver = version
         full_endpoint = self._url + '/api/{0}'.format(ver) + endpoint
+        if self.is_verbose():
+            print("{0}: {1}".format(http_type, full_endpoint))
         if json_params:
             if http_type == 'post':
                 raw_results = requests.post(full_endpoint, headers=self._token, json=json_params)
