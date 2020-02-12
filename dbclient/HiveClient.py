@@ -19,7 +19,7 @@ class HiveClient(dbclient):
             time.sleep(2)
         return cid
 
-    def launch_cluster(self):
+    def launch_cluster(self, import_db=False):
         """ Launches a cluster to get DDL statements.
         Returns a cluster_id """
         version = self.get_latest_spark_version()
@@ -31,6 +31,9 @@ class HiveClient(dbclient):
                 cluster_json = json.loads(fp.read())
         # set the latest spark release regardless of defined cluster json
         cluster_json['spark_version'] = version['key']
+        if import_db:
+            cluster_json['cluster_name'] = cluster_json['cluster_name'].replace('Export', 'Import')
+
         c_info = self.post('/clusters/create', cluster_json)
         self.wait_for_cluster(c_info['cluster_id'])
         return c_info['cluster_id']
@@ -112,7 +115,7 @@ class HiveClient(dbclient):
 
     def import_hive_metastore(self, ms_dir='metastore'):
         ms_local_dir = self._export_dir + ms_dir
-        cid = self.launch_cluster()
+        cid = self.launch_cluster(import_db=True)
         time.sleep(2)
         ec_id = self.get_execution_context(cid)
         # get local databases
