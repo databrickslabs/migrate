@@ -198,6 +198,7 @@ class WorkspaceClient(dbclient):
                         upload_dir = upload_dir.replace('Users', 'Archive', 1)
                     elif not self.does_user_exist(ws_user):
                         # add the user to the cache / set of missing users
+                        print("User workspace does not exist, adding to archive cache: {0}".format(ws_user))
                         archive_users.add(ws_user)
                         # append the archive path to the upload directory
                         upload_dir = upload_dir.replace('Users', 'Archive', 1)
@@ -208,6 +209,7 @@ class WorkspaceClient(dbclient):
                     # if it is not the /Users/example@example.com/ root path, don't create the folder
                     resp_mkdirs = self.post(WS_MKDIRS, {'path': upload_dir})
                 for f in files:
+                    print("Uploading: {0}".format(f))
                     # create the local file path to load the DBC file
                     localFilePath = os.path.join(root, f)
                     # create the ws full file path including filename

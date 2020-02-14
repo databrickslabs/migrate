@@ -156,8 +156,11 @@ class ClustersClient(dbclient):
         # currently an AWS only operation
         ip_log = self._export_dir + log_file
         # check current profiles and skip if the profile already exists
-        ip_list = self.get('/instance-profiles/list')['instance_profiles']
-        list_of_profiles = [x['instance_profile_arn'] for x in ip_list]
+        ip_list = self.get('/instance-profiles/list').get('instance_profiles', None)
+        if ip_list:
+            list_of_profiles = [x['instance_profile_arn'] for x in ip_list]
+        else:
+            list_of_profiles = []
         with open(ip_log, "r") as fp:
             for line in fp:
                 ip_arn = json.loads(line).get('instance_profile_arn', None)
