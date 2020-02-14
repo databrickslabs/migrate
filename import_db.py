@@ -4,6 +4,10 @@ from datetime import timedelta
 from os import makedirs, path
 from datetime import datetime
 
+import os
+os.environ['REQUESTS_CA_BUNDLE'] = ""
+os.environ['CURL_CA_BUNDLE'] = ""
+
 
 # python 3.6
 

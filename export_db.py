@@ -7,6 +7,10 @@ from datetime import datetime
 
 # python 3.6
 
+import os
+os.environ['REQUESTS_CA_BUNDLE'] = ""
+os.environ['CURL_CA_BUNDLE'] = ""
+
 def main():
     # define a parser to identify what component to import / export
     parser = get_export_parser()
