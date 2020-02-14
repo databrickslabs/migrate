@@ -184,16 +184,16 @@ class WorkspaceClient(dbclient):
             print("Current number of user workspaces: {0}".format(num_current_users))
             print("Re-run with the archive flag to load missing users into a separate directory")
             raise ValueError("Current number of users is less than number of user workspaces to import.")
-        if archive_missing:
-            archive_users = set()
-            for root, subdirs, files in os.walk(src_dir):
-                # replace the local directory with empty string to get the notebook workspace directory
-                nb_dir = '/' + root.replace(src_dir, '')
-                upload_dir = nb_dir
-                if not nb_dir == '/':
-                    upload_dir = nb_dir + '/'
-                if self.is_user_ws_item(upload_dir):
-                    ws_user = self.get_user(upload_dir)
+        archive_users = set()
+        for root, subdirs, files in os.walk(src_dir):
+            # replace the local directory with empty string to get the notebook workspace directory
+            nb_dir = '/' + root.replace(src_dir, '')
+            upload_dir = nb_dir
+            if not nb_dir == '/':
+                upload_dir = nb_dir + '/'
+            if self.is_user_ws_item(upload_dir):
+                ws_user = self.get_user(upload_dir)
+                if archive_missing:
                     if ws_user in archive_users:
                         upload_dir = upload_dir.replace('Users', 'Archive', 1)
                     elif not self.does_user_exist(ws_user):
@@ -204,19 +204,26 @@ class WorkspaceClient(dbclient):
                         upload_dir = upload_dir.replace('Users', 'Archive', 1)
                     else:
                         print("User workspace exists: {0}".format(ws_user))
-                # make the top level folder before uploading files within the loop
-                if not self.is_user_ws_root(upload_dir):
-                    # if it is not the /Users/example@example.com/ root path, don't create the folder
-                    resp_mkdirs = self.post(WS_MKDIRS, {'path': upload_dir})
-                for f in files:
-                    print("Uploading: {0}".format(f))
-                    # create the local file path to load the DBC file
-                    localFilePath = os.path.join(root, f)
-                    # create the ws full file path including filename
-                    wsFilePath = upload_dir + f
-                    # generate json args with binary data for notebook to upload to the workspace path
-                    nb_input_args = self.get_user_import_args(localFilePath, wsFilePath)
-                    # call import to the workspace
-                    if self.is_verbose():
-                        print("Path: {0}".format(nb_input_args['path']))
-                    resp_upload = self.post(WS_IMPORT, nb_input_args)
+                elif not self.does_user_exist(ws_user):
+                    print("User {0} is missing. "
+                          "Please re-run with --archive-missing flag "
+                          "or first verify all users exist in the new workspace".format(ws_user))
+                    return
+                else:
+                    print("Uploading for user: {0}".format(ws_user))
+            # make the top level folder before uploading files within the loop
+            if not self.is_user_ws_root(upload_dir):
+                # if it is not the /Users/example@example.com/ root path, don't create the folder
+                resp_mkdirs = self.post(WS_MKDIRS, {'path': upload_dir})
+            for f in files:
+                print("Uploading: {0}".format(f))
+                # create the local file path to load the DBC file
+                localFilePath = os.path.join(root, f)
+                # create the ws full file path including filename
+                wsFilePath = upload_dir + f
+                # generate json args with binary data for notebook to upload to the workspace path
+                nb_input_args = self.get_user_import_args(localFilePath, wsFilePath)
+                # call import to the workspace
+                if self.is_verbose():
+                    print("Path: {0}".format(nb_input_args['path']))
+                resp_upload = self.post(WS_IMPORT, nb_input_args)
