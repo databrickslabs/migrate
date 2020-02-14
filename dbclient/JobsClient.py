@@ -94,5 +94,7 @@ class JobsClient(dbclient):
                 old_clusters[conf['cluster_name']] = conf['cluster_id']
         new_to_old_mapping = {}
         for new_cluster in current_cl:
-            new_to_old_mapping[new_cluster['cluster_id']] = old_clusters[new_cluster['cluster_name']]
+            old_cluster_id = old_clusters.get(new_cluster['cluster_name'], None)
+            if old_cluster_id:
+                new_to_old_mapping[new_cluster['cluster_id']] = old_cluster_id
         return new_to_old_mapping
