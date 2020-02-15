@@ -28,7 +28,7 @@ class WorkspaceClient(dbclient):
         fp = open(full_local_path, "rb")
 
         in_args = {
-            "content": base64.encodebytes(fp.read()),
+            "content": base64.encodebytes(fp.read()).decode('utf-8'),
             "path": nb_full_path[:-4],
             "format": "DBC"
         }
