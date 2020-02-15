@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="databricks-migration", # Replace with your own username
-    version="0.0.1",
+    version="0.0.2",
     author="Miklos C",
     author_email="miklos.christine@databricks.com",
     description="Databricks Migration scripts",
@@ -16,6 +16,7 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     install_requires=[
           'cron-descriptor',
+          'requests'
       ],
     py_modules=["export_db","import_db","test_connection"],
     classifiers=[
