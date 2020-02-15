@@ -12,6 +12,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/mrchristine/db-migration",
+    license="http://www.apache.org/licenses/LICENSE-2.0",
     packages=setuptools.find_packages(),
     py_modules=["export_db","import_db","test_connection"],
     classifiers=[
