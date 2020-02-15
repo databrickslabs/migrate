@@ -46,20 +46,21 @@ usage: export_db.py [-h] [--users] [--workspace] [--download] [--libs]
 Export user workspace artifacts from Databricks
 
 optional arguments:
-  -h, --help         show this help message and exit
-  --users            Download all the users and groups in the workspace
-  --workspace        Log all the notebook paths in the workspace. (metadata
-                     only)
-  --download         Download all notebooks for the environment
-  --libs             Log all the libs for the environment
-  --clusters         Log all the clusters for the environment
-  --jobs             Log all the job configs for the environment
-  --metastore        Log all the metastore table definitions
-  --azure            Run on Azure. (Default is AWS)
-  --profile PROFILE  Profile to parse the credentials
+  -h, --help            show this help message and exit
+  --users               Download all the users and groups in the workspace
+  --workspace           Log all the notebook paths in the workspace. (metadata
+                        only)
+  --download            Download all notebooks for the environment
+  --libs                Log all the libs for the environment
+  --clusters            Log all the clusters for the environment
+  --jobs                Log all the job configs for the environment
+  --metastore           Log all the metastore table definitions
+  --azure               Run on Azure. (Default is AWS)
+  --profile PROFILE     Profile to parse the credentials
   --export-home EXPORT_HOME
                         User workspace name to export, typically the users
                         email address
+  --silent              Silent all logging of export operations.
 ```
 
 Import help text:
@@ -74,12 +75,15 @@ optional arguments:
   -h, --help         show this help message and exit
   --users            Import all the users and groups from the logfile.
   --workspace        Import all notebooks from export dir into the workspace.
+  --archive-missing  Import all missing users into the top level /Archive/
+                     directory.
   --libs             Import all the libs from the logfile into the workspace.
   --clusters         Import all the cluster configs for the environment
   --jobs             Import all job configurations to the environment.
   --metastore        Import the metastore to the workspace.
   --azure            Run on Azure. (Default is AWS)
   --profile PROFILE  Profile to parse the credentials
+  --silent           Silent all logging of import operations.
 ```
 
 
