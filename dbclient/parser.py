@@ -129,4 +129,7 @@ def get_import_parser():
     #
     parser.add_argument('--profile', action='store', default='DEFAULT',
                         help='Profile to parse the credentials')
+
+    parser.add_argument('--silent', action='store_true',
+                        help='Silent all logging of import operations.')
     return parser
