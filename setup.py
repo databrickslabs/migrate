@@ -14,6 +14,9 @@ setuptools.setup(
     url="https://github.com/mrchristine/db-migration",
     license="http://www.apache.org/licenses/LICENSE-2.0",
     packages=setuptools.find_packages(),
+    install_requires=[
+          'cron-descriptor',
+      ],
     py_modules=["export_db","import_db","test_connection"],
     classifiers=[
         "Programming Language :: Python :: 3",
