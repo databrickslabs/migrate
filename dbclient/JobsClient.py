@@ -70,7 +70,10 @@ class JobsClient(dbclient):
                 create_resp = self.post('/jobs/create', job_settings)
                 if 'error_code' in create_resp:
                     print("Resetting job to use default cluster configs due to expired configurations.")
-                    job_settings['new_cluster'] = self.__new_cluster_conf
+                    if self.is_aws():
+                        job_settings['new_cluster'] = self.__new_aws_cluster_conf
+                    else:
+                        job_settings['new_cluster'] = self.__new_azure_cluster_conf
                     create_resp_retry = self.post('/jobs/create', job_settings)
 
     def delete_all_jobs(self):
@@ -94,5 +97,7 @@ class JobsClient(dbclient):
                 old_clusters[conf['cluster_name']] = conf['cluster_id']
         new_to_old_mapping = {}
         for new_cluster in current_cl:
-            new_to_old_mapping[new_cluster['cluster_id']] = old_clusters[new_cluster['cluster_name']]
+            old_cluster_id = old_clusters.get(new_cluster['cluster_name'], None)
+            if old_cluster_id:
+                new_to_old_mapping[new_cluster['cluster_id']] = old_cluster_id
         return new_to_old_mapping

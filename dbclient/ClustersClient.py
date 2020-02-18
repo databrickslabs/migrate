@@ -36,7 +36,8 @@ class ClustersClient(dbclient):
             running = filter(lambda x: x['state'] == "RUNNING", cl['clusters'])
             return list(running)
         else:
-            return cl['clusters']
+            clusters_list = cl.get('clusters', None)
+            return clusters_list if clusters_list else []
 
     def remove_automated_clusters(self, cluster_list, log_file='skipped_clusters.log'):
         """
@@ -114,10 +115,15 @@ class ClustersClient(dbclient):
         :return:
         """
         cluster_log = self._export_dir + log_file
+        current_cluster_names = set([x.get('cluster_name', None) for x in self.get_cluster_list(False)])
         # get instance pool id mappings
         with open(cluster_log, 'r') as fp:
             for line in fp:
                 cluster_conf = json.loads(line)
+                cluster_name = cluster_conf['cluster_name']
+                if cluster_name in current_cluster_names:
+                    print("Cluster already exists, skipping: {0}".format(cluster_name))
+                    continue
                 cluster_creator = cluster_conf.pop('creator_user_name')
                 # check for instance pools and modify cluster attributes
                 if 'instance_pool_id' in cluster_conf:
@@ -134,9 +140,12 @@ class ClustersClient(dbclient):
                     new_cluster_conf = cluster_conf
                 print("Creating cluster: {0}".format(new_cluster_conf['cluster_name']))
                 cluster_resp = self.post('/clusters/create', new_cluster_conf)
-                stop_resp = self.post('/clusters/delete', {'cluster_id': cluster_resp['cluster_id']})
-                if 'pinned_by_user_name' in cluster_conf:
-                    pin_resp = self.post('/clusters/pin', {'cluster_id': cluster_resp['cluster_id']})
+                if cluster_resp['http_status_code'] == 200:
+                    stop_resp = self.post('/clusters/delete', {'cluster_id': cluster_resp['cluster_id']})
+                    if 'pinned_by_user_name' in cluster_conf:
+                        pin_resp = self.post('/clusters/pin', {'cluster_id': cluster_resp['cluster_id']})
+                else:
+                    print(cluster_resp)
 
     def delete_all_clusters(self):
         cl = self.get_cluster_list(False)
@@ -156,8 +165,11 @@ class ClustersClient(dbclient):
         # currently an AWS only operation
         ip_log = self._export_dir + log_file
         # check current profiles and skip if the profile already exists
-        ip_list = self.get('/instance-profiles/list')['instance_profiles']
-        list_of_profiles = [x['instance_profile_arn'] for x in ip_list]
+        ip_list = self.get('/instance-profiles/list').get('instance_profiles', None)
+        if ip_list:
+            list_of_profiles = [x['instance_profile_arn'] for x in ip_list]
+        else:
+            list_of_profiles = []
         with open(ip_log, "r") as fp:
             for line in fp:
                 ip_arn = json.loads(line).get('instance_profile_arn', None)
