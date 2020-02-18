@@ -1,5 +1,4 @@
-import json, requests, datetime
-from os import makedirs
+import json, requests, datetime, os
 
 global pprint_j
 
@@ -19,7 +18,7 @@ class dbclient:
         self._export_dir = export_dir
         self._is_aws = is_aws
         self._is_verbose = verbose
-        makedirs(self._export_dir, exist_ok=True)
+        os.makedirs(self._export_dir, exist_ok=True)
 
     def is_aws(self):
         return self._is_aws

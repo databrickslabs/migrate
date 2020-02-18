@@ -1,4 +1,4 @@
-import re
+import re, os
 from dbclient import *
 
 
@@ -115,6 +115,9 @@ class ClustersClient(dbclient):
         :return:
         """
         cluster_log = self._export_dir + log_file
+        if not os.path.exists(cluster_log):
+            print("No clusters to import.")
+            return
         current_cluster_names = set([x.get('cluster_name', None) for x in self.get_cluster_list(False)])
         # get instance pool id mappings
         with open(cluster_log, 'r') as fp:
@@ -164,6 +167,9 @@ class ClustersClient(dbclient):
     def import_instance_profiles(self, log_file='instance_profiles.log'):
         # currently an AWS only operation
         ip_log = self._export_dir + log_file
+        if not os.path.exists(ip_log):
+            print("No instance profiles to import.")
+            return
         # check current profiles and skip if the profile already exists
         ip_list = self.get('/instance-profiles/list').get('instance_profiles', None)
         if ip_list:
@@ -188,6 +194,9 @@ class ClustersClient(dbclient):
 
     def import_instance_pools(self, log_file='instance_pools.log'):
         pool_log = self._export_dir + log_file
+        if not os.path.exists(pool_log):
+            print("No instance pools to import.")
+            return
         with open(pool_log, 'r') as fp:
             for line in fp:
                 pool_conf = json.loads(line)

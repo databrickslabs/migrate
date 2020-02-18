@@ -1,6 +1,6 @@
+import json, os
+
 from dbclient import *
-from cron_descriptor import get_description
-import json, datetime
 
 
 class JobsClient(dbclient):
@@ -45,6 +45,9 @@ class JobsClient(dbclient):
 
     def import_job_configs(self, log_file='jobs.log'):
         jobs_log = self._export_dir + log_file
+        if not os.path.exists(jobs_log):
+            print("No job configurations to import.")
+            return
         # get an old cluster id to new cluster id mapping object
         cluster_mapping = self.get_cluster_id_mapping()
         with open(jobs_log, 'r') as fp:
