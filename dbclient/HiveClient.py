@@ -32,6 +32,8 @@ class HiveClient(dbclient):
         # set the latest spark release regardless of defined cluster json
         cluster_json['spark_version'] = version['key']
         c_info = self.post('/clusters/create', cluster_json)
+        if c_info['http_status_code'] != 200:
+            raise Exception("Could not launch cluster. Verify that the --azure flag or cluster config is correct.")
         self.wait_for_cluster(c_info['cluster_id'])
         return c_info['cluster_id']
 

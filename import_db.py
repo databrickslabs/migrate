@@ -15,6 +15,8 @@ def main():
 
     # parse the path location of the Databricks CLI configuration
     login_creds = get_login_credentials(profile=args.profile)
+    if is_azure_creds(login_creds) and (not args.azure):
+        raise ValueError('Login credentials do not match args. Please provide --azure flag for azure envs.')
 
     # cant use netrc credentials because requests module tries to load the creds into http basic auth headers
     # aws demo by default
