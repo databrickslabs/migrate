@@ -87,12 +87,9 @@ optional arguments:
   --metastore        Import the metastore to the workspace.
   --azure            Run on Azure. (Default is AWS)
   --profile PROFILE  Profile to parse the credentials
-<<<<<<< HEAD
   --no-ssl-verification
-                      Disable SSL verification
-=======
+                     Disable SSL verification
   --silent           Silent all logging of import operations.
->>>>>>> upstream/master
 ```
 
 
