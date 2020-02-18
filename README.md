@@ -27,6 +27,11 @@ Once complete, run `--download` to download the full set of logged notebooks.
 **Note**: Please verify that Workspace Access Control is enabled prior to migrating users to the new environment.
 
 **Note**: To disable ssl verification pass the flag `--no-ssl-verification`.
+If still getting SSL Error add the following to your current bash shell -
+```
+export REQUESTS_CA_BUNDLE=""
+export CURL_CA_BUNDLE=""
+```
 
 
 Usage example:
