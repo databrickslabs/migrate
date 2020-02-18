@@ -36,11 +36,16 @@ class HiveClient(dbclient):
         return c_info['cluster_id']
 
     def get_execution_context(self, cid):
+        print("Creating remote Spark Session")
         ec_payload = {"language": "python",
                       "clusterId": cid}
         ec = self.post('/contexts/create', json_params=ec_payload, version="1.2")
         # Grab the execution context ID
-        ec_id = ec['id']
+        ec_id = ec.get('id', None)
+        if not ec_id:
+            print('Unable to establish remote session')
+            print(ec)
+            raise Exception("Remote session error")
         return ec_id
 
     def submit_command(self, cid, ec_id, cmd):
@@ -72,6 +77,7 @@ class HiveClient(dbclient):
                                       'print([x.databaseName for x in spark.sql("show databases").collect()])')
         all_dbs = ast.literal_eval(results['data'])
         for db in all_dbs:
+            print("Database: {0}".format(db))
             os.makedirs(self._export_dir + ms_dir + db, exist_ok=True)
         return all_dbs
 
@@ -82,6 +88,7 @@ class HiveClient(dbclient):
         all_tables = ast.literal_eval(results['data'])
         with open(self._export_dir + 'failed_metastore.log', 'a') as err_log:
             for table_name in all_tables:
+                print("Table: {0}".format(table_name))
                 ddl_stmt = 'print(spark.sql("show create table {0}.{1}").collect()[0][0])'.format(db_name, table_name)
                 results = self.submit_command(cid, ec_id, ddl_stmt)
                 with open(self._export_dir + ms_dir + db_name + '/' + table_name, "w") as fp:
