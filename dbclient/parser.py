@@ -6,6 +6,12 @@ auth_key = ['host',
             'token']
 
 
+def is_azure_creds(creds):
+    if 'azuredatabricks.net' in creds['host']:
+        return True
+    return False
+
+
 def get_login_credentials(creds_path='~/.databrickscfg', profile='DEFAULT'):
     if profile is None:
         profile = 'DEFAULT'

@@ -73,6 +73,9 @@ class ScimClient(dbclient):
     def assign_group_roles(self, group_dir):
         # assign group role ACLs, which are only available via SCIM apis
         group_ids = self.get_group_ids()
+        if not os.path.exists(group_dir):
+            print("No groups defined. Skipping group entitlement assignment")
+            return
         groups = os.listdir(group_dir)
         for group_name in groups:
             with open(group_dir + group_name, 'r') as fp:
@@ -123,6 +126,9 @@ class ScimClient(dbclient):
         :return:
         """
         user_log = self._export_dir + user_log_file
+        if not os.path.exists(user_log):
+            print("Skipping user entitlement assignment. Logfile does not exist")
+            return
         # keys to filter from the user log to get the user / role mapping
         old_role_keys = ('userName', 'roles')
         cur_role_keys = ('schemas', 'userName', 'entitlements', 'roles', 'groups')
@@ -173,6 +179,9 @@ class ScimClient(dbclient):
 
     def import_groups(self, group_dir):
         # list all the groups and create groups first
+        if not os.path.exists(group_dir):
+            print("No groups to import.")
+            return
         groups = os.listdir(group_dir)
         create_args = {
             "schemas": [ "urn:ietf:params:scim:schemas:core:2.0:Group" ],
@@ -204,6 +213,9 @@ class ScimClient(dbclient):
     def import_users(self, user_log):
         # first create the user identities with the required fields
         create_keys = ('emails', 'entitlements', 'displayName', 'name', 'userName')
+        if not os.path.exists(user_log):
+            print("No users to import.")
+            return
         with open(user_log, 'r') as fp:
             for x in fp:
                 user = json.loads(x)
