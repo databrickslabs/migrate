@@ -7,7 +7,7 @@ setuptools.setup(
     name="databricks-migration", # Replace with your own username
     version="0.0.2",
     author="Miklos C",
-    author_email="miklos.christine@databricks.com",
+    author_email="mwc@databricks.com",
     description="Databricks Migration scripts",
     long_description=long_description,
     long_description_content_type="text/markdown",
