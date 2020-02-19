@@ -23,11 +23,13 @@ class HiveClient(dbclient):
         """ Launches a cluster to get DDL statements.
         Returns a cluster_id """
         version = self.get_latest_spark_version()
+        import os
+        real_path = os.path.dirname(os.path.realpath(__file__))
         if self.is_aws():
-            with open('data/aws_cluster.json', 'r') as fp:
+            with open(real_path+'/../data/aws_cluster.json', 'r') as fp:
                 cluster_json = json.loads(fp.read())
         else:
-            with open('data/azure_cluster.json', 'r') as fp:
+            with open(real_path+'/../data/azure_cluster.json', 'r') as fp:
                 cluster_json = json.loads(fp.read())
         # set the latest spark release regardless of defined cluster json
         cluster_json['spark_version'] = version['key']

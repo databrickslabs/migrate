@@ -48,9 +48,15 @@ class dbclient:
             print("Get: {0}".format(full_endpoint))
         if json_params:
             raw_results = requests.get(full_endpoint, headers=self._token, params=json_params)
+            http_status_code = raw_results.status_code
+            if http_status_code != 200:
+                raise Exception("Error. GET request failed with code {}\n{}".format(http_status_code, raw_results.text))
             results = raw_results.json()
         else:
             raw_results = requests.get(full_endpoint, headers=self._token)
+            http_status_code = raw_results.status_code
+            if http_status_code != 200:
+                raise Exception("Error. GET request failed with code {}\n{}".format(http_status_code, raw_results.text))
             results = raw_results.json()
         if print_json:
             print(json.dumps(results, indent=4, sort_keys=True))
