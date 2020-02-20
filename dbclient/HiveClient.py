@@ -1,6 +1,10 @@
-import time, json, os, ast
+import ast
+import json
+import os
+import time
 from datetime import timedelta
 from timeit import default_timer as timer
+
 from dbclient import *
 
 
@@ -22,7 +26,7 @@ class HiveClient(dbclient):
             time.sleep(2)
         return cid
 
-    def launch_cluster(self, import_db=False):
+    def launch_cluster(self):
         """ Launches a cluster to get DDL statements.
         Returns a cluster_id """
         version = self.get_latest_spark_version()
@@ -36,8 +40,6 @@ class HiveClient(dbclient):
                 cluster_json = json.loads(fp.read())
         # set the latest spark release regardless of defined cluster json
         cluster_json['spark_version'] = version['key']
-        if import_db:
-            cluster_json['cluster_name'] = cluster_json['cluster_name'].replace('Export', 'Import')
 
         c_info = self.post('/clusters/create', cluster_json)
         if c_info['http_status_code'] != 200:
@@ -47,6 +49,7 @@ class HiveClient(dbclient):
 
     def get_execution_context(self, cid):
         print("Creating remote Spark Session")
+        time.sleep(5)
         ec_payload = {"language": "python",
                       "clusterId": cid}
         ec = self.post('/contexts/create', json_params=ec_payload, version="1.2")

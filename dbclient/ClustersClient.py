@@ -1,4 +1,6 @@
-import re, os
+import os
+import re
+
 from dbclient import *
 
 

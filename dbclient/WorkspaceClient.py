@@ -1,5 +1,7 @@
+import base64
+import os
+
 from dbclient import *
-import os, base64
 
 WS_LIST = "/workspace/list"
 WS_STATUS = "/workspace/get-status"
