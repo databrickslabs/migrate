@@ -9,6 +9,17 @@ WS_EXPORT = "/workspace/export"
 LS_ZONES = "/clusters/list-zones"
 
 
+def get_user_import_args(full_local_path, nb_full_path):
+    fp = open(full_local_path, "rb")
+
+    in_args = {
+        "content": base64.encodebytes(fp.read()).decode('utf-8'),
+        "path": nb_full_path[:-4],
+        "format": "DBC"
+    }
+    return in_args
+
+
 class WorkspaceClient(dbclient):
 
     def export_user_home(self, username, local_export_dir):
@@ -23,16 +34,6 @@ class WorkspaceClient(dbclient):
         print("Export path: {0}".format(self._export_dir))
         self.log_all_workspace_items(ws_path=user_root)
         self.download_notebooks(ws_dir='user_artifacts/')
-
-    def get_user_import_args(self, full_local_path, nb_full_path):
-        fp = open(full_local_path, "rb")
-
-        in_args = {
-            "content": base64.encodebytes(fp.read()).decode('utf-8'),
-            "path": nb_full_path[:-4],
-            "format": "DBC"
-        }
-        return in_args
 
     def download_notebooks(self, ws_log_file='user_workspace.log', ws_dir='artifacts/'):
         """
@@ -77,6 +78,21 @@ class WorkspaceClient(dbclient):
             f.write(base64.b64decode(resp['content']))
         return {'path': notebook_path}
 
+    def filter_workspace_items(self, item_list, item_type):
+        """
+        Helper function to filter on different workspace types.
+        :param item_list: iterable of workspace items
+        :param item_type: DIRECTORY, NOTEBOOK, LIBRARY
+        :return: list of items filtered by type
+        """
+        supported_types = set('DIRECTORY', 'NOTEBOOK', 'LIBRARY')
+        if item_type not in supported_types:
+            raise ValueError('Unsupported type provided: {0}.\n. Supported types: {1}'.format(item_type,
+                                                                                              str(supported_types)))
+        filtered_list = list(self.my_map(lambda y: y.get('path', None),
+                                         filter(lambda x: x.get('object_type', None) == item_type, item_list)))
+        return filtered_list
+
     def log_all_workspace_items(self, ws_path='/', workspace_log_file='user_workspace.log',
                                 libs_log_file='libraries.log'):
         """
@@ -99,14 +115,10 @@ class WorkspaceClient(dbclient):
             print("Listing: {0}".format(get_args['path']))
         if items is not None:
             # list all the users folders only
-            folders = list(self.my_map(lambda y: y.get('path', None),
-                                       filter(lambda x: x.get('object_type', None) == 'DIRECTORY', items)))
+            folders = self.filter_workspace_items(items, 'DIRECTORY')
             # should be no notebooks, but lets filter and can check later
-            notebooks = list(self.my_map(lambda y: y.get('path', None),
-                                         filter(lambda x: x.get('object_type', None) == 'NOTEBOOK', items)))
-            libraries = list(self.my_map(lambda y: y.get('path', None),
-                                         filter(lambda x: x.get('object_type', None) == 'LIBRARY', items)))
-
+            notebooks = self.filter_workspace_items(items, 'NOTEBOOK')
+            libraries = self.filter_workspace_items(items, 'LIBRARY')
             # log file for
             workspace_log = self._export_dir + workspace_log_file
             libs_log = self._export_dir + libs_log_file
@@ -122,6 +134,7 @@ class WorkspaceClient(dbclient):
                 for f in folders:
                     self.log_all_workspace_items(ws_path=f, workspace_log_file=workspace_log_file,
                                                  libs_log_file=libs_log_file)
+
     @staticmethod
     def get_num_of_saved_users(export_dir):
         # get current number of saved workspaces
@@ -218,11 +231,11 @@ class WorkspaceClient(dbclient):
             for f in files:
                 print("Uploading: {0}".format(f))
                 # create the local file path to load the DBC file
-                localFilePath = os.path.join(root, f)
+                local_file_path = os.path.join(root, f)
                 # create the ws full file path including filename
-                wsFilePath = upload_dir + f
+                ws_file_path = upload_dir + f
                 # generate json args with binary data for notebook to upload to the workspace path
-                nb_input_args = self.get_user_import_args(localFilePath, wsFilePath)
+                nb_input_args = get_user_import_args(local_file_path, ws_file_path)
                 # call import to the workspace
                 if self.is_verbose():
                     print("Path: {0}".format(nb_input_args['path']))

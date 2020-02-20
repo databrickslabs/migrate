@@ -35,7 +35,7 @@ class dbclient:
         results = requests.get(self._url + '/api/2.0/clusters/spark-versions', headers=self._token, verify=self._verify_ssl)
         http_status_code = results.status_code
         if http_status_code != 200:
-            print("Error. Either the credentails have expired or the credentials don't have proper permissions.")
+            print("Error. Either the credentials have expired or the credentials don't have proper permissions.")
             print("If you have a ~/.netrc file, check those credentials. Those take precedence over passed input.")
             print(results.text)
             return -1
@@ -49,9 +49,15 @@ class dbclient:
             print("Get: {0}".format(full_endpoint))
         if json_params:
             raw_results = requests.get(full_endpoint, headers=self._token, params=json_params, verify=self._verify_ssl)
+            http_status_code = raw_results.status_code
+            if http_status_code != 200:
+                raise Exception("Error: GET request failed with code {}\n{}".format(http_status_code, raw_results.text))
             results = raw_results.json()
         else:
             raw_results = requests.get(full_endpoint, headers=self._token, verify=self._verify_ssl)
+            http_status_code = raw_results.status_code
+            if http_status_code != 200:
+                raise Exception("Error: GET request failed with code {}\n{}".format(http_status_code, raw_results.text))
             results = raw_results.json()
         if print_json:
             print(json.dumps(results, indent=4, sort_keys=True))
@@ -73,6 +79,11 @@ class dbclient:
                 raw_results = requests.put(full_endpoint, headers=self._token, json=json_params, verify=self._verify_ssl)
             if http_type == 'patch':
                 raw_results = requests.patch(full_endpoint, headers=self._token, json=json_params, verify=self._verify_ssl)
+            http_status_code = raw_results.status_code
+            if http_status_code != 200:
+                raise Exception("Error: {0} request failed with code {1}\n{2}".format(http_type,
+                                                                                      http_status_code,
+                                                                                      raw_results.text))
             results = raw_results.json()
         else:
             print("Must have a payload in json_args param.")

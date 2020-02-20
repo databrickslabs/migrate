@@ -1,4 +1,6 @@
 import time, json, os, ast
+from datetime import timedelta
+from timeit import default_timer as timer
 from dbclient import *
 
 
@@ -16,6 +18,7 @@ class HiveClient(dbclient):
         c_state = self.get('/clusters/get', {'cluster_id': cid})
         while c_state['state'] != 'RUNNING':
             c_state = self.get('/clusters/get', {'cluster_id': cid})
+            print('Cluster state: {0}'.format(c_state['state']))
             time.sleep(2)
         return cid
 
@@ -23,11 +26,13 @@ class HiveClient(dbclient):
         """ Launches a cluster to get DDL statements.
         Returns a cluster_id """
         version = self.get_latest_spark_version()
+        import os
+        real_path = os.path.dirname(os.path.realpath(__file__))
         if self.is_aws():
-            with open('data/aws_cluster.json', 'r') as fp:
+            with open(real_path+'/../data/aws_cluster.json', 'r') as fp:
                 cluster_json = json.loads(fp.read())
         else:
-            with open('data/azure_cluster.json', 'r') as fp:
+            with open(real_path+'/../data/azure_cluster.json', 'r') as fp:
                 cluster_json = json.loads(fp.read())
         # set the latest spark release regardless of defined cluster json
         cluster_json['spark_version'] = version['key']
@@ -59,8 +64,8 @@ class HiveClient(dbclient):
                            'contextId': ec_id,
                            'clusterId': cid,
                            'command': cmd}
-        command = self.post('/commands/execute', \
-                            json_params=command_payload, \
+        command = self.post('/commands/execute',
+                            json_params=command_payload,
                             version="1.2")
 
         com_id = command['id']
@@ -71,7 +76,7 @@ class HiveClient(dbclient):
         is_running = resp['status']
 
         # loop through the status api to check for the 'running' state call and sleep 1 second
-        while (is_running == "Running" or is_running == 'Queued'):
+        while (is_running == "Running") or (is_running == 'Queued'):
             resp = self.get('/commands/status', json_params=result_payload, version="1.2")
             is_running = resp['status']
             time.sleep(1)
@@ -103,8 +108,11 @@ class HiveClient(dbclient):
                         err_log.write(json.dumps(results) + '\n')
 
     def export_hive_metastore(self, ms_dir='metastore/'):
+        start = timer()
         cid = self.launch_cluster()
-        time.sleep(2)
+        end = timer()
+        print("Cluster creation time: " + str(timedelta(seconds=end - start)))
+        time.sleep(5)
         ec_id = self.get_execution_context(cid)
         all_dbs = self.log_all_databases(cid, ec_id, ms_dir)
         for db_name in all_dbs:
