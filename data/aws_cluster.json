@@ -1,6 +1,6 @@
 {
   "num_workers": 1,
-  "cluster_name": "API_Metastore_Export_Leave_Me_Alone",
+  "cluster_name": "API_Metastore_Work_Leave_Me_Alone",
   "spark_version": "5.5.x-scala2.11",
   "aws_attributes": {
       "first_on_demand": 1,

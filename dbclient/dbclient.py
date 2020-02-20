@@ -14,12 +14,13 @@ class dbclient:
     """A class to define wrappers for the REST API"""
 
     def __init__(self, token='foobarfoobar', url="https://myenv.cloud.databricks.com",
-                 export_dir='logs/', is_aws=True, verbose=False):
+                 export_dir='logs/', is_aws=True, verbose=False, verify_ssl=True):
         self._token = {'Authorization': 'Bearer {0}'.format(token)}
         self._url = url.rstrip("/")
         self._export_dir = export_dir
         self._is_aws = is_aws
         self._is_verbose = verbose
+        self._verify_ssl = verify_ssl
         os.makedirs(self._export_dir, exist_ok=True)
 
     def is_aws(self):
@@ -33,7 +34,7 @@ class dbclient:
         if self._url[-4:] != '.com':
             print("Hostname should end in '.com'")
             return -1
-        results = requests.get(self._url + '/api/2.0/clusters/spark-versions', headers=self._token)
+        results = requests.get(self._url + '/api/2.0/clusters/spark-versions', headers=self._token, verify=self._verify_ssl)
         http_status_code = results.status_code
         if http_status_code != 200:
             print("Error. Either the credentials have expired or the credentials don't have proper permissions.")
@@ -49,13 +50,13 @@ class dbclient:
         if self.is_verbose():
             print("Get: {0}".format(full_endpoint))
         if json_params:
-            raw_results = requests.get(full_endpoint, headers=self._token, params=json_params)
+            raw_results = requests.get(full_endpoint, headers=self._token, params=json_params, verify=self._verify_ssl)
             http_status_code = raw_results.status_code
             if http_status_code != 200:
                 raise Exception("Error: GET request failed with code {}\n{}".format(http_status_code, raw_results.text))
             results = raw_results.json()
         else:
-            raw_results = requests.get(full_endpoint, headers=self._token)
+            raw_results = requests.get(full_endpoint, headers=self._token, verify=self._verify_ssl)
             http_status_code = raw_results.status_code
             if http_status_code != 200:
                 raise Exception("Error: GET request failed with code {}\n{}".format(http_status_code, raw_results.text))
@@ -75,11 +76,11 @@ class dbclient:
             print("{0}: {1}".format(http_type, full_endpoint))
         if json_params:
             if http_type == 'post':
-                raw_results = requests.post(full_endpoint, headers=self._token, json=json_params)
+                raw_results = requests.post(full_endpoint, headers=self._token, json=json_params, verify=self._verify_ssl)
             if http_type == 'put':
-                raw_results = requests.put(full_endpoint, headers=self._token, json=json_params)
+                raw_results = requests.put(full_endpoint, headers=self._token, json=json_params, verify=self._verify_ssl)
             if http_type == 'patch':
-                raw_results = requests.patch(full_endpoint, headers=self._token, json=json_params)
+                raw_results = requests.patch(full_endpoint, headers=self._token, json=json_params, verify=self._verify_ssl)
             http_status_code = raw_results.status_code
             if http_status_code != 200:
                 raise Exception("Error: {0} request failed with code {1}\n{2}".format(http_type,

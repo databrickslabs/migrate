@@ -3,9 +3,7 @@ from timeit import default_timer as timer
 from datetime import timedelta, datetime
 from os import makedirs
 
-
 # python 3.6
-
 def main():
     # define a parser to identify what component to import / export
     my_parser = get_export_parser()
@@ -21,6 +19,7 @@ def main():
     # aws demo by default
     is_aws = (not args.azure)
     is_verbose = (not args.silent)
+    verify_ssl = (not args.no_ssl_verification)
     # parse the credentials
     url = login_args['host']
     token = login_args['token']
@@ -32,11 +31,11 @@ def main():
     makedirs(export_dir, exist_ok=True)
 
     now = str(datetime.now())
-
+    
     if args.export_home:
         username = args.export_home
         print("Exporting home directory: {0}".format(username))
-        ws_c = WorkspaceClient(token, url, export_dir, is_aws, is_verbose)
+        ws_c = WorkspaceClient(token, url, export_dir, is_aws, is_verbose, verify_ssl)
         start = timer()
         # log notebooks and libraries
         ws_c.export_user_home(username, 'user_exports')
@@ -45,7 +44,7 @@ def main():
 
     if args.workspace:
         print("Export the complete workspace at {0}".format(now))
-        ws_c = WorkspaceClient(token, url, export_dir, is_aws, is_verbose)
+        ws_c = WorkspaceClient(token, url, export_dir, is_aws, is_verbose, verify_ssl)
         start = timer()
         # log notebooks and libraries
         ws_c.log_all_workspace_items()
@@ -54,7 +53,7 @@ def main():
 
     if args.download:
         print("Starting complete workspace download at {0}".format(now))
-        ws_c = WorkspaceClient(token, url, export_dir, is_aws, is_verbose)
+        ws_c = WorkspaceClient(token, url, export_dir, is_aws, is_verbose, verify_ssl)
         start = timer()
         # log notebooks and libraries
         ws_c.download_notebooks()
@@ -63,7 +62,7 @@ def main():
 
     if args.libs:
         print("Starting complete library log at {0}".format(now))
-        lib_c = LibraryClient(token, url, export_dir, is_aws, is_verbose)
+        lib_c = LibraryClient(token, url, export_dir, is_aws, is_verbose, verify_ssl)
         start = timer()
         lib_c.log_library_details()
         end = timer()
@@ -71,7 +70,7 @@ def main():
 
     if args.users:
         print("Export all users and groups at {0}".format(now))
-        ws_c = ScimClient(token, url, export_dir, is_aws, is_verbose)
+        ws_c = ScimClient(token, url, export_dir, is_aws, is_verbose, verify_ssl)
         start = timer()
         # log all users
         ws_c.log_all_users()
@@ -84,7 +83,7 @@ def main():
         print("Complete Group Export Time: " + str(timedelta(seconds=end - start)))
         # log the instance profiles
         if is_aws:
-            cl_c = ClustersClient(token, url, export_dir, is_aws, is_verbose)
+            cl_c = ClustersClient(token, url, export_dir, is_aws, is_verbose, verify_ssl)
             print("Start instance profile logging ...")
             start = timer()
             cl_c.log_instance_profiles()
@@ -93,7 +92,7 @@ def main():
 
     if args.clusters:
         print("Export the cluster configs at {0}".format(now))
-        cl_c = ClustersClient(token, url, export_dir, is_aws, is_verbose)
+        cl_c = ClustersClient(token, url, export_dir, is_aws, is_verbose, verify_ssl)
         start = timer()
         # log the cluster json
         cl_c.log_cluster_configs()
@@ -109,7 +108,7 @@ def main():
     if args.jobs:
         print("Export the jobs configs at {0}".format(now))
         start = timer()
-        jobs_c = JobsClient(token, url, export_dir, is_aws, is_verbose)
+        jobs_c = JobsClient(token, url, export_dir, is_aws, is_verbose, verify_ssl)
         # log job configs
         jobs_c.log_job_configs()
         end = timer()
@@ -118,7 +117,7 @@ def main():
     if args.metastore:
         print("Export the metastore configs at {0}".format(now))
         start = timer()
-        hive_c = HiveClient(token, url, export_dir, is_aws, is_verbose)
+        hive_c = HiveClient(token, url, export_dir, is_aws, is_verbose, verify_ssl)
         # log job configs
         hive_c.export_hive_metastore()
         end = timer()

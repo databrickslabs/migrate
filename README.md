@@ -24,7 +24,14 @@ MLFlow: `https://github.com/amesar/mlflow-tools/tree/master/mlflow_tools/export_
 **Note**: To download **notebooks**, run `--workspace` first to log all notebook paths so we can easily scan and download all notebooks. 
 Once complete, run `--download` to download the full set of logged notebooks. 
 
-**Note**: Please verify that Workspace Access Control is enabled prior to migrating users to the new environment. 
+**Note**: Please verify that Workspace Access Control is enabled prior to migrating users to the new environment.
+
+**Note**: To disable ssl verification pass the flag `--no-ssl-verification`.
+If still getting SSL Error add the following to your current bash shell -
+```
+export REQUESTS_CA_BUNDLE=""
+export CURL_CA_BUNDLE=""
+```
 
 
 Usage example:
@@ -60,6 +67,8 @@ optional arguments:
   --export-home EXPORT_HOME
                         User workspace name to export, typically the users
                         email address
+  --no-ssl-verification
+                        Disable SSL verification
   --silent              Silent all logging of export operations.
 ```
 
@@ -83,6 +92,8 @@ optional arguments:
   --metastore        Import the metastore to the workspace.
   --azure            Run on Azure. (Default is AWS)
   --profile PROFILE  Profile to parse the credentials
+  --no-ssl-verification
+                     Disable SSL verification
   --silent           Silent all logging of import operations.
 ```
 

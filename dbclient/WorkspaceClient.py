@@ -87,7 +87,7 @@ class WorkspaceClient(dbclient):
         :param item_type: DIRECTORY, NOTEBOOK, LIBRARY
         :return: list of items filtered by type
         """
-        supported_types = set('DIRECTORY', 'NOTEBOOK', 'LIBRARY')
+        supported_types = set(('DIRECTORY', 'NOTEBOOK', 'LIBRARY'))
         if item_type not in supported_types:
             raise ValueError('Unsupported type provided: {0}.\n. Supported types: {1}'.format(item_type,
                                                                                               str(supported_types)))
