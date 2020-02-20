@@ -135,7 +135,7 @@ class HiveClient(dbclient):
 
     def import_hive_metastore(self, ms_dir='metastore'):
         ms_local_dir = self._export_dir + ms_dir
-        cid = self.launch_cluster(import_db=True)
+        cid = self.launch_cluster()
         time.sleep(2)
         ec_id = self.get_execution_context(cid)
         # get local databases
