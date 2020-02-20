@@ -1,7 +1,7 @@
 from dbclient import *
 from timeit import default_timer as timer
 from datetime import timedelta, datetime
-from os import makedirs, path
+from os import makedirs
 
 
 # python 3.6
@@ -29,7 +29,7 @@ def main():
     else:
         export_dir = 'azure_logs/'
 
-    makedirs('logs', exist_ok=True)
+    makedirs(export_dir, exist_ok=True)
 
     debug = False
     if debug:

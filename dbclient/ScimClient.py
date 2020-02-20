@@ -1,5 +1,6 @@
 from dbclient import *
 import os
+import json
 
 
 class ScimClient(dbclient):
@@ -170,7 +171,7 @@ class ScimClient(dbclient):
         add_members_args = {
             "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
             "Operations": [{
-                "op":"add",
+                "op": "add",
                 "value": {"members": member_id_list_json}
                 }
             ]

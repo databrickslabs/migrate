@@ -1,6 +1,10 @@
-import time, json, os, ast
+import ast
+import json
+import os
+import time
 from datetime import timedelta
 from timeit import default_timer as timer
+
 from dbclient import *
 
 
@@ -44,6 +48,7 @@ class HiveClient(dbclient):
 
     def get_execution_context(self, cid):
         print("Creating remote Spark Session")
+        time.sleep(5)
         ec_payload = {"language": "python",
                       "clusterId": cid}
         ec = self.post('/contexts/create', json_params=ec_payload, version="1.2")
