@@ -26,6 +26,14 @@ class HiveClient(dbclient):
             time.sleep(2)
         return cid
 
+    def get_cluster_id_by_name(self, cname):
+        cl = self.get('/clusters/list')
+        running = list(filter(lambda x: x['state'] == "RUNNING", cl['clusters']))
+        for x in running:
+            if cname == x['cluster_name']:
+                return x['cluster_id']
+        return None
+
     def launch_cluster(self):
         """ Launches a cluster to get DDL statements.
         Returns a cluster_id """
@@ -40,12 +48,16 @@ class HiveClient(dbclient):
                 cluster_json = json.loads(fp.read())
         # set the latest spark release regardless of defined cluster json
         cluster_json['spark_version'] = version['key']
-
-        c_info = self.post('/clusters/create', cluster_json)
-        if c_info['http_status_code'] != 200:
-            raise Exception("Could not launch cluster. Verify that the --azure flag or cluster config is correct.")
-        self.wait_for_cluster(c_info['cluster_id'])
-        return c_info['cluster_id']
+        cluster_name = cluster_json['cluster_name']
+        existing_cid = self.get_cluster_id_by_name(cluster_name)
+        if existing_cid:
+            return existing_cid
+        else:
+            c_info = self.post('/clusters/create', cluster_json)
+            if c_info['http_status_code'] != 200:
+                raise Exception("Could not launch cluster. Verify that the --azure flag or cluster config is correct.")
+            self.wait_for_cluster(c_info['cluster_id'])
+            return c_info['cluster_id']
 
     def get_execution_context(self, cid):
         print("Creating remote Spark Session")
@@ -83,32 +95,56 @@ class HiveClient(dbclient):
             resp = self.get('/commands/status', json_params=result_payload, version="1.2")
             is_running = resp['status']
             time.sleep(1)
-        return resp['results']
+        end_results = resp['results']
+        if end_results.get('resultType', None) == 'error':
+            print("ERROR: ")
+            print(end_results.get('summary', None))
+        return end_results
 
     def log_all_databases(self, cid, ec_id, ms_dir):
-        results = self.submit_command(cid, ec_id,
-                                      'print([x.databaseName for x in spark.sql("show databases").collect()])')
-        all_dbs = ast.literal_eval(results['data'])
-        for db in all_dbs:
-            print("Database: {0}".format(db))
-            os.makedirs(self._export_dir + ms_dir + db, exist_ok=True)
+        # submit first command to find number of databases
+        all_dbs_cmd = 'all_dbs = [x.databaseName for x in spark.sql("show databases").collect()]; print(len(all_dbs))'
+        results = self.submit_command(cid, ec_id, all_dbs_cmd)
+        num_of_dbs = ast.literal_eval(results['data'])
+        batch_size = 100    # batch size to iterate over databases
+        num_of_buckets = (num_of_dbs // batch_size) + 1     # number of slices of the list to take
+
+        all_dbs = []
+        for m in range(0, num_of_buckets):
+            db_slice = 'print(all_dbs[{0}:{1}])'.format(batch_size*m, batch_size*(m+1))
+            results = self.submit_command(cid, ec_id, db_slice)
+            db_names = ast.literal_eval(results['data'])
+            for db in db_names:
+                all_dbs.append(db)
+                print("Database: {0}".format(db))
+                os.makedirs(self._export_dir + ms_dir + db, exist_ok=True)
         return all_dbs
 
     def log_all_tables(self, db_name, cid, ec_id, ms_dir):
-        results = self.submit_command(cid, ec_id,
-                                      'print([x.tableName for x in spark.sql("show tables in {0}").collect()])'.format(
-                                          db_name))
-        all_tables = ast.literal_eval(results['data'])
+        all_tables_cmd = 'all_tables = [x.tableName for x in spark.sql("show tables in {0}").collect()]'.format(db_name)
+        results = self.submit_command(cid, ec_id, all_tables_cmd)
+        results = self.submit_command(cid, ec_id, 'print(len(all_tables))')
+        num_of_tables = ast.literal_eval(results['data'])
+
+        batch_size = 100    # batch size to iterate over databases
+        num_of_buckets = (num_of_tables // batch_size) + 1     # number of slices of the list to take
+
+        all_tables = []
         with open(self._export_dir + 'failed_metastore.log', 'a') as err_log:
-            for table_name in all_tables:
-                print("Table: {0}".format(table_name))
-                ddl_stmt = 'print(spark.sql("show create table {0}.{1}").collect()[0][0])'.format(db_name, table_name)
-                results = self.submit_command(cid, ec_id, ddl_stmt)
-                with open(self._export_dir + ms_dir + db_name + '/' + table_name, "w") as fp:
-                    if results['resultType'] == 'text':
-                        fp.write(results['data'])
-                    else:
-                        err_log.write(json.dumps(results) + '\n')
+            for m in range(0, num_of_buckets):
+                tables_slice = 'print(all_tables[{0}:{1}])'.format(batch_size*m, batch_size*(m+1))
+                results = self.submit_command(cid, ec_id, tables_slice)
+                table_names = ast.literal_eval(results['data'])
+                for table_name in table_names:
+                    print("Table: {0}".format(table_name))
+                    ddl_stmt = 'print(spark.sql("show create table {0}.{1}").collect()[0][0])'.format(db_name,
+                                                                                                      table_name)
+                    results = self.submit_command(cid, ec_id, ddl_stmt)
+                    with open(self._export_dir + ms_dir + db_name + '/' + table_name, "w") as fp:
+                        if results['resultType'] == 'text':
+                            fp.write(results['data'])
+                        else:
+                            err_log.write(json.dumps(results) + '\n')
 
     def export_hive_metastore(self, ms_dir='metastore/'):
         start = timer()
@@ -117,6 +153,10 @@ class HiveClient(dbclient):
         print("Cluster creation time: " + str(timedelta(seconds=end - start)))
         time.sleep(5)
         ec_id = self.get_execution_context(cid)
+        # if metastore failed log path exists, cleanup before re-running
+        metastore_log_path = self._export_dir + 'failed_metastore.log'
+        if os.path.exists(metastore_log_path):
+            os.remove(metastore_log_path)
         all_dbs = self.log_all_databases(cid, ec_id, ms_dir)
         for db_name in all_dbs:
             self.log_all_tables(db_name, cid, ec_id, ms_dir)
@@ -127,10 +167,16 @@ class HiveClient(dbclient):
         db_results = self.submit_command(cid, ec_id, create_db_statement)
         return db_results
 
+    @staticmethod
+    def get_spark_ddl(table_ddl):
+        spark_ddl = 'spark.sql(""" {0} """)'.format(table_ddl)
+        return spark_ddl
+
     def apply_table_ddl(self, local_table_dir, ec_id, cid):
         with open(local_table_dir, "r") as fp:
             ddl_statement = fp.read()
-            ddl_results = self.submit_command(cid, ec_id, ddl_statement)
+            spark_ddl_statement = self.get_spark_ddl(ddl_statement)
+            ddl_results = self.submit_command(cid, ec_id, spark_ddl_statement)
             return ddl_results
 
     def import_hive_metastore(self, ms_dir='metastore'):
@@ -151,8 +197,10 @@ class HiveClient(dbclient):
                 tables = os.listdir(local_db_path)
                 for x in tables:
                     # build the path for the table where the ddl is stored
+                    print("Importing table {0}.{1}".format(db, x))
                     local_table_ddl = ms_local_dir + '/' + db + '/' + x
                     is_successful = self.apply_table_ddl(local_table_ddl, ec_id, cid)
+                    print(is_successful)
             else:
                 print("Error: Only databases should exist at this level: {0}".format(db))
 
