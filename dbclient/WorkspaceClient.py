@@ -95,6 +95,14 @@ class WorkspaceClient(dbclient):
                                          filter(lambda x: x.get('object_type', None) == item_type, item_list)))
         return filtered_list
 
+    def init_workspace_logfiles(self, workspace_log_file='user_workspace.log', libs_log_file='libraries.log'):
+        workspace_log = self._export_dir + workspace_log_file
+        libs_log = self._export_dir + libs_log_file
+        if os.path.exists(workspace_log):
+            os.remove(workspace_log)
+        if os.path.exists(libs_log):
+            os.remove(libs_log)
+
     def log_all_workspace_items(self, ws_path='/', workspace_log_file='user_workspace.log',
                                 libs_log_file='libraries.log'):
         """

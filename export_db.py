@@ -30,6 +30,9 @@ def main():
 
     makedirs(export_dir, exist_ok=True)
 
+    debug = True
+    if debug:
+        print(url, token)
     now = str(datetime.now())
     
     if args.export_home:
@@ -47,6 +50,7 @@ def main():
         ws_c = WorkspaceClient(token, url, export_dir, is_aws, is_verbose, verify_ssl)
         start = timer()
         # log notebooks and libraries
+        ws_c.init_workspace_logfiles()
         ws_c.log_all_workspace_items()
         end = timer()
         print("Complete Workspace Export Time: " + str(timedelta(seconds=end - start)))

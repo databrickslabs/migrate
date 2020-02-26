@@ -120,7 +120,7 @@ class HiveClient(dbclient):
                 os.makedirs(self._export_dir + ms_dir + db, exist_ok=True)
         return all_dbs
 
-    def log_all_tables(self, db_name, cid, ec_id, ms_dir):
+    def log_all_tables(self, db_name, cid, ec_id, ms_dir, err_log_path):
         all_tables_cmd = 'all_tables = [x.tableName for x in spark.sql("show tables in {0}").collect()]'.format(db_name)
         results = self.submit_command(cid, ec_id, all_tables_cmd)
         results = self.submit_command(cid, ec_id, 'print(len(all_tables))')
@@ -130,7 +130,7 @@ class HiveClient(dbclient):
         num_of_buckets = (num_of_tables // batch_size) + 1     # number of slices of the list to take
 
         all_tables = []
-        with open(self._export_dir + 'failed_metastore.log', 'a') as err_log:
+        with open(err_log_path, 'a') as err_log:
             for m in range(0, num_of_buckets):
                 tables_slice = 'print(all_tables[{0}:{1}])'.format(batch_size*m, batch_size*(m+1))
                 results = self.submit_command(cid, ec_id, tables_slice)
@@ -144,6 +144,7 @@ class HiveClient(dbclient):
                         if results['resultType'] == 'text':
                             fp.write(results['data'])
                         else:
+                            results['table'] = '{0}.{1}'.format(db_name, table_name)
                             err_log.write(json.dumps(results) + '\n')
 
     def export_hive_metastore(self, ms_dir='metastore/'):
@@ -154,12 +155,12 @@ class HiveClient(dbclient):
         time.sleep(5)
         ec_id = self.get_execution_context(cid)
         # if metastore failed log path exists, cleanup before re-running
-        metastore_log_path = self._export_dir + 'failed_metastore.log'
-        if os.path.exists(metastore_log_path):
-            os.remove(metastore_log_path)
+        failed_metastore_log_path = self._export_dir + 'failed_metastore.log'
+        if os.path.exists(failed_metastore_log_path):
+            os.remove(failed_metastore_log_path)
         all_dbs = self.log_all_databases(cid, ec_id, ms_dir)
         for db_name in all_dbs:
-            self.log_all_tables(db_name, cid, ec_id, ms_dir)
+            self.log_all_tables(db_name, cid, ec_id, ms_dir, failed_metastore_log_path)
         print(all_dbs)
 
     def create_database_db(self, db_name, ec_id, cid):
