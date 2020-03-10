@@ -189,10 +189,11 @@ class ClustersClient(dbclient):
 
     def log_instance_pools(self, log_file='instance_pools.log'):
         pool_log = self._export_dir + log_file
-        pools = self.get('/instance-pools/list')['instance_pools']
-        with open(pool_log, "w") as fp:
-            for x in pools:
-                fp.write(json.dumps(x) + '\n')
+        pools = self.get('/instance-pools/list').get('instance_pools', None)
+        if pools:
+            with open(pool_log, "w") as fp:
+                for x in pools:
+                    fp.write(json.dumps(x) + '\n')
 
     def import_instance_pools(self, log_file='instance_pools.log'):
         pool_log = self._export_dir + log_file
