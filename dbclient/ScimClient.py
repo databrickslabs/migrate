@@ -7,10 +7,13 @@ class ScimClient(dbclient):
 
     def log_all_users(self, log_file='users.log'):
         user_log = self._export_dir + log_file
-        users = self.get('/preview/scim/v2/Users')['Resources']
-        with open(user_log, "w") as fp:
-            for x in users:
-                fp.write(json.dumps(x) + '\n')
+        users = self.get('/preview/scim/v2/Users').get('Resources', None)
+        if users:
+            with open(user_log, "w") as fp:
+                for x in users:
+                    fp.write(json.dumps(x) + '\n')
+        else:
+            print("Users returned an empty object")
 
     @staticmethod
     def is_member_a_user(member_json):
@@ -39,10 +42,11 @@ class ScimClient(dbclient):
         group_dir = self._export_dir + group_log_dir
         os.makedirs(group_dir, exist_ok=True)
         group_list = self.get("/preview/scim/v2/Groups").get('Resources', None)
-        for x in group_list:
-            group_name = x['displayName']
-            with open(group_dir + group_name, "w") as fp:
-                fp.write(json.dumps(self.add_username_to_group(x)))
+        if group_list:
+            for x in group_list:
+                group_name = x['displayName']
+                with open(group_dir + group_name, "w") as fp:
+                    fp.write(json.dumps(self.add_username_to_group(x)))
 
     def log_all_secrets(self, log_file='secrets.log'):
         secrets_log = self._export_dir + log_file
