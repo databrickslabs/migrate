@@ -11,7 +11,11 @@ def pprint_j(i):
 
 
 class dbclient:
-    """A class to define wrappers for the REST API"""
+    """
+    Rest API Wrapper for Databricks APIs
+    """
+    # set of http error codes to throw an exception if hit. Handles client and auth errors
+    http_error_codes = (400, 401, 403)
 
     def __init__(self, token='foobarfoobar', url="https://myenv.cloud.databricks.com",
                  export_dir='logs/', is_aws=True, verbose=False, verify_ssl=True):
@@ -52,13 +56,13 @@ class dbclient:
         if json_params:
             raw_results = requests.get(full_endpoint, headers=self._token, params=json_params, verify=self._verify_ssl)
             http_status_code = raw_results.status_code
-            if http_status_code in (401, 403):
+            if http_status_code in dbclient.http_error_codes:
                 raise Exception("Error: GET request failed with code {}\n{}".format(http_status_code, raw_results.text))
             results = raw_results.json()
         else:
             raw_results = requests.get(full_endpoint, headers=self._token, verify=self._verify_ssl)
             http_status_code = raw_results.status_code
-            if http_status_code in (401, 403):
+            if http_status_code in dbclient.http_error_codes:
                 raise Exception("Error: GET request failed with code {}\n{}".format(http_status_code, raw_results.text))
             results = raw_results.json()
         if print_json:
@@ -76,13 +80,16 @@ class dbclient:
             print("{0}: {1}".format(http_type, full_endpoint))
         if json_params:
             if http_type == 'post':
-                raw_results = requests.post(full_endpoint, headers=self._token, json=json_params, verify=self._verify_ssl)
+                raw_results = requests.post(full_endpoint, headers=self._token,
+                                            json=json_params, verify=self._verify_ssl)
             if http_type == 'put':
-                raw_results = requests.put(full_endpoint, headers=self._token, json=json_params, verify=self._verify_ssl)
+                raw_results = requests.put(full_endpoint, headers=self._token,
+                                           json=json_params, verify=self._verify_ssl)
             if http_type == 'patch':
-                raw_results = requests.patch(full_endpoint, headers=self._token, json=json_params, verify=self._verify_ssl)
+                raw_results = requests.patch(full_endpoint, headers=self._token,
+                                             json=json_params, verify=self._verify_ssl)
             http_status_code = raw_results.status_code
-            if http_status_code > 209:
+            if http_status_code in dbclient.http_error_codes:
                 raise Exception("Error: {0} request failed with code {1}\n{2}".format(http_type,
                                                                                       http_status_code,
                                                                                       raw_results.text))
