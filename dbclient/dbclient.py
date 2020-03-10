@@ -82,7 +82,7 @@ class dbclient:
             if http_type == 'patch':
                 raw_results = requests.patch(full_endpoint, headers=self._token, json=json_params, verify=self._verify_ssl)
             http_status_code = raw_results.status_code
-            if http_status_code != 200:
+            if http_status_code > 209:
                 raise Exception("Error: {0} request failed with code {1}\n{2}".format(http_type,
                                                                                       http_status_code,
                                                                                       raw_results.text))
