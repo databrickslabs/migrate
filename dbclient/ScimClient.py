@@ -12,11 +12,12 @@ class ScimClient(dbclient):
             with open(user_log, "w") as fp:
                 for x in users:
                     fullname = x.get('name', None)
+                    print(fullname)
                     if fullname:
                         given_name = fullname.get('givenName', None)
-                    # if user is an admin, skip this user entry
-                    if x['userName'] == 'admin' and given_name == 'Administrator':
-                        continue
+                        # if user is an admin, skip this user entry
+                        if x['userName'] == 'admin' and given_name == 'Administrator':
+                            continue
                     fp.write(json.dumps(x) + '\n')
         else:
             print("Users returned an empty object")
