@@ -242,6 +242,8 @@ class ScimClient(dbclient):
         self.import_groups(group_dir)
         # assign the users to IAM roles if on AWS
         if self.is_aws():
+            print("Update group role assignment")
             self.assign_group_roles(group_dir)
+            print("Update user role assignment")
             self.assign_user_roles(user_log_file)
             print("Done")

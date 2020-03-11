@@ -98,6 +98,9 @@ def get_export_parser():
     parser.add_argument('--no-ssl-verification', action='store_true',
                         help='Set Verify=False when making http requests.')
 
+    parser.add_argument('--debug', action='store_true',
+                        help='Enable debug logging')
+
     return parser
 
 
@@ -145,4 +148,7 @@ def get_import_parser():
     
     parser.add_argument('--silent', action='store_true',
                         help='Silent all logging of import operations.')
+
+    parser.add_argument('--debug', action='store_true',
+                        help='Enable debug logging')
     return parser

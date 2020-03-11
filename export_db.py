@@ -30,7 +30,7 @@ def main():
 
     makedirs(export_dir, exist_ok=True)
 
-    debug = True
+    debug = args.debug
     if debug:
         print(url, token)
     now = str(datetime.now())
@@ -65,12 +65,15 @@ def main():
         print("Complete Workspace Download Time: " + str(timedelta(seconds=end - start)))
 
     if args.libs:
-        print("Starting complete library log at {0}".format(now))
-        lib_c = LibraryClient(token, url, export_dir, is_aws, is_verbose, verify_ssl)
-        start = timer()
-        lib_c.log_library_details()
-        end = timer()
-        print("Complete Library Download Time: " + str(timedelta(seconds=end - start)))
+        if not is_aws:
+            print("Databricks does not support library exports on Azure today")
+        else:
+            print("Starting complete library log at {0}".format(now))
+            lib_c = LibraryClient(token, url, export_dir, is_aws, is_verbose, verify_ssl)
+            start = timer()
+            lib_c.log_library_details()
+            end = timer()
+            print("Complete Library Download Time: " + str(timedelta(seconds=end - start)))
 
     if args.users:
         print("Export all users and groups at {0}".format(now))

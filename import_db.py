@@ -30,7 +30,7 @@ def main():
 
     makedirs(export_dir, exist_ok=True)
 
-    debug = False
+    debug = args.debug
     if debug:
         print(url, token)
 
