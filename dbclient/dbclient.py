@@ -25,6 +25,10 @@ class dbclient:
         self._is_aws = is_aws
         self._is_verbose = verbose
         self._verify_ssl = verify_ssl
+        if self._verify_ssl:
+            # set these env variables if skip SSL verification is enabled
+            os.environ['REQUESTS_CA_BUNDLE'] = ""
+            os.environ['CURL_CA_BUNDLE'] = ""
         os.makedirs(self._export_dir, exist_ok=True)
 
     def is_aws(self):

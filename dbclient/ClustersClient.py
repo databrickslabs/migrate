@@ -71,6 +71,12 @@ class ClustersClient(dbclient):
         # pinned by cluster_user is a flag per cluster
         cl_raw = self.get_cluster_list(False)
         cl = self.remove_automated_clusters(cl_raw)
+        ips = self.get('/instance-profiles/list').get('instance_profiles', None)
+        if ips:
+            # filter none if we hit a profile w/ a none object
+            # generate list of registered instance profiles to check cluster configs against
+            ip_list = list(filter(None, [x.get('instance_profile_arn', None) for x in ips]))
+
         # filter on these items as MVP of the cluster configs
         # https://docs.databricks.com/api/latest/clusters.html#request-structure
         with open(cluster_log, "w") as log_fp:
@@ -78,7 +84,17 @@ class ClustersClient(dbclient):
                 run_properties = set(list(x.keys())) - self.create_configs
                 for p in run_properties:
                     del x[p]
-                log_fp.write(json.dumps(x) + '\n')
+                cluster_json = x
+                if 'aws_attributes' in cluster_json:
+                    aws_conf = cluster_json.pop('aws_attributes')
+                    iam_role = aws_conf.get('instance_profile_arn', None)
+                    if iam_role:
+                        if (iam_role not in ip_list):
+                            print("Skipping log of default IAM role: " + iam_role)
+                            del aws_conf['instance_profile_arn']
+                            cluster_json['aws_attributes'] = aws_conf
+                    cluster_json['aws_attributes'] = aws_conf
+                log_fp.write(json.dumps(cluster_json) + '\n')
 
     def cleanup_cluster_pool_configs(self, cluster_json, cluster_creator):
         """
