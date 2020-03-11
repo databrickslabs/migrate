@@ -12,7 +12,6 @@ class ScimClient(dbclient):
             with open(user_log, "w") as fp:
                 for x in users:
                     fullname = x.get('name', None)
-                    print(fullname)
                     if fullname:
                         given_name = fullname.get('givenName', None)
                         # if user is an admin, skip this user entry
@@ -215,7 +214,7 @@ class ScimClient(dbclient):
                     member_id_list = []
                     for m in members:
                         if m['type'] == 'user':
-                           member_id_list.append(current_user_ids[m['userName']])
+                            member_id_list.append(current_user_ids[m['userName']])
                         else:
                             member_id_list.append(current_group_ids[m['display']])
                     add_members_json = self.get_member_args(member_id_list)
