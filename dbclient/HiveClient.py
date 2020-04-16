@@ -63,19 +63,14 @@ class HiveClient(dbclient):
         """Edits the existing metastore cluster
         Returns cluster_id"""
         version = self.get_latest_spark_version()
-        json_payload = {
-            "cluster_name": "API_Metastore_Work_Leave_Me_Alone",
-            "cluster_id": cid, 
-            "spark_version": version['key'],
-            "num_workers": 1,
-            "node_type_id": "m4.xlarge",
-            "aws_attributes": {
-                "instance_profile_arn": iam_role,
-                "ebs_volume_type": "GENERAL_PURPOSE_SSD",
-                "ebs_volume_count": 1,
-                "ebs_volume_size": 100
-                }
-            }
+        import os
+        real_path = os.path.dirname(os.path.realpath(__file__))
+        if self.is_aws():
+            with open(real_path+'/../data/aws_cluster.json', 'r') as fp:
+                cluster_json = json.loads(fp.read())
+        else:
+            with open(real_path+'/../data/azure_cluster.json', 'r') as fp:
+                cluster_json = json.loads(fp.read())
         self.post('/clusters/edit', json_payload)
         self.wait_for_cluster(cid)
         return cid
@@ -185,24 +180,35 @@ class HiveClient(dbclient):
 
         instance_profile_log_path = self._export_dir + 'instance_profiles.log'
 
+        err_log_list = []
+        with open(failed_metastore_log_path, 'r') as err_log:
+            for table in err_log:
+                err_log_list.append(table)
+
         with open(instance_profile_log_path, 'r') as iam_log:
             for role in iam_log:
                 role_json = json.loads(role)
                 iam_role = role_json["instance_profile_arn"]
                 self.edit_cluster(cid, iam_role)
                 ec_id = self.get_execution_context(cid)
-                with open(failed_metastore_log_path, 'r') as err_log:
-                    for table in err_log:
-                        table_json = json.loads(table)
-                        db_name = table_json['table'].split(".")[0]
-                        table_name = table_json['table'].split(".")[1]
-                        ddl_stmt = 'print(spark.sql("show create table {0}.{1}").collect()[0][0])'.format(db_name,table_name)
-                        results = self.submit_command(cid, ec_id, ddl_stmt)
+                for table in err_log_list:
+                    table_json = json.loads(table)
+                    db_name = table_json['table'].split(".")[0]
+                    table_name = table_json['table'].split(".")[1]
+                    ddl_stmt = 'print(spark.sql("show create table {0}.{1}").collect()[0][0])'.format(db_name,table_name)
+                    results = self.submit_command(cid, ec_id, ddl_stmt)
+                    if results['resultType'] == 'text':
+                        err_log_list.remove(table)
                         with open(self._export_dir + ms_dir + db_name + '/' + table_name, "w") as fp:
-                            if results['resultType'] == 'text':
-                                fp.write(results['data'])
-                            else:
-                                print('failed to get ddl for {0}.{1} with iam role {2}'.format(db_name, table_name, iam_role))
+                            fp.write(results['data'])
+                    else:
+                        print('failed to get ddl for {0}.{1} with iam role {2}'.format(db_name, table_name, iam_role))
+
+        os.remove(failed_metastore_log_path)
+        with open(failed_metastore_log_path, 'w') as fm:
+            for table in err_log_list:
+                fm.write(table)
+
         print(all_dbs)
 
     def create_database_db(self, db_name, ec_id, cid):
