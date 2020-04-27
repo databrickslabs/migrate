@@ -4,6 +4,8 @@ import requests
 
 global pprint_j
 
+import requests.packages.urllib3
+requests.packages.urllib3.disable_warnings()
 
 # Helper to pretty print json
 def pprint_j(i):

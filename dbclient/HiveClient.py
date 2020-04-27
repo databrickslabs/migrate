@@ -68,12 +68,16 @@ class HiveClient(dbclient):
         if self.is_aws():
             with open(real_path+'/../data/aws_cluster.json', 'r') as fp:
                 cluster_json = json.loads(fp.read())
+                # pull AWS attributes and update the IAM policy
+                aws_attr = cluster_json['aws_attributes']
+                print("Updating cluster with: " + iam_role)
+                aws_attr['instance_profile_arn'] = iam_role
+                cluster_json['aws_attributes'] = aws_attr
+                resp = self.post('/clusters/edit', cluster_json)
+                self.wait_for_cluster(cid)
+                return cid
         else:
-            with open(real_path+'/../data/azure_cluster.json', 'r') as fp:
-                cluster_json = json.loads(fp.read())
-        self.post('/clusters/edit', json_payload)
-        self.wait_for_cluster(cid)
-        return cid
+            return False
 
     def get_execution_context(self, cid):
         print("Creating remote Spark Session")
@@ -119,7 +123,8 @@ class HiveClient(dbclient):
 
     def log_all_databases(self, cid, ec_id, ms_dir):
         # submit first command to find number of databases
-        all_dbs_cmd = 'all_dbs = [x.databaseName for x in spark.sql("show databases").collect()]; print(len(all_dbs))'
+        # DBR 7.0 changes databaseName to namespace for the return value of show databases
+        all_dbs_cmd = 'all_dbs = [x.namespace for x in spark.sql("show databases").collect()]; print(len(all_dbs))'
         results = self.submit_command(cid, ec_id, all_dbs_cmd)
         num_of_dbs = ast.literal_eval(results['data'])
         batch_size = 100    # batch size to iterate over databases
@@ -163,7 +168,30 @@ class HiveClient(dbclient):
                             results['table'] = '{0}.{1}'.format(db_name, table_name)
                             err_log.write(json.dumps(results) + '\n')
 
+    def check_if_instance_profiles_exists(self, log_file='instance_profiles.log'):
+        ip_log = self._export_dir + log_file
+        ips = self.get('/instance-profiles/list').get('instance_profiles', None)
+        if ips:
+            with open(ip_log, "w") as fp:
+                for x in ips:
+                    fp.write(json.dumps(x) + '\n')
+            return True
+        return False
+
+    @staticmethod
+    def get_num_of_lines(fname):
+        if not os.path.exists(fname):
+            return 0
+        with open(fname) as f:
+            for i, l in enumerate(f):
+                pass
+        return i + 1
+
     def export_hive_metastore(self, ms_dir='metastore/'):
+        # check if instance profile exists, ask users to use --users first or enter yes to proceed.
+        instance_profile_log_path = self._export_dir + 'instance_profiles.log'
+        if self.is_aws():
+            do_instance_profile_exist = self.check_if_instance_profiles_exists()
         start = timer()
         cid = self.launch_cluster()
         end = timer()
@@ -178,38 +206,43 @@ class HiveClient(dbclient):
         for db_name in all_dbs:
             self.log_all_tables(db_name, cid, ec_id, ms_dir, failed_metastore_log_path)
 
-        instance_profile_log_path = self._export_dir + 'instance_profiles.log'
+        # retry logic below for tables that failed to export during initial export
+        total_failed_entries = self.get_num_of_lines(failed_metastore_log_path)
+        if self.is_aws():
+            if do_instance_profile_exist:
+                print("Instance profiles exist, retrying export of failed tables with each instance profile")
+                err_log_list = []
+                with open(failed_metastore_log_path, 'r') as err_log:
+                    for table in err_log:
+                        err_log_list.append(table)
 
-        err_log_list = []
-        with open(failed_metastore_log_path, 'r') as err_log:
-            for table in err_log:
-                err_log_list.append(table)
+                with open(instance_profile_log_path, 'r') as iam_log:
+                    for role in iam_log:
+                        role_json = json.loads(role)
+                        iam_role = role_json["instance_profile_arn"]
+                        self.edit_cluster(cid, iam_role)
+                        ec_id = self.get_execution_context(cid)
+                        for table in err_log_list:
+                            table_json = json.loads(table)
+                            db_name = table_json['table'].split(".")[0]
+                            table_name = table_json['table'].split(".")[1]
+                            ddl_stmt = 'print(spark.sql("show create table {0}.{1}").collect()[0][0])'.format(db_name,table_name)
+                            results = self.submit_command(cid, ec_id, ddl_stmt)
+                            if results['resultType'] == 'text':
+                                err_log_list.remove(table)
+                                with open(self._export_dir + ms_dir + db_name + '/' + table_name, "w") as fp:
+                                    fp.write(results['data'])
+                            else:
+                                print('failed to get ddl for {0}.{1} with iam role {2}'.format(db_name, table_name, iam_role))
 
-        with open(instance_profile_log_path, 'r') as iam_log:
-            for role in iam_log:
-                role_json = json.loads(role)
-                iam_role = role_json["instance_profile_arn"]
-                self.edit_cluster(cid, iam_role)
-                ec_id = self.get_execution_context(cid)
-                for table in err_log_list:
-                    table_json = json.loads(table)
-                    db_name = table_json['table'].split(".")[0]
-                    table_name = table_json['table'].split(".")[1]
-                    ddl_stmt = 'print(spark.sql("show create table {0}.{1}").collect()[0][0])'.format(db_name,table_name)
-                    results = self.submit_command(cid, ec_id, ddl_stmt)
-                    if results['resultType'] == 'text':
-                        err_log_list.remove(table)
-                        with open(self._export_dir + ms_dir + db_name + '/' + table_name, "w") as fp:
-                            fp.write(results['data'])
-                    else:
-                        print('failed to get ddl for {0}.{1} with iam role {2}'.format(db_name, table_name, iam_role))
-
-        os.remove(failed_metastore_log_path)
-        with open(failed_metastore_log_path, 'w') as fm:
-            for table in err_log_list:
-                fm.write(table)
-
-        print(all_dbs)
+                os.remove(failed_metastore_log_path)
+                with open(failed_metastore_log_path, 'w') as fm:
+                    for table in err_log_list:
+                        fm.write(table)
+                failed_count_after_retry = self.get_num_of_lines(failed_metastore_log_path)
+                print("Failed count after retry: " + str(failed_count_after_retry))
+                print("Failed count before retry: " + str(total_failed_entries))
+            print("Total Databases attempted export: " + str(len(all_dbs)))
 
     def create_database_db(self, db_name, ec_id, cid):
         create_db_statement = 'spark.sql("CREATE DATABASE IF NOT EXISTS {0}")'.format(db_name.replace('\n', ''))

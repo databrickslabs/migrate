@@ -5,7 +5,7 @@
   "aws_attributes": {
       "first_on_demand": 1,
       "availability": "SPOT_WITH_FALLBACK",
-      "zone_id": "us-west-2c",
+      "zone_id": "us-west-2b",
       "spot_bid_price_percent": 100,
       "ebs_volume_type": "GENERAL_PURPOSE_SSD",
       "ebs_volume_count": 1,
