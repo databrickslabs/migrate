@@ -126,6 +126,9 @@ class HiveClient(dbclient):
         # DBR 7.0 changes databaseName to namespace for the return value of show databases
         all_dbs_cmd = 'all_dbs = [x.namespace for x in spark.sql("show databases").collect()]; print(len(all_dbs))'
         results = self.submit_command(cid, ec_id, all_dbs_cmd)
+        if results['resultType'] != 'text':
+            print(json.dumps(results) + '\n')
+            raise ValueError("Cannot identify number of databases due to the above error")
         num_of_dbs = ast.literal_eval(results['data'])
         batch_size = 100    # batch size to iterate over databases
         num_of_buckets = (num_of_dbs // batch_size) + 1     # number of slices of the list to take
@@ -241,7 +244,12 @@ class HiveClient(dbclient):
                         fm.write(table)
                 failed_count_after_retry = self.get_num_of_lines(failed_metastore_log_path)
                 print("Failed count after retry: " + str(failed_count_after_retry))
-                print("Failed count before retry: " + str(total_failed_entries))
+            else:
+                print("No instance profile to retry export")
+            print("Failed count before retry: " + str(total_failed_entries))
+            print("Total Databases attempted export: " + str(len(all_dbs)))
+        else:
+            print("Failed count: " + str(total_failed_entries))
             print("Total Databases attempted export: " + str(len(all_dbs)))
 
     def create_database_db(self, db_name, ec_id, cid):
