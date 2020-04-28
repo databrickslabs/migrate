@@ -185,10 +185,12 @@ class HiveClient(dbclient):
     def get_num_of_lines(fname):
         if not os.path.exists(fname):
             return 0
-        with open(fname) as f:
-            for i, l in enumerate(f):
-                pass
-        return i + 1
+        else:
+            i = 0
+            with open(fname) as fp:
+                for line in fp:
+                    i += 1
+            return i
 
     def export_hive_metastore(self, ms_dir='metastore/'):
         # check if instance profile exists, ask users to use --users first or enter yes to proceed.
