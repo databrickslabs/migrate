@@ -29,7 +29,7 @@ def get_login_credentials(creds_path='~/.databrickscfg', profile='DEFAULT'):
             # if line is not empty
             if line:
                 # strip chars and clean up the string
-                clean_l = line[:-1].rstrip().lstrip()
+                clean_l = line.rstrip().lstrip()
                 if clean_l:
                     # non-empty lines processing below
                     if hit_profile:
