@@ -37,7 +37,8 @@ class HiveClient(dbclient):
     def launch_cluster(self):
         """ Launches a cluster to get DDL statements.
         Returns a cluster_id """
-        version = self.get_latest_spark_version()
+        # removed for now as Spark 3.0 will have backwards incompatible changes
+        # version = self.get_latest_spark_version()
         import os
         real_path = os.path.dirname(os.path.realpath(__file__))
         if self.is_aws():
@@ -47,7 +48,7 @@ class HiveClient(dbclient):
             with open(real_path+'/../data/azure_cluster.json', 'r') as fp:
                 cluster_json = json.loads(fp.read())
         # set the latest spark release regardless of defined cluster json
-        cluster_json['spark_version'] = version['key']
+        # cluster_json['spark_version'] = version['key']
         cluster_name = cluster_json['cluster_name']
         existing_cid = self.get_cluster_id_by_name(cluster_name)
         if existing_cid:
