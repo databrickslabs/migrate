@@ -16,29 +16,21 @@ def main():
         raise ValueError('Login credentials do not match args. Please provide --azure flag for azure envs.')
 
     # cant use netrc credentials because requests module tries to load the credentials into http basic auth headers
-    # aws demo by default
-    is_aws = (not args.azure)
-    is_verbose = (not args.silent)
-    verify_ssl = (not args.no_ssl_verification)
     # parse the credentials
     url = login_args['host']
     token = login_args['token']
-    if is_aws:
-        export_dir = 'logs/'
-    else:
-        export_dir = 'azure_logs/'
+    client_config = build_client_config(url, token, args)
 
-    makedirs(export_dir, exist_ok=True)
+    makedirs(client_config['export_dir'], exist_ok=True)
 
-    debug = args.debug
-    if debug:
+    if client_config['debug']:
         print(url, token)
     now = str(datetime.now())
-    
+
     if args.export_home:
         username = args.export_home
         print("Exporting home directory: {0}".format(username))
-        ws_c = WorkspaceClient(token, url, export_dir, is_aws, is_verbose, verify_ssl)
+        ws_c = WorkspaceClient(client_config)
         start = timer()
         # log notebooks and libraries
         ws_c.export_user_home(username, 'user_exports')
@@ -47,7 +39,7 @@ def main():
 
     if args.workspace:
         print("Export the complete workspace at {0}".format(now))
-        ws_c = WorkspaceClient(token, url, export_dir, is_aws, is_verbose, verify_ssl)
+        ws_c = WorkspaceClient(client_config)
         start = timer()
         # log notebooks and libraries
         ws_c.init_workspace_logfiles()
@@ -57,7 +49,7 @@ def main():
 
     if args.download:
         print("Starting complete workspace download at {0}".format(now))
-        ws_c = WorkspaceClient(token, url, export_dir, is_aws, is_verbose, verify_ssl)
+        ws_c = WorkspaceClient(client_config)
         start = timer()
         # log notebooks and libraries
         ws_c.download_notebooks()
@@ -65,11 +57,11 @@ def main():
         print("Complete Workspace Download Time: " + str(timedelta(seconds=end - start)))
 
     if args.libs:
-        if not is_aws:
+        if not client_config['is_aws']:
             print("Databricks does not support library exports on Azure today")
         else:
             print("Starting complete library log at {0}".format(now))
-            lib_c = LibraryClient(token, url, export_dir, is_aws, is_verbose, verify_ssl)
+            lib_c = LibraryClient(client_config)
             start = timer()
             lib_c.log_library_details()
             end = timer()
@@ -77,7 +69,7 @@ def main():
 
     if args.users:
         print("Export all users and groups at {0}".format(now))
-        ws_c = ScimClient(token, url, export_dir, is_aws, is_verbose, verify_ssl)
+        ws_c = ScimClient(client_config)
         start = timer()
         # log all users
         ws_c.log_all_users()
@@ -89,8 +81,8 @@ def main():
         end = timer()
         print("Complete Group Export Time: " + str(timedelta(seconds=end - start)))
         # log the instance profiles
-        if is_aws:
-            cl_c = ClustersClient(token, url, export_dir, is_aws, is_verbose, verify_ssl)
+        if client_config['is_aws']:
+            cl_c = ClustersClient(client_config)
             print("Start instance profile logging ...")
             start = timer()
             cl_c.log_instance_profiles()
@@ -99,7 +91,7 @@ def main():
 
     if args.clusters:
         print("Export the cluster configs at {0}".format(now))
-        cl_c = ClustersClient(token, url, export_dir, is_aws, is_verbose, verify_ssl)
+        cl_c = ClustersClient(client_config)
         start = timer()
         # log the cluster json
         cl_c.log_cluster_configs()
@@ -115,7 +107,7 @@ def main():
     if args.jobs:
         print("Export the jobs configs at {0}".format(now))
         start = timer()
-        jobs_c = JobsClient(token, url, export_dir, is_aws, is_verbose, verify_ssl)
+        jobs_c = JobsClient(client_config)
         # log job configs
         jobs_c.log_job_configs()
         end = timer()
@@ -124,9 +116,14 @@ def main():
     if args.metastore:
         print("Export the metastore configs at {0}".format(now))
         start = timer()
-        hive_c = HiveClient(token, url, export_dir, is_aws, is_verbose, verify_ssl)
-        # log job configs
-        hive_c.export_hive_metastore()
+        hive_c = HiveClient(client_config)
+        if args.database is not None:
+            # export only a single database with a given iam role
+            database_name = args.database
+            hive_c.export_database(database_name, args.iam)
+        else:
+            # export all of the metastore
+            hive_c.export_hive_metastore()
         end = timer()
         print("Complete Metastore Export Time: " + str(timedelta(seconds=end - start)))
 

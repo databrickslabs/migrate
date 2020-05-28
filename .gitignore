@@ -1,4 +1,5 @@
 .idea
+venv
 logs
 azure_logs
 __pycache__

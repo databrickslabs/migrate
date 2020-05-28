@@ -1,11 +1,12 @@
 import json
 import os
 import requests
+import requests.packages.urllib3
 
 global pprint_j
 
-import requests.packages.urllib3
 requests.packages.urllib3.disable_warnings()
+
 
 # Helper to pretty print json
 def pprint_j(i):
@@ -19,14 +20,14 @@ class dbclient:
     # set of http error codes to throw an exception if hit. Handles client and auth errors
     http_error_codes = (401, 403)
 
-    def __init__(self, token='foobarfoobar', url="https://myenv.cloud.databricks.com",
-                 export_dir='logs/', is_aws=True, verbose=False, verify_ssl=True):
-        self._token = {'Authorization': 'Bearer {0}'.format(token)}
-        self._url = url.rstrip("/")
-        self._export_dir = export_dir
-        self._is_aws = is_aws
-        self._is_verbose = verbose
-        self._verify_ssl = verify_ssl
+    def __init__(self, configs):
+        self._token = {'Authorization': 'Bearer {0}'.format(configs['token'])}
+        self._url = configs['url'].rstrip("/")
+        self._export_dir = configs['export_dir']
+        self._is_aws = configs['is_aws']
+        self._skip_failed = configs['skip_failed']
+        self._is_verbose = configs['verbose']
+        self._verify_ssl = configs['verify_ssl']
         if self._verify_ssl:
             # set these env variables if skip SSL verification is enabled
             os.environ['REQUESTS_CA_BUNDLE'] = ""
@@ -39,12 +40,16 @@ class dbclient:
     def is_verbose(self):
         return self._is_verbose
 
+    def is_skip_failed(self):
+        return self._skip_failed
+
     def test_connection(self):
         # verify the proper url settings to configure this client
         if self._url[-4:] != '.com':
             print("Hostname should end in '.com'")
             return -1
-        results = requests.get(self._url + '/api/2.0/clusters/spark-versions', headers=self._token, verify=self._verify_ssl)
+        results = requests.get(self._url + '/api/2.0/clusters/spark-versions', headers=self._token,
+                               verify=self._verify_ssl)
         http_status_code = results.status_code
         if http_status_code != 200:
             print("Error. Either the credentials have expired or the credentials don't have proper permissions.")
