@@ -217,11 +217,51 @@ class HiveClient(dbclient):
         os.makedirs(self._export_dir + ms_dir + db_name, exist_ok=True)
         self.log_all_tables(db_name, cid, ec_id, ms_dir, failed_metastore_log_path)
 
-    def export_hive_metastore(self, ms_dir='metastore/'):
+    def retry_failed_metastore_export(self, cid, failed_metastore_log_path, ms_dir='metastore/'):
         # check if instance profile exists, ask users to use --users first or enter yes to proceed.
         instance_profile_log_path = self._export_dir + 'instance_profiles.log'
         if self.is_aws():
             do_instance_profile_exist = self.check_if_instance_profiles_exists()
+        # get total failed entries
+        total_failed_entries = self.get_num_of_lines(failed_metastore_log_path)
+        if do_instance_profile_exist:
+            print("Instance profiles exist, retrying export of failed tables with each instance profile")
+            err_log_list = []
+            with open(failed_metastore_log_path, 'r') as err_log:
+                for table in err_log:
+                    err_log_list.append(table)
+
+            with open(instance_profile_log_path, 'r') as iam_log:
+                for role in iam_log:
+                    role_json = json.loads(role)
+                    iam_role = role_json["instance_profile_arn"]
+                    self.edit_cluster(cid, iam_role)
+                    ec_id = self.get_execution_context(cid)
+                    for table in err_log_list:
+                        table_json = json.loads(table)
+                        db_name = table_json['table'].split(".")[0]
+                        table_name = table_json['table'].split(".")[1]
+                        ddl_stmt = 'print(spark.sql("show create table {0}.{1}").collect()[0][0])'.format(db_name,
+                                                                                                          table_name)
+                        results = self.submit_command(cid, ec_id, ddl_stmt)
+                        if results['resultType'] == 'text':
+                            err_log_list.remove(table)
+                            with open(self._export_dir + ms_dir + db_name + '/' + table_name, "w") as fp:
+                                fp.write(results['data'])
+                        else:
+                            print('failed to get ddl for {0}.{1} with iam role {2}'.format(db_name, table_name,
+                                                                                           iam_role))
+
+            os.remove(failed_metastore_log_path)
+            with open(failed_metastore_log_path, 'w') as fm:
+                for table in err_log_list:
+                    fm.write(table)
+            failed_count_after_retry = self.get_num_of_lines(failed_metastore_log_path)
+            print("Failed count after retry: " + str(failed_count_after_retry))
+        else:
+            print("No registered instance profiles to retry export")
+
+    def export_hive_metastore(self, ms_dir='metastore/'):
         start = timer()
         cid = self.launch_cluster()
         end = timer()
@@ -236,49 +276,15 @@ class HiveClient(dbclient):
         for db_name in all_dbs:
             self.log_all_tables(db_name, cid, ec_id, ms_dir, failed_metastore_log_path)
 
-        if not self.is_skip_failed():
-            # retry logic below for tables that failed to export during initial export
-            total_failed_entries = self.get_num_of_lines(failed_metastore_log_path)
-            if self.is_aws():
-                if do_instance_profile_exist:
-                    print("Instance profiles exist, retrying export of failed tables with each instance profile")
-                    err_log_list = []
-                    with open(failed_metastore_log_path, 'r') as err_log:
-                        for table in err_log:
-                            err_log_list.append(table)
-
-                    with open(instance_profile_log_path, 'r') as iam_log:
-                        for role in iam_log:
-                            role_json = json.loads(role)
-                            iam_role = role_json["instance_profile_arn"]
-                            self.edit_cluster(cid, iam_role)
-                            ec_id = self.get_execution_context(cid)
-                            for table in err_log_list:
-                                table_json = json.loads(table)
-                                db_name = table_json['table'].split(".")[0]
-                                table_name = table_json['table'].split(".")[1]
-                                ddl_stmt = 'print(spark.sql("show create table {0}.{1}").collect()[0][0])'.format(db_name,table_name)
-                                results = self.submit_command(cid, ec_id, ddl_stmt)
-                                if results['resultType'] == 'text':
-                                    err_log_list.remove(table)
-                                    with open(self._export_dir + ms_dir + db_name + '/' + table_name, "w") as fp:
-                                        fp.write(results['data'])
-                                else:
-                                    print('failed to get ddl for {0}.{1} with iam role {2}'.format(db_name, table_name, iam_role))
-
-                    os.remove(failed_metastore_log_path)
-                    with open(failed_metastore_log_path, 'w') as fm:
-                        for table in err_log_list:
-                            fm.write(table)
-                    failed_count_after_retry = self.get_num_of_lines(failed_metastore_log_path)
-                    print("Failed count after retry: " + str(failed_count_after_retry))
-                else:
-                    print("No instance profile to retry export")
-                print("Failed count before retry: " + str(total_failed_entries))
-                print("Total Databases attempted export: " + str(len(all_dbs)))
-            else:
-                print("Failed count: " + str(total_failed_entries))
-                print("Total Databases attempted export: " + str(len(all_dbs)))
+        total_failed_entries = self.get_num_of_lines(failed_metastore_log_path)
+        if (not self.is_skip_failed()) and self.is_aws():
+            print("Retrying failed metastore export with registered IAM roles")
+            self.retry_failed_metastore_export(cid, failed_metastore_log_path)
+            print("Failed count before retry: " + str(total_failed_entries))
+            print("Total Databases attempted export: " + str(len(all_dbs)))
+        else:
+            print("Failed count: " + str(total_failed_entries))
+            print("Total Databases attempted export: " + str(len(all_dbs)))
 
     def create_database_db(self, db_name, ec_id, cid):
         create_db_statement = 'spark.sql("CREATE DATABASE IF NOT EXISTS {0}")'.format(db_name.replace('\n', ''))

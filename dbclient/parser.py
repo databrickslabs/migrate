@@ -90,7 +90,7 @@ def get_export_parser():
     parser.add_argument('--iam', action='store',
                         help='IAM Instance Profile to export metastore entires')
 
-    # get all metastore
+    # skip failures
     parser.add_argument('--skip-failed', action='store_true', default=False,
                         help='Skip retries for any failed exports.')
 
@@ -147,6 +147,10 @@ def get_import_parser():
     # import all metastore
     parser.add_argument('--metastore', action='store_true',
                         help='Import the metastore to the workspace.')
+
+    # skip failures
+    parser.add_argument('--skip-failed', action='store_true', default=False,
+                        help='Skip retries for any failed exports.')
 
     # get azure logs
     parser.add_argument('--azure', action='store_true',
