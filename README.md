@@ -47,8 +47,10 @@ Export help text:
 ```
 $ python export_db.py --help
 usage: export_db.py [-h] [--users] [--workspace] [--download] [--libs]
-                    [--clusters] [--jobs] [--metastore] [--azure]
-                    [--profile PROFILE]
+                    [--clusters] [--jobs] [--metastore] [--database DATABASE]
+                    [--iam IAM] [--skip-failed] [--azure] [--profile PROFILE]
+                    [--export-home EXPORT_HOME] [--silent]
+                    [--no-ssl-verification] [--debug]
 
 Export user workspace artifacts from Databricks
 
@@ -61,40 +63,51 @@ optional arguments:
   --libs                Log all the libs for the environment
   --clusters            Log all the clusters for the environment
   --jobs                Log all the job configs for the environment
-  --metastore           Log all the metastore table definitions
+  --metastore           log all the metastore table definitions
+  --database DATABASE   Database name to export for the metastore. Single
+                        database name supported
+  --iam IAM             IAM Instance Profile to export metastore entires
+  --skip-failed         Skip retries for any failed exports.
   --azure               Run on Azure. (Default is AWS)
   --profile PROFILE     Profile to parse the credentials
   --export-home EXPORT_HOME
                         User workspace name to export, typically the users
                         email address
-  --no-ssl-verification
-                        Disable SSL verification
   --silent              Silent all logging of export operations.
+  --no-ssl-verification
+                        Set Verify=False when making http requests.
+  --debug               Enable debug logging
 ```
 
 Import help text:
 ```
 $ python import_db.py --help
-usage: import_db.py [-h] [--users] [--workspace] [--libs] [--clusters]
-                    [--jobs] [--metastore] [--azure] [--profile PROFILE]
+usage: import_db.py [-h] [--users] [--workspace] [--archive-missing] [--libs]
+                    [--clusters] [--jobs] [--metastore] [--skip-failed]
+                    [--azure] [--profile PROFILE] [--no-ssl-verification]
+                    [--silent] [--debug]
 
 Import user workspace artifacts into Databricks
 
 optional arguments:
-  -h, --help         show this help message and exit
-  --users            Import all the users and groups from the logfile.
-  --workspace        Import all notebooks from export dir into the workspace.
-  --archive-missing  Import all missing users into the top level /Archive/
-                     directory.
-  --libs             Import all the libs from the logfile into the workspace.
-  --clusters         Import all the cluster configs for the environment
-  --jobs             Import all job configurations to the environment.
-  --metastore        Import the metastore to the workspace.
-  --azure            Run on Azure. (Default is AWS)
-  --profile PROFILE  Profile to parse the credentials
+  -h, --help            show this help message and exit
+  --users               Import all the users and groups from the logfile.
+  --workspace           Import all notebooks from export dir into the
+                        workspace.
+  --archive-missing     Import all missing users into the top level /Archive/
+                        directory.
+  --libs                Import all the libs from the logfile into the
+                        workspace.
+  --clusters            Import all the cluster configs for the environment
+  --jobs                Import all job configurations to the environment.
+  --metastore           Import the metastore to the workspace.
+  --skip-failed         Skip retries for any failed exports.
+  --azure               Run on Azure. (Default is AWS)
+  --profile PROFILE     Profile to parse the credentials
   --no-ssl-verification
-                     Disable SSL verification
-  --silent           Silent all logging of import operations.
+                        Set Verify=False when making http requests.
+  --silent              Silent all logging of import operations.
+  --debug               Enable debug logging
 ```
 
 
