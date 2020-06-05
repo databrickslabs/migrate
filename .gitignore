@@ -1,0 +1,9 @@
+.idea
+venv
+logs
+azure_logs
+__pycache__
+dbclient/*.pyc
+build/
+databricks_migration.egg-info/
+dist/
