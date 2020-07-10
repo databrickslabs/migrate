@@ -1,4 +1,4 @@
-## Databricks Workspace Migration Tools
+# Databricks Workspace Migration Tools
 
 This is a migration package to log all Databricks resources for backup and migration purposes. 
 Packaged is based on python 3.6
@@ -32,86 +32,114 @@ export REQUESTS_CA_BUNDLE=""
 export CURL_CA_BUNDLE=""
 ```
 
+## Installation steps
 
-Usage example:
+Installation requires:
+* python >= 3.6
+
+```bash
+$ git clone https://github.com/databrickslabs/workspace-migration-tool
+$ cd workspace-migration-tool
+$ pip install .
+```
+
+## Usage
+
+Example:
 ```
 # export the cluster profiles to the demo environment profile in the Databricks CLI
-$ python export_db.py --profile DEMO --clusters
+$ databricks-migrate -v debug export --profile demo --clusters
 
 # export a single users workspace
-$ python export_db.py --profile DEMO --export-home example@foobar.com
+$ databricks-migrate -v debug export --profile demo --export-home example@foobar.com
+```
+
+Base help text:
+```bash
+$ databricks-migrate --help
+Usage: databricks-migrate [OPTIONS] COMMAND [ARGS]...
+
+Options:
+  --version            1.0.0
+  -v, --verbosity LVL  Either CRITICAL, ERROR, WARNING, INFO or DEBUG
+  --help               Show this message and exit.
+
+Commands:
+  export           Export user workspace artifacts from Databricks
+  import           Import user workspace artifacts into Databricks
+  test_connection  Test cli connection
+
 ```
 
 Export help text:
 ```
-$ python export_db.py --help
-usage: export_db.py [-h] [--users] [--workspace] [--download] [--libs]
-                    [--clusters] [--jobs] [--metastore] [--database DATABASE]
-                    [--iam IAM] [--skip-failed] [--mounts] [--azure] 
-					[--profile PROFILE] [--export-home EXPORT_HOME] [--silent]
-                    [--no-ssl-verification] [--debug]
+$ databricks-migrate export --help
+Usage: databricks-migrate export [OPTIONS]
 
-Export user workspace artifacts from Databricks
+  Export user workspace artifacts from Databricks
 
-optional arguments:
-  -h, --help            show this help message and exit
-  --users               Download all the users and groups in the workspace
-  --workspace           Log all the notebook paths in the workspace. (metadata
-                        only)
-  --download            Download all notebooks for the environment
-  --libs                Log all the libs for the environment
-  --clusters            Log all the clusters for the environment
-  --jobs                Log all the job configs for the environment
-  --metastore           log all the metastore table definitions
-  --database DATABASE   Database name to export for the metastore. Single
-                        database name supported
-  --iam IAM             IAM Instance Profile to export metastore entires
-  --skip-failed         Skip retries for any failed exports.
-  --mounts              Log all mount points.
-  --azure               Run on Azure. (Default is AWS)
-  --profile PROFILE     Profile to parse the credentials
-  --export-home EXPORT_HOME
-                        User workspace name to export, typically the users
-                        email address
-  --silent              Silent all logging of export operations.
-  --no-ssl-verification
-                        Set Verify=False when making http requests.
-  --debug               Enable debug logging
+Options:
+  --users                Download all the users and groups in the workspace
+  --workspace            Log all the notebook paths in the workspace.
+                         (metadata only)
+
+  --download             Download all notebooks for the environment
+  --libs                 Log all the libs for the environment
+  --clusters             Log all the clusters for the environment
+  --jobs                 Log all the job configs for the environment
+  --metastore            Log all the metastore table definitions
+  --database TEXT        Database name to export for the metastore. Single
+                         database name supported
+
+  --iam TEXT             IAM Instance Profile to export metastore entires
+  --mounts               Log all mount points.
+  --export-home TEXT     User workspace name to export, typically the users
+                         email address
+
+  --skip-failed          Skip retries for any failed exports.
+  --azure                Run on Azure. (Default is AWS)
+  --no-ssl-verification  Set Verify=False when making http requests.
+  --debug                Debug Mode. Shows full stack trace on error.
+  --profile TEXT         CLI connection profile to use. The default profile is
+                         "DEFAULT".
+
+  -h, --help             Show this message and exit.
 ```
 
 Import help text:
+```bash
+$ databricks-migrate import --help
+Usage: databricks-migrate import [OPTIONS]
+
+  Import user workspace artifacts into Databricks
+
+Options:
+  --users                Import all the users and groups from the logfile.
+  --workspace            Import all notebooks from export dir into the
+                         workspace.
+
+  --archive-missing      Import all missing users into the top level /Archive/
+                         directory.
+
+  --libs                 Import all the libs from the logfile into the
+                         workspace.
+
+  --clusters             Import all the cluster configs for the environment
+  --jobs                 Import all job configurations to the environment.
+  --metastore            Import the metastore to the workspace.
+  --skip-failed          Skip retries for any failed exports.
+  --azure                Run on Azure. (Default is AWS)
+  --no-ssl-verification  Set Verify=False when making http requests.
+  --debug                Debug Mode. Shows full stack trace on error.
+  --profile TEXT         CLI connection profile to use. The default profile is
+                         "DEFAULT".
+
+  -h, --help             Show this message and exit.
 ```
-$ python import_db.py --help
-usage: import_db.py [-h] [--users] [--workspace] [--archive-missing] [--libs]
-                    [--clusters] [--jobs] [--metastore] [--skip-failed]
-                    [--azure] [--profile PROFILE] [--no-ssl-verification]
-                    [--silent] [--debug]
-
-Import user workspace artifacts into Databricks
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --users               Import all the users and groups from the logfile.
-  --workspace           Import all notebooks from export dir into the
-                        workspace.
-  --archive-missing     Import all missing users into the top level /Archive/
-                        directory.
-  --libs                Import all the libs from the logfile into the
-                        workspace.
-  --clusters            Import all the cluster configs for the environment
-  --jobs                Import all job configurations to the environment.
-  --metastore           Import the metastore to the workspace.
-  --skip-failed         Skip retries for any failed exports.
-  --azure               Run on Azure. (Default is AWS)
-  --profile PROFILE     Profile to parse the credentials
-  --no-ssl-verification
-                        Set Verify=False when making http requests.
-  --silent              Silent all logging of import operations.
-  --debug               Enable debug logging
-```
 
 
-Limitations:
+## Known Limitations
+
 * Instance profiles (AWS only): Group access to instance profiles will take precedence. If a user is added to the role directly, and has access via a group, only the group access will be granted during a migration.  
 * Notebooks: ACLs to folders will need to be reconfigured by users. By default, it will be restricted if Notebook ACLs are enabled. 
 * Clusters: Cluster creator will be seen as the single admin user who migrated all the clusters. (Relevant for billing purposes)
