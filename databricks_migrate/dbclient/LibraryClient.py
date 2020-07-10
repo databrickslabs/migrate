@@ -1,8 +1,9 @@
 import json
-from dbclient import *
+
+from databricks_migrate.dbclient import DBClient
 
 
-class LibraryClient(dbclient):
+class LibraryClient(DBClient):
 
     def get_cluster_list(self, alive=True):
         """ Returns an array of json objects for the running clusters. Grab the cluster_name or cluster_id """

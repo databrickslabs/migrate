@@ -5,7 +5,8 @@ import time
 from datetime import timedelta
 from timeit import default_timer as timer
 
-from dbclient import *
+from databricks_migrate import log
+from databricks_migrate.dbclient import ClustersClient
 
 
 class DbfsClient(ClustersClient):
@@ -26,7 +27,7 @@ class DbfsClient(ClustersClient):
         start = timer()
         cid = self.launch_cluster()
         end = timer()
-        print("Cluster creation time: " + str(timedelta(seconds=end - start)))
+        log.info("Cluster creation time: " + str(timedelta(seconds=end - start)))
         time.sleep(5)
         ec_id = self.get_execution_context(cid)
 
@@ -48,7 +49,7 @@ class DbfsClient(ClustersClient):
                 results = self.submit_command(cid, ec_id, mounts_slice)
                 mounts_slice_data = ast.literal_eval(results['data'])
                 for mount_path in mounts_slice_data:
-                    print("Mounts: {0}".format(mount_path))
+                    log.info("Mounts: {0}".format(mount_path))
                     fp_log.write(json.dumps(mount_path))
                     fp_log.write('\n')
         return True

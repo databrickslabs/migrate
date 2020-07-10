@@ -1,0 +1,6 @@
+cron-descriptor==1.2.24
+requests>=2.17.3
+click>=6.7
+tox==2.9.1
+pytest==5.4.3
+pytest-httpserve==0.3.4

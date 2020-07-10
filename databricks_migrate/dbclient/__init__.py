@@ -1,5 +1,4 @@
-import json
-from .dbclient import dbclient
+from .dbclient import DBClient
 from .JobsClient import JobsClient
 from .ClustersClient import ClustersClient
 from .DbfsClient import DbfsClient

@@ -5,7 +5,8 @@ import time
 from datetime import timedelta
 from timeit import default_timer as timer
 
-from dbclient import *
+from databricks_migrate import log
+from databricks_migrate.dbclient import ClustersClient
 
 
 class HiveClient(ClustersClient):
@@ -17,7 +18,7 @@ class HiveClient(ClustersClient):
         all_dbs_cmd = 'all_dbs = [x.databaseName for x in spark.sql("show databases").collect()]; print(len(all_dbs))'
         results = self.submit_command(cid, ec_id, all_dbs_cmd)
         if results['resultType'] != 'text':
-            print(json.dumps(results) + '\n')
+            log.info(json.dumps(results) + '\n')
             raise ValueError("Cannot identify number of databases due to the above error")
         num_of_dbs = ast.literal_eval(results['data'])
         batch_size = 100    # batch size to iterate over databases
@@ -30,7 +31,7 @@ class HiveClient(ClustersClient):
             db_names = ast.literal_eval(results['data'])
             for db in db_names:
                 all_dbs.append(db)
-                print("Database: {0}".format(db))
+                log.info("Database: {0}".format(db))
                 os.makedirs(self._export_dir + ms_dir + db, exist_ok=True)
         return all_dbs
 
@@ -50,7 +51,7 @@ class HiveClient(ClustersClient):
                 results = self.submit_command(cid, ec_id, tables_slice)
                 table_names = ast.literal_eval(results['data'])
                 for table_name in table_names:
-                    print("Table: {0}".format(table_name))
+                    log.info("Table: {0}".format(table_name))
                     ddl_stmt = 'print(spark.sql("show create table {0}.{1}").collect()[0][0])'.format(db_name,
                                                                                                       table_name)
                     results = self.submit_command(cid, ec_id, ddl_stmt)
@@ -88,7 +89,7 @@ class HiveClient(ClustersClient):
         start = timer()
         cid = self.launch_cluster(iam_role)
         end = timer()
-        print("Cluster creation time: " + str(timedelta(seconds=end - start)))
+        log.info("Cluster creation time: " + str(timedelta(seconds=end - start)))
         time.sleep(5)
         ec_id = self.get_execution_context(cid)
         # if metastore failed log path exists, cleanup before re-running
@@ -106,7 +107,7 @@ class HiveClient(ClustersClient):
         # get total failed entries
         total_failed_entries = self.get_num_of_lines(failed_metastore_log_path)
         if do_instance_profile_exist:
-            print("Instance profiles exist, retrying export of failed tables with each instance profile")
+            log.info("Instance profiles exist, retrying export of failed tables with each instance profile")
             err_log_list = []
             with open(failed_metastore_log_path, 'r') as err_log:
                 for table in err_log:
@@ -130,7 +131,7 @@ class HiveClient(ClustersClient):
                             with open(self._export_dir + ms_dir + db_name + '/' + table_name, "w") as fp:
                                 fp.write(results['data'])
                         else:
-                            print('failed to get ddl for {0}.{1} with iam role {2}'.format(db_name, table_name,
+                            log.info('failed to get ddl for {0}.{1} with iam role {2}'.format(db_name, table_name,
                                                                                            iam_role))
 
             os.remove(failed_metastore_log_path)
@@ -138,15 +139,15 @@ class HiveClient(ClustersClient):
                 for table in err_log_list:
                     fm.write(table)
             failed_count_after_retry = self.get_num_of_lines(failed_metastore_log_path)
-            print("Failed count after retry: " + str(failed_count_after_retry))
+            log.info("Failed count after retry: " + str(failed_count_after_retry))
         else:
-            print("No registered instance profiles to retry export")
+            log.info("No registered instance profiles to retry export")
 
     def export_hive_metastore(self, ms_dir='metastore/'):
         start = timer()
         cid = self.launch_cluster()
         end = timer()
-        print("Cluster creation time: " + str(timedelta(seconds=end - start)))
+        log.info("Cluster creation time: " + str(timedelta(seconds=end - start)))
         time.sleep(5)
         ec_id = self.get_execution_context(cid)
         # if metastore failed log path exists, cleanup before re-running
@@ -159,13 +160,13 @@ class HiveClient(ClustersClient):
 
         total_failed_entries = self.get_num_of_lines(failed_metastore_log_path)
         if (not self.is_skip_failed()) and self.is_aws():
-            print("Retrying failed metastore export with registered IAM roles")
+            log.info("Retrying failed metastore export with registered IAM roles")
             self.retry_failed_metastore_export(cid, failed_metastore_log_path)
-            print("Failed count before retry: " + str(total_failed_entries))
-            print("Total Databases attempted export: " + str(len(all_dbs)))
+            log.info("Failed count before retry: " + str(total_failed_entries))
+            log.info("Total Databases attempted export: " + str(len(all_dbs)))
         else:
-            print("Failed count: " + str(total_failed_entries))
-            print("Total Databases attempted export: " + str(len(all_dbs)))
+            log.info("Failed count: " + str(total_failed_entries))
+            log.info("Total Databases attempted export: " + str(len(all_dbs)))
 
     def create_database_db(self, db_name, ec_id, cid):
         create_db_statement = 'spark.sql("CREATE DATABASE IF NOT EXISTS {0}")'.format(db_name.replace('\n', ''))
@@ -202,10 +203,10 @@ class HiveClient(ClustersClient):
                 tables = os.listdir(local_db_path)
                 for x in tables:
                     # build the path for the table where the ddl is stored
-                    print("Importing table {0}.{1}".format(db, x))
+                    log.info("Importing table {0}.{1}".format(db, x))
                     local_table_ddl = ms_local_dir + '/' + db + '/' + x
                     is_successful = self.apply_table_ddl(local_table_ddl, ec_id, cid)
-                    print(is_successful)
+                    log.info(is_successful)
             else:
-                print("Error: Only databases should exist at this level: {0}".format(db))
+                log.error("Error: Only databases should exist at this level: {0}".format(db))
 

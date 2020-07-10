@@ -1,7 +1,10 @@
 import json
 import os
+
 import requests
 import requests.packages.urllib3
+
+from databricks_migrate import log
 
 global pprint_j
 
@@ -10,10 +13,10 @@ requests.packages.urllib3.disable_warnings()
 
 # Helper to pretty print json
 def pprint_j(i):
-    print(json.dumps(i, indent=4, sort_keys=True))
+    log.info(json.dumps(i, indent=4, sort_keys=True))
 
 
-class dbclient:
+class DBClient:
     """
     Rest API Wrapper for Databricks APIs
     """
@@ -26,7 +29,6 @@ class dbclient:
         self._export_dir = configs['export_dir']
         self._is_aws = configs['is_aws']
         self._skip_failed = configs['skip_failed']
-        self._is_verbose = configs['verbose']
         self._verify_ssl = configs['verify_ssl']
         if self._verify_ssl:
             # set these env variables if skip SSL verification is enabled
@@ -37,24 +39,21 @@ class dbclient:
     def is_aws(self):
         return self._is_aws
 
-    def is_verbose(self):
-        return self._is_verbose
-
     def is_skip_failed(self):
         return self._skip_failed
 
     def test_connection(self):
         # verify the proper url settings to configure this client
         if self._url[-4:] != '.com':
-            print("Hostname should end in '.com'")
+            log.info("Hostname should end in '.com'")
             return -1
         results = requests.get(self._url + '/api/2.0/clusters/spark-versions', headers=self._token,
                                verify=self._verify_ssl)
         http_status_code = results.status_code
         if http_status_code != 200:
-            print("Error. Either the credentials have expired or the credentials don't have proper permissions.")
-            print("If you have a ~/.netrc file, check those credentials. Those take precedence over passed input.")
-            print(results.text)
+            log.info("Error. Either the credentials have expired or the credentials don't have proper permissions.")
+            log.info("If you have a ~/.netrc file, check those credentials. Those take precedence over passed input.")
+            log.info(results.text)
             return -1
         return 0
 
@@ -62,22 +61,22 @@ class dbclient:
         if version:
             ver = version
         full_endpoint = self._url + '/api/{0}'.format(ver) + endpoint
-        if self.is_verbose():
-            print("Get: {0}".format(full_endpoint))
+
+        log.debug("Get: {0}".format(full_endpoint))
         if json_params:
             raw_results = requests.get(full_endpoint, headers=self._token, params=json_params, verify=self._verify_ssl)
             http_status_code = raw_results.status_code
-            if http_status_code in dbclient.http_error_codes:
+            if http_status_code in DBClient.http_error_codes:
                 raise Exception("Error: GET request failed with code {}\n{}".format(http_status_code, raw_results.text))
             results = raw_results.json()
         else:
             raw_results = requests.get(full_endpoint, headers=self._token, verify=self._verify_ssl)
             http_status_code = raw_results.status_code
-            if http_status_code in dbclient.http_error_codes:
+            if http_status_code in DBClient.http_error_codes:
                 raise Exception("Error: GET request failed with code {}\n{}".format(http_status_code, raw_results.text))
             results = raw_results.json()
         if print_json:
-            print(json.dumps(results, indent=4, sort_keys=True))
+            log.info(json.dumps(results, indent=4, sort_keys=True))
         if type(results) == list:
             results = {'elements': results}
         results['http_status_code'] = raw_results.status_code
@@ -87,8 +86,8 @@ class dbclient:
         if version:
             ver = version
         full_endpoint = self._url + '/api/{0}'.format(ver) + endpoint
-        if self.is_verbose():
-            print("{0}: {1}".format(http_type, full_endpoint))
+
+        log.debug("{0}: {1}".format(http_type, full_endpoint))
         if json_params:
             if http_type == 'post':
                 raw_results = requests.post(full_endpoint, headers=self._token,
@@ -100,16 +99,16 @@ class dbclient:
                 raw_results = requests.patch(full_endpoint, headers=self._token,
                                              json=json_params, verify=self._verify_ssl)
             http_status_code = raw_results.status_code
-            if http_status_code in dbclient.http_error_codes:
+            if http_status_code in DBClient.http_error_codes:
                 raise Exception("Error: {0} request failed with code {1}\n{2}".format(http_type,
                                                                                       http_status_code,
                                                                                       raw_results.text))
             results = raw_results.json()
         else:
-            print("Must have a payload in json_args param.")
+            log.info("Must have a payload in json_args param.")
             return {}
         if print_json:
-            print(json.dumps(results, indent=4, sort_keys=True))
+            log.info(json.dumps(results, indent=4, sort_keys=True))
         # if results are empty, let's return the return status
         if results:
             results['http_status_code'] = raw_results.status_code

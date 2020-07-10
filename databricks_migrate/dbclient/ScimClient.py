@@ -1,9 +1,11 @@
-from dbclient import *
-import os
 import json
+import os
+
+from databricks_migrate import log
+from databricks_migrate.dbclient import DBClient
 
 
-class ScimClient(dbclient):
+class ScimClient(DBClient):
 
     def log_all_users(self, log_file='users.log'):
         user_log = self._export_dir + log_file
@@ -19,7 +21,7 @@ class ScimClient(dbclient):
                             continue
                     fp.write(json.dumps(x) + '\n')
         else:
-            print("Users returned an empty object")
+            log.info("Users returned an empty object")
 
     @staticmethod
     def is_member_a_user(member_json):
@@ -85,7 +87,7 @@ class ScimClient(dbclient):
         # assign group role ACLs, which are only available via SCIM apis
         group_ids = self.get_group_ids()
         if not os.path.exists(group_dir):
-            print("No groups defined. Skipping group entitlement assignment")
+            log.info("No groups defined. Skipping group entitlement assignment")
             return
         groups = os.listdir(group_dir)
         for group_name in groups:
@@ -138,7 +140,7 @@ class ScimClient(dbclient):
         """
         user_log = self._export_dir + user_log_file
         if not os.path.exists(user_log):
-            print("Skipping user entitlement assignment. Logfile does not exist")
+            log.info("Skipping user entitlement assignment. Logfile does not exist")
             return
         # keys to filter from the user log to get the user / role mapping
         old_role_keys = ('userName', 'roles')
@@ -191,7 +193,7 @@ class ScimClient(dbclient):
     def import_groups(self, group_dir):
         # list all the groups and create groups first
         if not os.path.exists(group_dir):
-            print("No groups to import.")
+            log.info("No groups to import.")
             return
         groups = os.listdir(group_dir)
         create_args = {
@@ -199,7 +201,7 @@ class ScimClient(dbclient):
             "displayName": "default"
         }
         for x in groups:
-            print('Creating group: {0}'.format(x))
+            log.info('Creating group: {0}'.format(x))
             # set the create args displayName property aka group name
             create_args['displayName'] = x
             group_resp = self.post('/preview/scim/v2/Groups', create_args)
@@ -225,12 +227,12 @@ class ScimClient(dbclient):
         # first create the user identities with the required fields
         create_keys = ('emails', 'entitlements', 'displayName', 'name', 'userName')
         if not os.path.exists(user_log):
-            print("No users to import.")
+            log.info("No users to import.")
             return
         with open(user_log, 'r') as fp:
             for x in fp:
                 user = json.loads(x)
-                print("Creating user: {0}".format(user['userName']))
+                log.info("Creating user: {0}".format(user['userName']))
                 user_create = {k: user[k] for k in create_keys if k in user}
                 create_resp = self.post('/preview/scim/v2/Users', user_create)
 
@@ -242,8 +244,8 @@ class ScimClient(dbclient):
         self.import_groups(group_dir)
         # assign the users to IAM roles if on AWS
         if self.is_aws():
-            print("Update group role assignment")
+            log.info("Update group role assignment")
             self.assign_group_roles(group_dir)
-            print("Update user role assignment")
+            log.info("Update user role assignment")
             self.assign_user_roles(user_log_file)
-            print("Done")
+            log.info("Done")

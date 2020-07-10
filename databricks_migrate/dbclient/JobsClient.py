@@ -1,9 +1,11 @@
+import json
 import os
 
-from dbclient import *
+from databricks_migrate import log
+from databricks_migrate.dbclient import DBClient
 
 
-class JobsClient(dbclient):
+class JobsClient(DBClient):
     __new_aws_cluster_conf = {
         "num_workers": 8,
         "spark_version": "6.1.x-scala2.11",
@@ -46,7 +48,7 @@ class JobsClient(dbclient):
     def import_job_configs(self, log_file='jobs.log'):
         jobs_log = self._export_dir + log_file
         if not os.path.exists(jobs_log):
-            print("No job configurations to import.")
+            log.info("No job configurations to import.")
             return
         # get an old cluster id to new cluster id mapping object
         cluster_mapping = self.get_cluster_id_mapping()
@@ -59,7 +61,7 @@ class JobsClient(dbclient):
                     # set new cluster id for existing cluster attribute
                     new_cid = cluster_mapping.get(old_cid, None)
                     if not new_cid:
-                        print("Existing cluster has been removed. Resetting job to use new cluster.")
+                        log.info("Existing cluster has been removed. Resetting job to use new cluster.")
                         job_settings.pop('existing_cluster_id')
                         if self.is_aws():
                             job_settings['new_cluster'] = self.__new_aws_cluster_conf
@@ -67,12 +69,12 @@ class JobsClient(dbclient):
                             job_settings['new_cluster'] = self.__new_azure_cluster_conf
                     else:
                         job_settings['existing_cluster_id'] = new_cid
-                print("Current JID: {0}".format(job_conf['job_id']))
+                log.info("Current JID: {0}".format(job_conf['job_id']))
                 # creator can be none if the user is no longer in the org. see our docs page
                 creator_user_name = job_conf.get('creator_user_name', None)
                 create_resp = self.post('/jobs/create', job_settings)
                 if 'error_code' in create_resp:
-                    print("Resetting job to use default cluster configs due to expired configurations.")
+                    log.info("Resetting job to use default cluster configs due to expired configurations.")
                     if self.is_aws():
                         job_settings['new_cluster'] = self.__new_aws_cluster_conf
                     else:

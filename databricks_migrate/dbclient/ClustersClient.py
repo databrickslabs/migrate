@@ -1,9 +1,11 @@
+import json
 import os, re, time
 
-from dbclient import *
+from databricks_migrate import log
+from databricks_migrate.dbclient import DBClient
 
 
-class ClustersClient(dbclient):
+class ClustersClient(DBClient):
     create_configs = {'num_workers',
                       'autoscale',
                       'cluster_name',
@@ -89,7 +91,7 @@ class ClustersClient(dbclient):
                     iam_role = aws_conf.get('instance_profile_arn', None)
                     if iam_role:
                         if (iam_role not in ip_list):
-                            print("Skipping log of default IAM role: " + iam_role)
+                            log.info("Skipping log of default IAM role: " + iam_role)
                             del aws_conf['instance_profile_arn']
                             cluster_json['aws_attributes'] = aws_conf
                     cluster_json['aws_attributes'] = aws_conf
@@ -133,7 +135,7 @@ class ClustersClient(dbclient):
         """
         cluster_log = self._export_dir + log_file
         if not os.path.exists(cluster_log):
-            print("No clusters to import.")
+            log.info("No clusters to import.")
             return
         current_cluster_names = set([x.get('cluster_name', None) for x in self.get_cluster_list(False)])
         # get instance pool id mappings
@@ -142,7 +144,7 @@ class ClustersClient(dbclient):
                 cluster_conf = json.loads(line)
                 cluster_name = cluster_conf['cluster_name']
                 if cluster_name in current_cluster_names:
-                    print("Cluster already exists, skipping: {0}".format(cluster_name))
+                    log.info("Cluster already exists, skipping: {0}".format(cluster_name))
                     continue
                 cluster_creator = cluster_conf.pop('creator_user_name')
                 # check for instance pools and modify cluster attributes
@@ -158,14 +160,14 @@ class ClustersClient(dbclient):
                     else:
                         cluster_conf['custom_tags'] = {'OriginalCreator' : cluster_creator}
                     new_cluster_conf = cluster_conf
-                print("Creating cluster: {0}".format(new_cluster_conf['cluster_name']))
+                log.info("Creating cluster: {0}".format(new_cluster_conf['cluster_name']))
                 cluster_resp = self.post('/clusters/create', new_cluster_conf)
                 if cluster_resp['http_status_code'] == 200:
                     stop_resp = self.post('/clusters/delete', {'cluster_id': cluster_resp['cluster_id']})
                     if 'pinned_by_user_name' in cluster_conf:
                         pin_resp = self.post('/clusters/pin', {'cluster_id': cluster_resp['cluster_id']})
                 else:
-                    print(cluster_resp)
+                    log.info(cluster_resp)
 
     def delete_all_clusters(self):
         cl = self.get_cluster_list(False)
@@ -185,7 +187,7 @@ class ClustersClient(dbclient):
         # currently an AWS only operation
         ip_log = self._export_dir + log_file
         if not os.path.exists(ip_log):
-            print("No instance profiles to import.")
+            log.info("No instance profiles to import.")
             return
         # check current profiles and skip if the profile already exists
         ip_list = self.get('/instance-profiles/list').get('instance_profiles', None)
@@ -197,10 +199,10 @@ class ClustersClient(dbclient):
             for line in fp:
                 ip_arn = json.loads(line).get('instance_profile_arn', None)
                 if ip_arn not in list_of_profiles:
-                    print("Importing arn: {0}".format(ip_arn))
+                    log.info("Importing arn: {0}".format(ip_arn))
                     resp = self.post('/instance-profiles/add', {'instance_profile_arn': ip_arn})
                 else:
-                    print("Skipping since profile exists: {0}".format(ip_arn))
+                    log.info("Skipping since profile exists: {0}".format(ip_arn))
 
     def log_instance_pools(self, log_file='instance_pools.log'):
         pool_log = self._export_dir + log_file
@@ -213,7 +215,7 @@ class ClustersClient(dbclient):
     def import_instance_pools(self, log_file='instance_pools.log'):
         pool_log = self._export_dir + log_file
         if not os.path.exists(pool_log):
-            print("No instance pools to import.")
+            log.info("No instance pools to import.")
             return
         with open(pool_log, 'r') as fp:
             for line in fp:
@@ -253,7 +255,7 @@ class ClustersClient(dbclient):
         c_state = self.get('/clusters/get', {'cluster_id': cid})
         while c_state['state'] != 'RUNNING':
             c_state = self.get('/clusters/get', {'cluster_id': cid})
-            print('Cluster state: {0}'.format(c_state['state']))
+            log.info('Cluster state: {0}'.format(c_state['state']))
             time.sleep(2)
         return cid
 
@@ -277,7 +279,7 @@ class ClustersClient(dbclient):
                 cluster_json = json.loads(fp.read())
             if iam_role:
                 aws_attr = cluster_json['aws_attributes']
-                print("Creating cluster with: " + iam_role)
+                log.info("Creating cluster with: " + iam_role)
                 aws_attr['instance_profile_arn'] = iam_role
                 cluster_json['aws_attributes'] = aws_attr
         else:
@@ -307,7 +309,7 @@ class ClustersClient(dbclient):
                 cluster_json = json.loads(fp.read())
                 # pull AWS attributes and update the IAM policy
                 aws_attr = cluster_json['aws_attributes']
-                print("Updating cluster with: " + iam_role)
+                log.info("Updating cluster with: " + iam_role)
                 aws_attr['instance_profile_arn'] = iam_role
                 cluster_json['aws_attributes'] = aws_attr
                 resp = self.post('/clusters/edit', cluster_json)
@@ -317,7 +319,7 @@ class ClustersClient(dbclient):
             return False
 
     def get_execution_context(self, cid):
-        print("Creating remote Spark Session")
+        log.info("Creating remote Spark Session")
         time.sleep(5)
         ec_payload = {"language": "python",
                       "clusterId": cid}
@@ -325,8 +327,8 @@ class ClustersClient(dbclient):
         # Grab the execution context ID
         ec_id = ec.get('id', None)
         if not ec_id:
-            print('Unable to establish remote session')
-            print(ec)
+            log.info('Unable to establish remote session')
+            log.info(ec)
             raise Exception("Remote session error")
         return ec_id
 
@@ -342,8 +344,7 @@ class ClustersClient(dbclient):
 
         com_id = command.get('id', None)
         if not com_id:
-            print("ERROR: ")
-            print(command)
+            log.error(f"ERROR: {command}")
         # print('command_id : ' + com_id)
         result_payload = {'clusterId': cid, 'contextId': ec_id, 'commandId': com_id}
 
@@ -357,6 +358,6 @@ class ClustersClient(dbclient):
             time.sleep(1)
         end_results = resp['results']
         if end_results.get('resultType', None) == 'error':
-            print("ERROR: ")
-            print(end_results.get('summary', None))
+            log.error(f"ERROR: {end_results.get('summary', None)}")
+            log.info()
         return end_results
