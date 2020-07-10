@@ -6,10 +6,10 @@ from datetime import timedelta
 from timeit import default_timer as timer
 
 from databricks_migrate import log
-from databricks_migrate.dbclient import ClustersClient
+from databricks_migrate.migrations import ClusterMigrations
 
 
-class DbfsClient(ClustersClient):
+class DbfsMigrations(ClusterMigrations):
 
     @staticmethod
     def get_num_of_lines(fname):

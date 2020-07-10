@@ -13,17 +13,17 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/databrickslabs/workspace-migration-tool",
     license="https://github.com/databrickslabs/workspace-migration-tool/LICENSE",
-    packages=setuptools.find_packages(exclude=['tests', 'tests.*']),
+    packages=setuptools.find_packages(exclude=['tests', 'tests.*',]),
     install_requires=[
           'requests>=2.17.3',
           'click>=6.7',
           'click-log==0.3.2',
+          'databricks-cli==0.11.0',
       ],
     entry_points='''
         [console_scripts]
-        dbmigrate=databricks_migrate.cli:cli
+        databricks-migrate=databricks_migrate.cli:cli
     ''',
-    # py_modules=["export_db","import_db","test_connection"],
     classifiers=[
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",

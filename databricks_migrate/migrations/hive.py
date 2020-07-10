@@ -6,11 +6,10 @@ from datetime import timedelta
 from timeit import default_timer as timer
 
 from databricks_migrate import log
-from databricks_migrate.dbclient import ClustersClient
+from databricks_migrate.migrations import ClusterMigrations
 
 
-class HiveClient(ClustersClient):
-
+class HiveMigrations(ClusterMigrations):
 
     def log_all_databases(self, cid, ec_id, ms_dir):
         # submit first command to find number of databases
@@ -65,7 +64,7 @@ class HiveClient(ClustersClient):
 
     def check_if_instance_profiles_exists(self, log_file='instance_profiles.log'):
         ip_log = self._export_dir + log_file
-        ips = self.get('/instance-profiles/list').get('instance_profiles', None)
+        ips = self.api_client.perform_query("GET", '/instance-profiles/list').get('instance_profiles', None)
         if ips:
             with open(ip_log, "w") as fp:
                 for x in ips:

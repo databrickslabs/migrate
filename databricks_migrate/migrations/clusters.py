@@ -1,11 +1,13 @@
 import json
 import os, re, time
 
+from databricks_cli.sdk import ApiClient, ClusterService, InstancePoolService, DbfsService
+
 from databricks_migrate import log
-from databricks_migrate.dbclient import DBClient
+from databricks_migrate.migrations import BaseMigrationClient
 
 
-class ClustersClient(DBClient):
+class ClusterMigrations(BaseMigrationClient):
     create_configs = {'num_workers',
                       'autoscale',
                       'cluster_name',
@@ -26,15 +28,21 @@ class ClustersClient(DBClient):
                       'creator_user_name',
                       'cluster_id'}
 
+    def __init__(self, api_client: ApiClient, api_client_v1_2: ApiClient, export_dir, is_aws, skip_failed, verify_ssl):
+        super().__init__(api_client, api_client_v1_2, export_dir, is_aws, skip_failed, verify_ssl)
+        self.clusters_service = ClusterService(api_client)
+        self.instance_pool_service = InstancePoolService(api_client)
+        self.dbfs_service = DbfsService(api_client)
+
     def get_spark_versions(self):
-        return self.get("/clusters/spark-versions", print_json=True)
+        return self.clusters_service.list_spark_versions()
 
     def get_cluster_list(self, alive=True):
         """
         Returns an array of json objects for the running clusters.
         Grab the cluster_name or cluster_id
         """
-        cl = self.get("/clusters/list", print_json=False)
+        cl = self.clusters_service.list_clusters()
         if alive:
             running = filter(lambda x: x['state'] == "RUNNING", cl['clusters'])
             return list(running)
@@ -72,7 +80,8 @@ class ClustersClient(DBClient):
         # pinned by cluster_user is a flag per cluster
         cl_raw = self.get_cluster_list(False)
         cl = self.remove_automated_clusters(cl_raw)
-        ips = self.get('/instance-profiles/list').get('instance_profiles', None)
+        # No instance profiles service
+        ips = self.api_client.perform_query("GET", '/instance-profiles/list').get('instance_profiles', None)
         if ips:
             # filter none if we hit a profile w/ a none object
             # generate list of registered instance profiles to check cluster configs against
@@ -115,7 +124,7 @@ class ClustersClient(DBClient):
             tags['OriginalCreator'] = cluster_creator
             cluster_json['custom_tags'] = tags
         else:
-            cluster_json['custom_tags'] = {'OriginalCreator' : cluster_creator}
+            cluster_json['custom_tags'] = {'OriginalCreator': cluster_creator}
         # remove all aws_attr except for IAM role if it exists
         if 'aws_attributes' in cluster_json:
             aws_conf = cluster_json.pop('aws_attributes')
@@ -158,26 +167,27 @@ class ClustersClient(DBClient):
                         tags['OriginalCreator'] = cluster_creator
                         cluster_conf['custom_tags'] = tags
                     else:
-                        cluster_conf['custom_tags'] = {'OriginalCreator' : cluster_creator}
+                        cluster_conf['custom_tags'] = {'OriginalCreator': cluster_creator}
                     new_cluster_conf = cluster_conf
                 log.info("Creating cluster: {0}".format(new_cluster_conf['cluster_name']))
-                cluster_resp = self.post('/clusters/create', new_cluster_conf)
+                # cluster_resp = '/clusters/create', new_cluster_conf)
+                cluster_resp = self.clusters_service.create_cluster(**new_cluster_conf)
                 if cluster_resp['http_status_code'] == 200:
-                    stop_resp = self.post('/clusters/delete', {'cluster_id': cluster_resp['cluster_id']})
+                    stop_resp = self.clusters_service.delete_cluster(cluster_resp['cluster_id'])
                     if 'pinned_by_user_name' in cluster_conf:
-                        pin_resp = self.post('/clusters/pin', {'cluster_id': cluster_resp['cluster_id']})
+                        pin_resp = self.clusters_service.pin_cluster(cluster_resp['cluster_id'])
                 else:
                     log.info(cluster_resp)
 
     def delete_all_clusters(self):
         cl = self.get_cluster_list(False)
         for x in cl:
-            self.post('/clusters/unpin', {'cluster_id': x['cluster_id']})
-            self.post('/clusters/permanent-delete', {'cluster_id': x['cluster_id']})
+            self.clusters_service.unpin_cluster(x['cluster_id'])
+            self.clusters_service.permanent_delete_cluster(x['cluster_id'])
 
     def log_instance_profiles(self, log_file='instance_profiles.log'):
         ip_log = self._export_dir + log_file
-        ips = self.get('/instance-profiles/list').get('instance_profiles', None)
+        ips = self.api_client.perform_query("GET", '/instance-profiles/list').get('instance_profiles', None)
         if ips:
             with open(ip_log, "w") as fp:
                 for x in ips:
@@ -190,7 +200,7 @@ class ClustersClient(DBClient):
             log.info("No instance profiles to import.")
             return
         # check current profiles and skip if the profile already exists
-        ip_list = self.get('/instance-profiles/list').get('instance_profiles', None)
+        ip_list = self.api_client.perform_query("GET", '/instance-profiles/list').get('instance_profiles', None)
         if ip_list:
             list_of_profiles = [x['instance_profile_arn'] for x in ip_list]
         else:
@@ -200,13 +210,14 @@ class ClustersClient(DBClient):
                 ip_arn = json.loads(line).get('instance_profile_arn', None)
                 if ip_arn not in list_of_profiles:
                     log.info("Importing arn: {0}".format(ip_arn))
-                    resp = self.post('/instance-profiles/add', {'instance_profile_arn': ip_arn})
+                    resp = self.api_client.perform_query("POST", '/instance-profiles/add',
+                                                         data={'instance_profile_arn': ip_arn})
                 else:
                     log.info("Skipping since profile exists: {0}".format(ip_arn))
 
     def log_instance_pools(self, log_file='instance_pools.log'):
         pool_log = self._export_dir + log_file
-        pools = self.get('/instance-pools/list').get('instance_pools', None)
+        pools = self.instance_pool_service.list_instance_pools().get('instance_pools', None)
         if pools:
             with open(pool_log, "w") as fp:
                 for x in pools:
@@ -220,11 +231,11 @@ class ClustersClient(DBClient):
         with open(pool_log, 'r') as fp:
             for line in fp:
                 pool_conf = json.loads(line)
-                pool_resp = self.post('/instance-pools/create', pool_conf)
+                pool_resp = self.instance_pool_service.create_instance_pool(**pool_conf)
 
     def get_instance_pool_id_mapping(self, log_file='instance_pools.log'):
         pool_log = self._export_dir + log_file
-        current_pools = self.get('/instance-pools/list').get('instance_pools', None)
+        current_pools = self.instance_pool_service.list_instance_pools().get('instance_pools', None)
         if not current_pools:
             return None
         new_pools = {}
@@ -244,7 +255,7 @@ class ClustersClient(DBClient):
 
     def get_global_init_scripts(self):
         """ return a list of global init scripts. Currently not logged """
-        ls = self.get('/dbfs/list', {'path': '/databricks/init/'}).get('files', None)
+        ls = self.dbfs_service.list('/databricks/init/').get('files', None)
         if ls is None:
             return []
         else:
@@ -252,15 +263,15 @@ class ClustersClient(DBClient):
             return global_scripts
 
     def wait_for_cluster(self, cid):
-        c_state = self.get('/clusters/get', {'cluster_id': cid})
+        c_state = self.clusters_service.get_cluster(cid)
         while c_state['state'] != 'RUNNING':
-            c_state = self.get('/clusters/get', {'cluster_id': cid})
+            c_state = self.clusters_service.get_cluster(cid)
             log.info('Cluster state: {0}'.format(c_state['state']))
             time.sleep(2)
         return cid
 
     def get_cluster_id_by_name(self, cname):
-        cl = self.get('/clusters/list')
+        cl = self.clusters_service.list_clusters()
         running = list(filter(lambda x: x['state'] == "RUNNING", cl['clusters']))
         for x in running:
             if cname == x['cluster_name']:
@@ -292,7 +303,7 @@ class ClustersClient(DBClient):
         if existing_cid:
             return existing_cid
         else:
-            c_info = self.post('/clusters/create', cluster_json)
+            c_info = self.clusters_service.create_cluster(**cluster_json)
             if c_info['http_status_code'] != 200:
                 raise Exception("Could not launch cluster. Verify that the --azure flag or cluster config is correct.")
             self.wait_for_cluster(c_info['cluster_id'])
@@ -312,7 +323,7 @@ class ClustersClient(DBClient):
                 log.info("Updating cluster with: " + iam_role)
                 aws_attr['instance_profile_arn'] = iam_role
                 cluster_json['aws_attributes'] = aws_attr
-                resp = self.post('/clusters/edit', cluster_json)
+                resp = self.clusters_service.edit_cluster(**cluster_json)
                 self.wait_for_cluster(cid)
                 return cid
         else:
@@ -323,7 +334,7 @@ class ClustersClient(DBClient):
         time.sleep(5)
         ec_payload = {"language": "python",
                       "clusterId": cid}
-        ec = self.post('/contexts/create', json_params=ec_payload, version="1.2")
+        ec = self.api_client_v1_2.perform_query("POST", '/contexts/create', data=ec_payload)
         # Grab the execution context ID
         ec_id = ec.get('id', None)
         if not ec_id:
@@ -338,9 +349,8 @@ class ClustersClient(DBClient):
                            'contextId': ec_id,
                            'clusterId': cid,
                            'command': cmd}
-        command = self.post('/commands/execute',
-                            json_params=command_payload,
-                            version="1.2")
+        command = self.api_client_v1_2.perform_query("POST", '/commands/execute',
+                                                     data=command_payload, )
 
         com_id = command.get('id', None)
         if not com_id:
@@ -348,12 +358,12 @@ class ClustersClient(DBClient):
         # print('command_id : ' + com_id)
         result_payload = {'clusterId': cid, 'contextId': ec_id, 'commandId': com_id}
 
-        resp = self.get('/commands/status', json_params=result_payload, version="1.2")
+        resp = self.api_client_v1_2.perform_query("GET", '/commands/status', data=result_payload)
         is_running = resp['status']
 
         # loop through the status api to check for the 'running' state call and sleep 1 second
         while (is_running == "Running") or (is_running == 'Queued'):
-            resp = self.get('/commands/status', json_params=result_payload, version="1.2")
+            resp = self.api_client_v1_2.perform_query("GET", '/commands/status', data=result_payload)
             is_running = resp['status']
             time.sleep(1)
         end_results = resp['results']

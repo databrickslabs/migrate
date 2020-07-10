@@ -3,11 +3,14 @@ from os import makedirs
 from timeit import default_timer as timer
 
 import click
+from databricks_cli.configure.config import debug_option, profile_option
+from databricks_cli.sdk import ApiClient
+from databricks_cli.utils import eat_exceptions
 
-from databricks_migrate import CONTEXT_SETTINGS, log
-from databricks_migrate.dbclient import build_client_config, WorkspaceClient, \
-    ScimClient, ClustersClient, JobsClient, HiveClient
-from databricks_migrate.utils import get_login_args
+from databricks_migrate import CONTEXT_SETTINGS, log, API_VERSION_1_2, API_VERSION_2_0
+from databricks_migrate.migrations import WorkspaceMigrations, \
+    ScimMigrations, ClusterMigrations, JobsMigrations, HiveMigrations
+from databricks_migrate.utils import provide_api_client
 
 
 @click.command(context_settings=CONTEXT_SETTINGS, help="Import user workspace artifacts into Databricks")
@@ -21,79 +24,75 @@ from databricks_migrate.utils import get_login_args
 @click.option('--metastore', is_flag=True, help='Import the metastore to the workspace.')
 @click.option('--skip-failed', is_flag=True, help='Skip retries for any failed exports.')
 @click.option('--azure', is_flag=True, help='Run on Azure. (Default is AWS)')
-@click.option('--profile', type=str, help='Profile to parse the credentials')
 @click.option('--no-ssl-verification', is_flag=True, help='Set Verify=False when making http requests.')
-def import_cli(**kwargs):
+@debug_option
+@eat_exceptions
+@profile_option
+@provide_api_client(api_version=API_VERSION_1_2)
+@provide_api_client(api_version=API_VERSION_2_0)
+def import_cli(users: bool,
+               workspace: bool,
+               archive_missing: bool,
+               libs: bool,
+               clusters: bool,
+               jobs: bool,
+               metastore: bool,
+               skip_failed: bool,
+               azure: bool,
+               no_ssl_verification: bool,
+               api_client: ApiClient,
+               api_client_v1_2: ApiClient):
     # Client settings
-    profile = kwargs["profile"]
-    azure = kwargs["azure"]
-    skip_failed = kwargs["skip_failed"]
-    archive_missing = kwargs["archive_missing"]
-    no_ssl_verification = kwargs["no_ssl_verification"]
-    # Import flags
-    users = kwargs["users"]
-    workspace = kwargs["workspace"]
-    libs = kwargs["libs"]
-    clusters = kwargs["clusters"]
-    jobs = kwargs["jobs"]
-    metastore = kwargs["metastore"]
-
-    log.debug(f"cli params: {kwargs}")
-
-    login_args = get_login_args(profile=profile, azure=azure)
-    url = login_args['host']
-    token = login_args['token']
-
-    client_config = build_client_config(url, token, azure, no_ssl_verification, skip_failed)
-    makedirs(client_config['export_dir'], exist_ok=True)
-    log.debug(f"url: {url} token: {token}")
+    is_aws = not azure
+    export_dir = 'logs/' if is_aws else 'azure_logs/'
     now = str(datetime.now())
 
+    ws_c = WorkspaceMigrations(api_client, api_client_v1_2, export_dir, is_aws, skip_failed, no_ssl_verification)
+    scim_c = ScimMigrations(api_client, api_client_v1_2, export_dir, is_aws, skip_failed, no_ssl_verification)
+    clusters_c = ClusterMigrations(api_client, api_client_v1_2, export_dir, is_aws, skip_failed, no_ssl_verification)
+    jobs_c = JobsMigrations(api_client, api_client_v1_2, export_dir, is_aws, skip_failed, no_ssl_verification)
+    hive_c = HiveMigrations(api_client, api_client_v1_2, export_dir, is_aws, skip_failed, no_ssl_verification)
+    makedirs(export_dir, exist_ok=True)
+
     if workspace:
-        import_workspace(now=now, url=url, client_config=client_config, archive_missing=archive_missing)
+        import_workspace(now=now, archive_missing=archive_missing, ws_c=ws_c)
 
     if libs:
-        import_libs(client_config)
+        import_libs()
 
     if users:
-        import_users(now=now, client_config=client_config)
-
-    if users:
-        import_users(now=now, client_config=client_config)
+        import_users(now=now, is_aws=is_aws, scim_c=scim_c, cl_c=clusters_c)
 
     if clusters:
-        import_clusters(now=now, client_config=client_config)
+        import_clusters(now=now, is_aws=is_aws, cl_c=clusters_c)
 
     if jobs:
-        import_jobs(now=now, client_config=client_config)
+        import_jobs(now=now, jobs_c=jobs_c)
 
     if metastore:
-        import_metastore(now=now, client_config=client_config)
+        import_metastore(now=now, hive_c=hive_c)
 
 
-def import_metastore(now, client_config):
+def import_metastore(now, hive_c):
     log.info("Importing the metastore configs at {0}".format(now))
     start = timer()
-    hive_c = HiveClient(client_config)
     # log job configs
     hive_c.import_hive_metastore()
     end = timer()
     log.info("Complete Metastore Import Time: " + str(timedelta(seconds=end - start)))
 
 
-def import_jobs(now, client_config):
+def import_jobs(now, jobs_c):
     log.info("Importing the jobs configs at {0}".format(now))
     start = timer()
-    jobs_c = JobsClient(client_config)
     jobs_c.import_job_configs()
     end = timer()
     log.info("Complete Jobs Export Time: " + str(timedelta(seconds=end - start)))
 
 
-def import_clusters(now, client_config):
+def import_clusters(now, is_aws, cl_c):
     log.info("Import the cluster configs at {0}".format(now))
-    cl_c = ClustersClient(client_config)
-    if client_config['is_aws']:
+    if is_aws:
         log.info("Start import of instance profiles ...")
         start = timer()
         cl_c.import_instance_profiles()
@@ -111,12 +110,10 @@ def import_clusters(now, client_config):
     log.info("Complete Cluster Import Time: " + str(timedelta(seconds=end - start)))
 
 
-def import_users(now, client_config):
+def import_users(now, is_aws, scim_c, cl_c):
     log.info("Import all users and groups at {0}".format(now))
-    scim_c = ScimClient(client_config)
-    if client_config['is_aws']:
+    if is_aws:
         log.info("Start import of instance profiles first to ensure they exist...")
-        cl_c = ClustersClient(client_config)
         start = timer()
         cl_c.import_instance_profiles()
         end = timer()
@@ -127,7 +124,7 @@ def import_users(now, client_config):
     log.info("Complete Users and Groups Import Time: " + str(timedelta(seconds=end - start)))
 
 
-def import_libs(client_config):
+def import_libs():
     log.info("Importing libraries not yet implemented")
     # ########### TO DO #######################
     # lib_c = LibraryClient(client_config)
@@ -136,10 +133,8 @@ def import_libs(client_config):
     # log.info("Complete Library Import Time: " + str(timedelta(seconds=end - start)))
 
 
-def import_workspace(now, url, client_config, archive_missing):
+def import_workspace(now, archive_missing, ws_c):
     log.info("Import the complete workspace at {0}".format(now))
-    log.info("Import on {0}".format(url))
-    ws_c = WorkspaceClient(client_config)
     start = timer()
     # log notebooks and libraries
     if archive_missing:

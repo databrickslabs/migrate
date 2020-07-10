@@ -1,15 +1,10 @@
 import base64
 import os
 
-from databricks_migrate import log
-from databricks_migrate.dbclient import DBClient
+from databricks_cli.sdk import WorkspaceService
 
-WS_LIST = "/workspace/list"
-WS_STATUS = "/workspace/get-status"
-WS_MKDIRS = "/workspace/mkdirs"
-WS_IMPORT = "/workspace/import"
-WS_EXPORT = "/workspace/export"
-LS_ZONES = "/clusters/list-zones"
+from databricks_migrate import log
+from databricks_migrate.migrations.dbclient import BaseMigrationClient
 
 
 def get_user_import_args(full_local_path, nb_full_path):
@@ -23,7 +18,11 @@ def get_user_import_args(full_local_path, nb_full_path):
     return in_args
 
 
-class WorkspaceClient(DBClient):
+class WorkspaceMigrations(BaseMigrationClient):
+
+    def __init__(self, api_client, api_client_v1_2, export_dir, is_aws, skip_failed, verify_ssl):
+        super().__init__(api_client, api_client_v1_2, export_dir, is_aws, skip_failed, verify_ssl)
+        self.workspace_service = WorkspaceService(api_client)
 
     def export_user_home(self, username, local_export_dir):
         """
@@ -62,7 +61,8 @@ class WorkspaceClient(DBClient):
         get_args = {'path': notebook_path, 'format': 'DBC'}
 
         log.debug("Downloading: {0}".format(get_args['path']))
-        resp = self.get(WS_EXPORT, get_args)
+        resp = self.workspace_service.export_workspace(**get_args)
+        # resp = self.get(WS_EXPORT, get_args)
         with open(self._export_dir + 'failed_notebooks.log', 'a') as err_log:
             if resp.get('error_code', None):
                 err_log.write(notebook_path + '\n')
@@ -121,7 +121,10 @@ class WorkspaceClient(DBClient):
 
         if not os.path.exists(self._export_dir):
             os.makedirs(self._export_dir, exist_ok=True)
-        items = self.get(WS_LIST, get_args).get('objects', None)
+
+        resp = self.skip_failed_handler(self.workspace_service.list)(**get_args)
+
+        items = resp.get('objects', None)
 
         log.debug("Listing: {0}".format(get_args['path']))
         if items is not None:
@@ -161,7 +164,8 @@ class WorkspaceClient(DBClient):
         # get the num of defined user home directories in the new workspace
         # if this is 0, we must create the users before importing the notebooks over.
         # we cannot create the users home directory since its a special type of directory
-        ws_users = self.get(WS_LIST, {'path': '/Users/'}).get('objects', None)
+        resp = self.workspace_service.list(path='/Users/')
+        ws_users = resp.get('objects', None)
         if ws_users:
             return len(ws_users)
         else:
@@ -191,7 +195,7 @@ class WorkspaceClient(DBClient):
         return path_list[1]
 
     def does_user_exist(self, username):
-        stat = self.get(WS_STATUS, {'path': '/Users/{0}'.format(username)})
+        stat = self.workspace_service.get_status(path=f'/Users/{username}')
         if stat.get('object_type', None) == 'DIRECTORY':
             return True
         return False
@@ -238,7 +242,7 @@ class WorkspaceClient(DBClient):
             # make the top level folder before uploading files within the loop
             if not self.is_user_ws_root(upload_dir):
                 # if it is not the /Users/example@example.com/ root path, don't create the folder
-                resp_mkdirs = self.post(WS_MKDIRS, {'path': upload_dir})
+                resp_mkdirs = self.workspace_service.mkdirs(path=upload_dir)
             for f in files:
                 log.info("Uploading: {0}".format(f))
                 # create the local file path to load the DBC file
@@ -249,4 +253,4 @@ class WorkspaceClient(DBClient):
                 nb_input_args = get_user_import_args(local_file_path, ws_file_path)
                 # call import to the workspace
                 log.debug("Path: {0}".format(nb_input_args['path']))
-                resp_upload = self.post(WS_IMPORT, nb_input_args)
+                resp_upload = self.workspace_service.import_workspace(**nb_input_args)

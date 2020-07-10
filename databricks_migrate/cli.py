@@ -2,9 +2,9 @@ import click as click
 import click_log
 
 from databricks_migrate import CONTEXT_SETTINGS, log
-from databricks_migrate.db_export import export_cli
-from databricks_migrate.db_import import import_cli
-from databricks_migrate.db_test_connection import test_connection_cli
+from databricks_migrate.exporter import export_cli
+from databricks_migrate.importer import import_cli
+from databricks_migrate.test_connection import test_connection_cli
 from databricks_migrate.version import print_version_callback, version
 
 

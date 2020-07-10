@@ -1,11 +1,13 @@
 import json
 import os
 
+from databricks_cli.sdk import ApiClient, JobsService, ClusterService
+
 from databricks_migrate import log
-from databricks_migrate.dbclient import DBClient
+from databricks_migrate.migrations import BaseMigrationClient
 
 
-class JobsClient(DBClient):
+class JobsMigrations(BaseMigrationClient):
     __new_aws_cluster_conf = {
         "num_workers": 8,
         "spark_version": "6.1.x-scala2.11",
@@ -25,9 +27,14 @@ class JobsClient(DBClient):
         },
     }
 
+    def __init__(self, api_client: ApiClient, api_client_v1_2: ApiClient, export_dir, is_aws, skip_failed, verify_ssl):
+        super().__init__(api_client, api_client_v1_2, export_dir, is_aws, skip_failed, verify_ssl)
+        self.jobs_service = JobsService(api_client)
+        self.clusters_service = ClusterService(api_client)
+
     def get_jobs_list(self, print_json=False):
         """ Returns an array of json objects for jobs """
-        jobs = self.get("/jobs/list", print_json)
+        jobs = self.jobs_service.list_jobs()
         return jobs['jobs']
 
     def get_job_id(self, name):
@@ -72,19 +79,19 @@ class JobsClient(DBClient):
                 log.info("Current JID: {0}".format(job_conf['job_id']))
                 # creator can be none if the user is no longer in the org. see our docs page
                 creator_user_name = job_conf.get('creator_user_name', None)
-                create_resp = self.post('/jobs/create', job_settings)
+                create_resp = self.jobs_service.create_job(**job_settings)
                 if 'error_code' in create_resp:
                     log.info("Resetting job to use default cluster configs due to expired configurations.")
                     if self.is_aws():
                         job_settings['new_cluster'] = self.__new_aws_cluster_conf
                     else:
                         job_settings['new_cluster'] = self.__new_azure_cluster_conf
-                    create_resp_retry = self.post('/jobs/create', job_settings)
+                    create_resp_retry = self.jobs_service.create_job(**job_settings)
 
     def delete_all_jobs(self):
-        job_list = self.get('/jobs/list').get('jobs', None)
+        job_list = self.jobs_service.list_jobs().get('jobs', None)
         for job in job_list:
-            self.post('/jobs/delete', {'job_id': job['job_id']})
+            self.jobs_service.delete_job(job['job_id'])
 
     def get_cluster_id_mapping(self, log_file='clusters.log'):
         """
@@ -93,7 +100,7 @@ class JobsClient(DBClient):
         :return:
         """
         cluster_logfile = self._export_dir + log_file
-        current_cl = self.get('/clusters/list').get('clusters', None)
+        current_cl = self.clusters_service.list_clusters().get('clusters', None)
         old_clusters = {}
         # build dict with old cluster name to cluster id mapping
         with open(cluster_logfile, 'r') as fp:
