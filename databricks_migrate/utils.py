@@ -1,5 +1,8 @@
 import functools
 import uuid
+from datetime import timedelta, datetime
+from timeit import default_timer as timer
+from typing import Text
 
 import click
 from databricks_cli.configure.config import get_profile_from_context
@@ -7,7 +10,7 @@ from databricks_cli.configure.provider import ProfileConfigProvider, get_config
 from databricks_cli.sdk import ApiClient
 from databricks_cli.utils import InvalidConfigurationError
 
-from databricks_migrate import api_client_var_dict
+from databricks_migrate import api_client_var_dict, log
 
 
 def _get_api_client(config, command_name="", api_version="2.0"):
@@ -50,3 +53,29 @@ def provide_api_client(api_version):
         return decorator
 
     return api_client
+
+
+def log_action(action_name: Text, debug_params: bool = False):
+    def action(function):
+        """
+        Log an action given the action name and also debug parameters.
+        """
+
+        @functools.wraps(function)
+        def decorator(*args, **kwargs):
+            now = str(datetime.now())
+            if debug_params:
+                log.debug(
+                    f"Executing action: '{action_name}'; function: '{function.__name__}'; args: '{args}'; kwargs: '{kwargs}'; time: {now}")
+            log.info(f"Executing action: '{action_name}' at time: {now}")
+
+            start = timer()
+            res = function(*args, **kwargs)
+            end = timer()
+            log.info(f"Duration to execute function '{action_name}': " + str(timedelta(seconds=end - start)))
+            return res
+
+        decorator.__doc__ = function.__doc__
+        return decorator
+
+    return action

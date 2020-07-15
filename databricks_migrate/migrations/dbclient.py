@@ -29,6 +29,16 @@ class BaseMigrationClient:
             os.environ['CURL_CA_BUNDLE'] = ""
         os.makedirs(self._export_dir, exist_ok=True)
 
+    def __repr__(self):
+        return json.dumps({
+            "class": self.__class__.__name__,
+            "host": self.api_client.url,
+            "export_dir": self._export_dir,
+            "is_aws": self._is_aws,
+            "skip_failed": self._skip_failed,
+            "verify_ssl": self._verify_ssl,
+        })
+
     @property
     def scim_read_headers(self):
         return {"Accept": "application/scim+json", "Content-Type": "application/scim+json"}
