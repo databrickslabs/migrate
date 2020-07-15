@@ -369,5 +369,4 @@ class ClusterMigrations(BaseMigrationClient):
         end_results = resp['results']
         if end_results.get('resultType', None) == 'error':
             log.error(f"ERROR: {end_results.get('summary', None)}")
-            log.info()
         return end_results
