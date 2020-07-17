@@ -12,7 +12,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/databrickslabs/workspace-migration-tool",
-    license="https://github.com/databrickslabs/workspace-migration-tool/LICENSE",
+    license="https://github.com/databrickslabs/workspace-migration-tool/blob/master/LICENSE",
     packages=setuptools.find_packages(exclude=['tests', 'tests.*',]),
     install_requires=[
           'requests>=2.17.3',
