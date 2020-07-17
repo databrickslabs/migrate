@@ -37,10 +37,16 @@ export CURL_CA_BUNDLE=""
 Installation requires:
 * python >= 3.6
 
+Installing master:
+
 ```bash
-$ git clone https://github.com/databrickslabs/workspace-migration-tool
-$ cd workspace-migration-tool
-$ pip install .
+$ pip install git+https://github.com/databrickslabs/workspace-migration-tool.git@master
+```
+
+Installing specific version or release tag:
+
+```bash
+$ pip install git+https://github.com/databrickslabs/workspace-migration-tool.git@<tag>
 ```
 
 ## Usage
