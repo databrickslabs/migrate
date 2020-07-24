@@ -1,0 +1,9 @@
+# Test reqs
+pytest==5.4.3
+mock==2.0.0
+pytest-cov==2.5.1
+# Pin docutils version to address https://sourceforge.net/p/docutils/bugs/365/
+docutils==0.14
+codecov
+requests_mock==1.5.2
+mock==2.0.0

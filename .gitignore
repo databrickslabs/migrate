@@ -1,0 +1,13 @@
+.idea
+venv
+logs
+azure_logs
+__pycache__
+dbclient/*.pyc
+build/
+databricks_migration.egg-info/
+dist/
+.DS_Store
+.coverage
+.tox/
+databricks_migration_tool.egg-info
