@@ -40,13 +40,13 @@ Installation requires:
 Installing master:
 
 ```bash
-$ pip install git+https://github.com/databrickslabs/workspace-migration-tool.git@master
+$ pip install git+https://github.com/databrickslabs/migrate.git@master
 ```
 
 Installing specific version or release tag:
 
 ```bash
-$ pip install git+https://github.com/databrickslabs/workspace-migration-tool.git@<tag>
+$ pip install git+https://github.com/databrickslabs/migrate.git@<tag>
 ```
 
 ## Usage
