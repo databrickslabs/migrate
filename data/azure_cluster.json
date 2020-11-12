@@ -1,0 +1,14 @@
+{
+    "num_workers": 1,
+    "cluster_name": "API_Metastore_Work_Leave_Me_Alone",
+    "spark_version": "6.5.x-scala2.11",
+    "spark_conf": {},
+    "node_type_id": "Standard_D8_v3",
+    "ssh_public_keys": [],
+    "custom_tags": {},
+    "spark_env_vars": {
+        "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
+    },
+    "autotermination_minutes": 120,
+    "init_scripts": []
+}

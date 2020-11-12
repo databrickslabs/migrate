@@ -5,11 +5,10 @@ import time
 from datetime import timedelta
 from timeit import default_timer as timer
 
-from databricks_migrate import log
-from databricks_migrate.migrations import ClusterMigrations
+from dbclient import *
 
 
-class DbfsMigrations(ClusterMigrations):
+class DbfsClient(ClustersClient):
 
     @staticmethod
     def get_num_of_lines(fname):
@@ -27,12 +26,12 @@ class DbfsMigrations(ClusterMigrations):
         start = timer()
         cid = self.launch_cluster()
         end = timer()
-        log.info("Cluster creation time: " + str(timedelta(seconds=end - start)))
+        print("Cluster creation time: " + str(timedelta(seconds=end - start)))
         time.sleep(5)
         ec_id = self.get_execution_context(cid)
 
         # get all dbfs mount metadata
-        dbfs_mount_logfile = self._export_dir + 'dbfs_mounts.log'
+        dbfs_mount_logfile = self.get_export_dir() + 'dbfs_mounts.log'
         all_mounts_cmd = 'all_mounts = [{"path": x.mountPoint, "source": x.source, ' \
                                         '"encryptionType": x.encryptionType} for x in dbutils.fs.mounts()]'
         results = self.submit_command(cid, ec_id, all_mounts_cmd)
@@ -49,7 +48,7 @@ class DbfsMigrations(ClusterMigrations):
                 results = self.submit_command(cid, ec_id, mounts_slice)
                 mounts_slice_data = ast.literal_eval(results['data'])
                 for mount_path in mounts_slice_data:
-                    log.info("Mounts: {0}".format(mount_path))
+                    print("Mounts: {0}".format(mount_path))
                     fp_log.write(json.dumps(mount_path))
                     fp_log.write('\n')
         return True

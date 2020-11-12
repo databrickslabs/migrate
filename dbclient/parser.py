@@ -1,0 +1,253 @@
+import argparse
+import configparser
+import re
+from os import path
+
+auth_key = ['host',
+            'username',
+            'token']
+
+
+def is_azure_creds(creds):
+    if 'azuredatabricks.net' in creds['host']:
+        return True
+    return False
+
+
+def get_user_list(user_str):
+    user_list = map(lambda x: x.lstrip().rstrip(), user_str.split(','))
+    return list(user_list)
+
+
+def get_login_credentials(creds_path='~/.databrickscfg', profile='DEFAULT'):
+    config = configparser.ConfigParser()
+    abs_creds_path = path.expanduser(creds_path)
+    config.read(abs_creds_path)
+    try:
+        current_profile = dict(config[profile])
+        return current_profile
+    except KeyError:
+        raise ValueError('Unable to find credentials to load for profile. Profile only supports tokens.')
+
+
+def get_export_user_parser():
+    # export workspace items
+    parser = argparse.ArgumentParser(description='Export user(s) workspace artifacts from Databricks')
+
+    parser.add_argument('--profile', action='store', default='DEFAULT',
+                        help='Profile to parse the credentials')
+
+    parser.add_argument('--azure', action='store_true', default=False,
+                        help='Run on Azure. (Default is AWS)')
+
+    parser.add_argument('--skip-failed', action='store_true', default=False,
+                        help='Skip retries for any failed hive metastore exports.')
+
+    parser.add_argument('--silent', action='store_true', default=False,
+                        help='Silent all logging of export operations.')
+    # Don't verify ssl
+    parser.add_argument('--no-ssl-verification', action='store_true',
+                        help='Set Verify=False when making http requests.')
+
+    parser.add_argument('--debug', action='store_true',
+                        help='Enable debug logging')
+
+    parser.add_argument('--set-export-dir', action='store',
+                        help='Set the base directory to export artifacts')
+
+    parser.add_argument('--users', action='store',
+                        help='Download user(s) artifacts such as notebooks, cluster specs, jobs. '
+                             'Provide a list of user ids / emails to export')
+
+    return parser
+
+
+def get_export_parser():
+    # export workspace items
+    parser = argparse.ArgumentParser(description='Export full workspace artifacts from Databricks')
+
+    # export all users and groups
+    parser.add_argument('--users', action='store_true',
+                        help='Download all the users and groups in the workspace')
+
+    # log all user workspace paths
+    parser.add_argument('--workspace', action='store_true',
+                        help='Log all the notebook paths in the workspace. (metadata only)')
+
+    # download all user workspace notebooks
+    parser.add_argument('--download', action='store_true',
+                        help='Download all notebooks for the environment')
+
+    # add all lib configs
+    parser.add_argument('--libs', action='store_true',
+                        help='Log all the libs for the environment')
+
+    # add all clusters configs
+    parser.add_argument('--clusters', action='store_true',
+                        help='Log all the clusters for the environment')
+
+    # get all job configs
+    parser.add_argument('--jobs', action='store_true',
+                        help='Log all the job configs for the environment')
+    # get all metastore
+    parser.add_argument('--metastore', action='store_true',
+                        help='log all the metastore table definitions')
+
+    # cluster name used to export the metastore
+    parser.add_argument('--cluster-name', action='store',
+                        help='Cluster name to export the metastore to a specific cluster. Cluster will be started.')
+
+    # get database to export for metastore
+    parser.add_argument('--database', action='store',
+                        help='Database name to export for the metastore. Single database name supported')
+
+    # iam role used to export the metastore
+    parser.add_argument('--iam', action='store',
+                        help='IAM Instance Profile to export metastore entires')
+
+    # skip failures
+    parser.add_argument('--skip-failed', action='store_true', default=False,
+                        help='Skip retries for any failed hive metastore exports.')
+
+    # get mount points
+    parser.add_argument('--mounts', action='store_true', default=False,
+                        help='Log all mount points.')
+    # get azure logs
+    parser.add_argument('--azure', action='store_true', default=False,
+                        help='Run on Azure. (Default is AWS)')
+    #
+    parser.add_argument('--profile', action='store', default='DEFAULT',
+                        help='Profile to parse the credentials')
+
+    parser.add_argument('--export-home', action='store',
+                        help='User workspace name to export, typically the users email address')
+
+    parser.add_argument('--workspace-acls', action='store_true',
+                        help='Permissions for workspace objects to export')
+
+    parser.add_argument('--silent', action='store_true', default=False,
+                        help='Silent all logging of export operations.')
+    # Don't verify ssl
+    parser.add_argument('--no-ssl-verification', action='store_true',
+                        help='Set Verify=False when making http requests.')
+
+    parser.add_argument('--debug', action='store_true',
+                        help='Enable debug logging')
+
+    parser.add_argument('--set-export-dir', action='store',
+                        help='Set the base directory to export artifacts')
+
+    parser.add_argument('--pause-all-jobs', action='store_true',
+                        help='Pause all scheduled jobs')
+
+    parser.add_argument('--unpause-all-jobs', action='store_true',
+                        help='Unpause all scheduled jobs')
+
+    return parser
+
+
+def get_import_parser():
+    # import workspace items parser
+    parser = argparse.ArgumentParser(description='Import full workspace artifacts into Databricks')
+
+    # import all users and groups
+    parser.add_argument('--users', action='store_true',
+                        help='Import all the users and groups from the logfile.')
+
+    # import all notebooks
+    parser.add_argument('--workspace', action='store_true',
+                        help='Import all notebooks from export dir into the workspace.')
+
+    parser.add_argument('--workspace-acls', action='store_true',
+                        help='Permissions for workspace objects to import')
+
+    parser.add_argument('--import-home', action='store',
+                        help='User workspace name to import, typically the users email address')
+
+    # import all notebooks
+    parser.add_argument('--archive-missing', action='store_true',
+                        help='Import all missing users into the top level /Archive/ directory.')
+
+    # import all lib configs
+    parser.add_argument('--libs', action='store_true',
+                        help='Import all the libs from the logfile into the workspace.')
+
+    # import all clusters configs
+    parser.add_argument('--clusters', action='store_true',
+                        help='Import all the cluster configs for the environment')
+
+    # import all job configs
+    parser.add_argument('--jobs', action='store_true',
+                        help='Import all job configurations to the environment.')
+
+    # import all metastore
+    parser.add_argument('--metastore', action='store_true',
+                        help='Import the metastore to the workspace.')
+
+    # cluster name used to import the metastore
+    parser.add_argument('--cluster-name', action='store',
+                        help='Cluster name to import the metastore to a specific cluster. Cluster will be started.')
+    # skip failures
+    parser.add_argument('--skip-failed', action='store_true', default=False,
+                        help='Skip missing users that do not exist when importing user notebooks')
+
+    # get azure logs
+    parser.add_argument('--azure', action='store_true',
+                        help='Run on Azure. (Default is AWS)')
+    #
+    parser.add_argument('--profile', action='store', default='DEFAULT',
+                        help='Profile to parse the credentials')
+    # Don't verify ssl
+    parser.add_argument('--no-ssl-verification', action='store_true',
+                        help='Set Verify=False when making http requests.')
+
+    parser.add_argument('--silent', action='store_true',
+                        help='Silent all logging of import operations.')
+
+    parser.add_argument('--debug', action='store_true',
+                        help='Enable debug logging')
+
+    parser.add_argument('--set-export-dir', action='store',
+                        help='Set the base directory to import artifacts if the export dir was a customized')
+
+    parser.add_argument('--pause-all-jobs', action='store_true',
+                        help='Pause all scheduled jobs')
+
+    parser.add_argument('--unpause-all-jobs', action='store_true',
+                        help='Unpause all scheduled jobs')
+    return parser
+
+
+def url_validation(url):
+    if '/?o=' in url:
+        # if the workspace_id exists, lets remove it from the URL
+        new_url = re.sub("\/\?o=.*", '', url)
+        return new_url
+    elif 'net/' == url[-4:]:
+        return url[:-1]
+    elif 'com/' == url[-4:]:
+        return url[:-1]
+    return url
+
+
+def build_client_config(url, token, args):
+    # cant use netrc credentials because requests module tries to load the credentials into http basic auth headers
+    # aws is the default
+    config = {'url': url_validation(url),
+              'token': token,
+              'is_aws': (not args.azure),
+              'verbose': (not args.silent),
+              'verify_ssl': (not args.no_ssl_verification),
+              'skip_failed': args.skip_failed,
+              'debug': args.debug
+              }
+    if args.set_export_dir:
+        if args.set_export_dir.rstrip()[-1] != '/':
+            config['export_dir'] = args.set_export_dir + '/'
+        else:
+            config['export_dir'] = args.set_export_dir
+    elif config['is_aws']:
+        config['export_dir'] = 'logs/'
+    else:
+        config['export_dir'] = 'azure_logs/'
+    return config
