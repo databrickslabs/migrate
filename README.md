@@ -7,7 +7,7 @@ to move between different cloud providers, or to move to different regions / acc
 Packaged is based on python 3.6 and DBR 6.x and 7.x releases.
 
 This package uses credentials from the 
-[Databricks CLI](https://docs.databricks.com/user-guide/dev-tools/databricks-cli.html)
+[Databricks CLI](https://docs.databricks.com/user-guide/dev-tools/databricks-cli.html)  
 
 Support Matrix for Import and Export Operations:
 
@@ -26,6 +26,17 @@ Support Matrix for Import and Export Operations:
 
 **Note:** MLFlow objects cannot be exported / imported with this tool.
 For more details, please look [here](https://github.com/amesar/mlflow-tools/tree/master/mlflow_tools/export_import)
+
+## Workspace Analysis
+Import this [notebook](data/workspace_migration_analysis.py) to do an analysis of the number of objects within the 
+current workspace. The last cell will print:
+1. Number of users
+2. Number of groups
+3. Approximate number of notebooks
+4. Number of internal jobs defined
+5. Number of external jobs executed (from external API invocations)
+6. Number of databases
+7. Number of tables 
 
 ## Order of Operations
 1. Export users and groups 
@@ -168,6 +179,8 @@ usage: export_db.py [-h] [--users] [--workspace] [--download] [--libs]
                     [--workspace-acls] [--silent] [--no-ssl-verification]
                     [--debug] [--set-export-dir SET_EXPORT_DIR]
                     [--pause-all-jobs] [--unpause-all-jobs]
+                    [--update-account-id UPDATE_ACCOUNT_ID]
+                    [--old-account-id OLD_ACCOUNT_ID]
 
 Export full workspace artifacts from Databricks
 
@@ -203,6 +216,11 @@ optional arguments:
                         Set the base directory to export artifacts
   --pause-all-jobs      Pause all scheduled jobs
   --unpause-all-jobs    Unpause all scheduled jobs
+  --update-account-id UPDATE_ACCOUNT_ID
+                        Set the account id for instance profiles to a new
+                        account id
+  --old-account-id OLD_ACCOUNT_ID
+                        Old account ID to filter on
 ```
 
 #### Import Help Text
@@ -215,6 +233,7 @@ usage: import_db.py [-h] [--users] [--workspace] [--workspace-acls]
                     [--profile PROFILE] [--no-ssl-verification] [--silent]
                     [--debug] [--set-export-dir SET_EXPORT_DIR]
                     [--pause-all-jobs] [--unpause-all-jobs]
+                    [--delete-all-jobs]
 
 Import full workspace artifacts into Databricks
 
@@ -250,6 +269,7 @@ optional arguments:
                         export dir was a customized
   --pause-all-jobs      Pause all scheduled jobs
   --unpause-all-jobs    Unpause all scheduled jobs
+  --delete-all-jobs     Delete all jobs
 ```
 
 #### FAQs / Limitations
@@ -261,10 +281,15 @@ export CURL_CA_BUNDLE=""
 ```
 
 Limitations:
-* Instance profiles (AWS only): Group access to instance profiles will take precedence. If a user is added to the role directly, and has access via a group, only the group access will be granted during a migration.  
-* Clusters: Cluster creator will be seen as the single admin user who migrated all the clusters. (Relevant for billing purposes)
-  * Cluster creator tags cannot be updated. Added a custom tag named `OriginalCreator` with the original cluster creator for DBU tracking. 
-* Jobs: Job owners will be seen as the single admin user who migrate the job configurations. (Relevant for billing purposes)
+* Instance profiles (AWS only): Group access to instance profiles will take precedence. If a user is added to the role 
+directly, and has access via a group, only the group access will be granted during a migration.  
+* Clusters: Cluster creator will be seen as the single admin user who migrated all the clusters. (Relevant for billing 
+purposes)
+  * Cluster creator tags cannot be updated. Added a custom tag named `OriginalCreator` with the original cluster creator
+   for DBU tracking.
+* Jobs: Job owners will be seen as the single admin user who migrate the job configurations. (Relevant for billing 
+purposes)
   * Jobs with existing clusters that no longer exist will be reset to the default cluster type
-  * Jobs with older legacy instances will fail with unsupported DBR or instance types. See release notes for the latest supported releases. 
+  * Jobs with older legacy instances will fail with unsupported DBR or instance types. See release notes for the latest
+   supported releases. 
 

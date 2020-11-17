@@ -165,6 +165,14 @@ def main():
         end = timer()
         print("Complete Mounts Export Time: " + str(timedelta(seconds=end - start)))
 
+    if args.update_account_id and args.old_account_id:
+        print("Updating old account id to new account at {0}".format(now))
+        start = timer()
+        client = dbclient(client_config)
+        client.update_account_id(args.update_account_id, args.old_account_id)
+        end = timer()
+        print("Complete account id update time: " + str(timedelta(seconds=end - start)))
+
 
 if __name__ == '__main__':
     main()

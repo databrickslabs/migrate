@@ -130,6 +130,18 @@ def main():
         end = timer()
         print("Unpaused all jobs time: " + str(timedelta(seconds=end - start)))
 
+    if args.delete_all_jobs:
+        print("Delete all current jobs {0}".format(now))
+        start = timer()
+        jobs_c = JobsClient(client_config)
+        url = jobs_c.get_url()
+        response = prompt_for_input(f'\nPlease confirm that you would like to delete jobs from {url} [yes/no]:\n')
+        if response:
+            print("Deleting all job configs ... ")
+            jobs_c.delete_all_jobs()
+        end = timer()
+        print("Delete all jobs time: " + str(timedelta(seconds=end - start)))
+
     if args.metastore:
         print("Importing the metastore configs at {0}".format(now))
         start = timer()

@@ -143,6 +143,12 @@ def get_export_parser():
     parser.add_argument('--unpause-all-jobs', action='store_true',
                         help='Unpause all scheduled jobs')
 
+    parser.add_argument('--update-account-id', action='store',
+                        help='Set the account id for instance profiles to a new account id')
+
+    parser.add_argument('--old-account-id', action='store',
+                        help='Old account ID to filter on')
+
     return parser
 
 
@@ -215,7 +221,25 @@ def get_import_parser():
 
     parser.add_argument('--unpause-all-jobs', action='store_true',
                         help='Unpause all scheduled jobs')
+
+    parser.add_argument('--delete-all-jobs', action='store_true',
+                        help='Delete all jobs')
     return parser
+
+
+def prompt_for_input(message):
+    import sys
+    # raw_input returns the empty string for "enter", therefore default is no
+    yes = {'yes','y', 'ye'}
+    no = {'no','n', ''}
+
+    choice = input(message + '\n').lower()
+    if choice in yes:
+        return True
+    elif choice in no:
+        return False
+    else:
+        sys.stdout.write("Please respond with 'yes' or 'no'")
 
 
 def url_validation(url):

@@ -1,7 +1,5 @@
-import json
-import os
-import requests
-import fileinput
+# Databricks notebook source
+import json, os, datetime, requests
 import requests.packages.urllib3
 
 global pprint_j
@@ -21,19 +19,15 @@ class dbclient:
     # set of http error codes to throw an exception if hit. Handles client and auth errors
     http_error_codes = (401, 403)
 
-    def __init__(self, configs):
-        self._token = {'Authorization': 'Bearer {0}'.format(configs['token'])}
-        self._url = configs['url'].rstrip("/")
-        self._export_dir = configs['export_dir']
-        self._is_aws = configs['is_aws']
-        self._skip_failed = configs['skip_failed']
-        self._is_verbose = configs['verbose']
-        self._verify_ssl = configs['verify_ssl']
+    def __init__(self, token, url):
+        self._token = {'Authorization': 'Bearer {0}'.format(token)}
+        self._url = url.rstrip("/")
+        self._is_verbose = False
+        self._verify_ssl = False
         if self._verify_ssl:
             # set these env variables if skip SSL verification is enabled
             os.environ['REQUESTS_CA_BUNDLE'] = ""
             os.environ['CURL_CA_BUNDLE'] = ""
-        os.makedirs(self._export_dir, exist_ok=True)
 
     def is_aws(self):
         return self._is_aws
@@ -104,6 +98,7 @@ class dbclient:
             if http_type == 'patch':
                 raw_results = requests.patch(full_endpoint, headers=self._token,
                                              json=json_params, verify=self._verify_ssl)
+            
             http_status_code = raw_results.status_code
             if http_status_code in dbclient.http_error_codes:
                 raise Exception("Error: {0} request failed with code {1}\n{2}".format(http_type,
@@ -138,54 +133,11 @@ class dbclient:
             to_return.append(F(elem))
         return to_return
 
-    def whoami(self):
-        """
-        get current user userName from SCIM API
-        :return: username string
-        """
-        user_name = self.get('/preview/scim/v2/Me').get('userName')
-        return user_name
-
-    def build_acl_args(self, full_acl_list, is_jobs=False):
-        """
-        Take the ACL json and return a json that corresponds to the proper input with permission level one level higher
-        { 'acl': [ { (user_name, group_name): {'permission_level': '*'}, ... ] }
-        for job ACLs, we need to reset the OWNER, so set the admin as CAN_MANAGE instead
-        :param full_acl_list:
-        :return:
-        """
-        acls_list = []
-        current_owner = ''
-        for member in full_acl_list:
-            permissions = member.get('all_permissions')[0].get('permission_level')
-            if 'user_name' in member:
-                acls_list.append({'user_name': member.get('user_name'),
-                                  'permission_level': permissions})
-                if permissions == 'IS_OWNER':
-                    current_owner = member.get('user_name')
-            else:
-                if member.get('group_name') != 'admins':
-                    acls_list.append({'group_name': member.get('group_name'),
-                                      'permission_level': permissions})
-                    if permissions == 'IS_OWNER':
-                        current_owner = member.get('group_name')
-
-        if is_jobs:
-            me = self.whoami()
-            if current_owner != me:
-                update_admin = {'user_name': self.whoami(),
-                                'permission_level': 'CAN_MANAGE'}
-                acls_list.append(update_admin)
-        return acls_list
-
     def set_export_dir(self, dir_location):
         self._export_dir = dir_location
 
     def get_export_dir(self):
         return self._export_dir
-
-    def get_url(self):
-        return self._url
 
     def get_latest_spark_version(self):
         versions = self.get('/clusters/spark-versions')['versions']
@@ -195,31 +147,85 @@ class dbclient:
             if img_type == 'scala':
                 return x
 
-    def update_account_id(self, new_aws_account_id, old_account_id):
-        log_dir = self.get_export_dir()
-        logs_to_update = ['users.log',
-                          'instance_profiles.log', 'clusters.log', 'cluster_policies.log',
-                          'jobs.log']
-        # update individual logs first
-        for log in logs_to_update:
-            filename = log_dir + log
-            with fileinput.FileInput(filename, inplace=True, backup='.bak') as fp:
-                for line in fp:
-                    print(line.replace(old_account_id, new_aws_account_id), end='')
-        # # update group logs
-        group_dir = log_dir + 'groups/'
-        groups = os.listdir(group_dir)
-        for group_name in groups:
-            group_file = log_dir + 'groups/' + group_name
-            with fileinput.FileInput(group_file, inplace=True, backup='.bak') as fp:
-                for line in fp:
-                    print(line.replace(old_account_id, new_aws_account_id), end='')
-        # cleanup all backup files
-        for log in logs_to_update:
-            f_backup = log_dir + log + '.bak'
-            os.remove(f_backup)
-        for group_name in groups:
-            group_file_backup = log_dir + 'groups/' + group_name + '.bak'
-            os.remove(group_file_backup)
+
+# COMMAND ----------
+
+class migrateclient(dbclient):
+    
+    def get_num_defined_jobs(self):
+      jobs_list = self.get('/jobs/list').get('jobs', [])
+      return len(jobs_list)
+    
+    def get_num_external_jobs(self):
+      job_runs = self.get('/jobs/runs/list').get('runs', [])
+      job_ids_list = set(map(lambda x: x.get('job_id', None), self.get('/jobs/list').get('jobs', [])))
+      job_ids_from_runs = set(map(lambda x: x.get('job_id', None), job_runs))
+      ephemeral_job_ids = job_ids_from_runs - job_ids_list 
+      return len(ephemeral_job_ids)
+    
+    def get_num_users(self):
+      users = self.get('/preview/scim/v2/Users').get('Resources', [])
+      return len(users)
+    
+    def get_num_groups(self):
+      groups = self.get('/preview/scim/v2/Groups').get('Resources', [])
+      return len(groups)
+    
+    def get_num_notebooks(self, second_level=False):
+      users = self.get('/preview/scim/v2/Users').get('Resources', [])
+      total_nbs = 0 
+      second_level_dirs = []
+      for user in users:
+        path = '/Users/' + user['userName']
+        ls = self.get('/workspace/list', {'path' : path}).get('objects', [])
+        nbs = list(filter(lambda x: x.get('object_type', None) == 'NOTEBOOK', ls))
+        total_nbs += len(nbs) 
+        dirs = list(filter(lambda x: x.get('object_type', None) == 'DIRECTORY', ls))
+        for p in dirs:
+          dir_path = p.get('path')
+          ls_dir = self.get('/workspace/list', {'path' : dir_path}).get('objects', [])
+          dir_nbs = list(filter(lambda x: x.get('object_type', None) == 'NOTEBOOK', ls_dir))
+          second_level_dirs.extend(filter(lambda x: x.get('object_type', None) == 'DIRECTORY', ls_dir))
+          total_nbs += len(dir_nbs) 
+      # search 2 levels deep only to get an approximate notebook count
+      if second_level:
+        for p in second_level_dirs:
+          dir_path = p.get('path')
+          ls_dir = self.get('/workspace/list', {'path' : dir_path}).get('objects', [])
+          dir_nbs = list(filter(lambda x: x.get('object_type', None) == 'NOTEBOOK', ls_dir))
+          total_nbs += len(dir_nbs) 
+      return total_nbs 
+        
+    def get_num_databases(self):
+      dbs = spark.catalog.listDatabases()
+      return len(dbs)
+    
+    def get_num_tables(self):
+      dbs = spark.catalog.listDatabases()
+      table_count = 0
+      for db in dbs:
+        tables = spark.catalog.listTables(db.name)
+        table_count += len(tables)
+      return table_count 
+      
+
+# COMMAND ----------
+
+url = dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiUrl().getOrElse(None) 
+token = dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiToken().getOrElse(None)
+
+client = migrateclient(token, url)
+
+# COMMAND ----------
+
+print("Num of users: ", client.get_num_users())
+print("Num of groups: ", client.get_num_groups())
+print("Approximate num of notebooks: ", client.get_num_notebooks(True))
+print("Num of internal jobs: ", client.get_num_defined_jobs())
+print("Num of external jobs: ", client.get_num_external_jobs())
+print("Num of databases: ", client.get_num_databases())
+print("Num of tables: ", client.get_num_tables())
+
+# COMMAND ----------
 
 

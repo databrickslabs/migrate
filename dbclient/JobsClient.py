@@ -92,7 +92,9 @@ class JobsClient(dbclient):
                 job_id = job_id_by_name[acl_conf['job_name']]
                 job_path = f'jobs/{job_id}'  # contains `/jobs/{job_id}` path
                 api = f'/preview/permissions/{job_path}'
-                acl_create_args = {'access_control_list': self.build_acl_args(acl_conf['access_control_list'])}
+                # get acl permissions for jobs
+                acl_perms = self.build_acl_args(acl_conf['access_control_list'], True)
+                acl_create_args = {'access_control_list': acl_perms}
                 acl_resp = self.patch(api, acl_create_args)
                 print(acl_resp)
 
@@ -113,7 +115,7 @@ class JobsClient(dbclient):
                 update_job_resp = self.post('/jobs/reset', update_job_conf)
 
     def delete_all_jobs(self):
-        job_list = self.get('/jobs/list').get('jobs', None)
+        job_list = self.get('/jobs/list').get('jobs', [])
         for job in job_list:
             self.post('/jobs/delete', {'job_id': job['job_id']})
 

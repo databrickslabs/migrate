@@ -298,16 +298,12 @@ class ScimClient(dbclient):
                     # grab a list of ids to add either groups or users to this current group
                     member_id_list = []
                     for m in members:
-                        print(m)
                         if self.is_user(m):
                             old_email = old_user_emails[m['value']]
                             member_id_list.append(current_user_ids[old_email])
                         else:
                             member_id_list.append(current_group_ids[m['display']])
                     add_members_json = self.get_member_args(member_id_list)
-                    # print("DEBUG")
-                    # print("GROUP NAME: ", group_name)
-                    # print(add_members_json)
                     group_id = current_group_ids[group_name]
                     add_resp = self.patch('/preview/scim/v2/Groups/{0}'.format(group_id), add_members_json)
 
