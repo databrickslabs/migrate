@@ -5,6 +5,8 @@ Migration allows a Databricks organization to move resources between Databricks 
 to move between different cloud providers, or to move to different regions / accounts.  
 
 Packaged is based on python 3.6 and DBR 6.x and 7.x releases.
+**Note:** Tools does not support windows currently since path resolution is different than mac / linux.  
+Support for Windows is work in progress to update all paths to use pathlib resolution. 
 
 This package uses credentials from the 
 [Databricks CLI](https://docs.databricks.com/user-guide/dev-tools/databricks-cli.html)  
