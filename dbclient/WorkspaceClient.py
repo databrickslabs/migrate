@@ -12,19 +12,34 @@ WS_EXPORT = "/workspace/export"
 LS_ZONES = "/clusters/list-zones"
 
 
-def get_user_import_args(full_local_path, nb_full_path):
-    fp = open(full_local_path, "rb")
-
-    in_args = {
-        "content": base64.encodebytes(fp.read()).decode('utf-8'),
-        "path": nb_full_path[:-4],
-        "format": "DBC"
-    }
-    return in_args
-
-
 class WorkspaceClient(ScimClient):
+    _languages = {'.py': 'PYTHON',
+                  '.scala': 'SCALA',
+                  '.r': 'R',
+                  '.sql': 'SQL'}
 
+    def get_language(self, file_ext):
+        return self._languages[file_ext]
+
+    def get_user_import_args(self, full_local_path, nb_full_path):
+        """
+        helper function to define the import parameters to upload a notebook object
+        :param full_local_path: full local path of the notebook to read
+        :param nb_full_path: full destination path, e.g. /Users/foo@db.com/bar.dbc . Includes extension / type
+        :return: return the full input args to upload to the destination system
+        """
+        is_source_format = self.is_source_file_format()
+        fp = open(full_local_path, "rb")
+        (nb_path_dest, nb_type) = os.path.splitext(nb_full_path)
+        in_args = {
+            "content": base64.encodebytes(fp.read()).decode('utf-8'),
+            "path": nb_path_dest,
+            "format": self.get_file_format()
+        }
+        if is_source_format:
+            in_args['language'] = self.get_language(nb_type)
+            in_args['object_type']: 'NOTEBOOK'
+        return in_args
 
     @staticmethod
     def is_user_ws_item(ws_dir):
@@ -71,6 +86,19 @@ class WorkspaceClient(ScimClient):
                 return True
         return False
 
+    def is_user_home_empty(self, username):
+        user_root = '/Users/' + username.rstrip().lstrip()
+        get_args = {'path': user_root}
+        items = self.get(WS_LIST, get_args).get('objects', None)
+        if items:
+            folders = self.filter_workspace_items(items, 'DIRECTORY')
+            notebooks = self.filter_workspace_items(items, 'NOTEBOOK')
+            # if both notebooks and directories are empty, return true
+            if not folders and not notebooks:
+                return True
+            return False
+        return True
+
     @staticmethod
     def get_num_of_saved_users(export_dir):
         """
@@ -90,14 +118,18 @@ class WorkspaceClient(ScimClient):
         """
         Export the provided user's home directory
         :param username: user's home directory to export
+        :param local_export_dir: folder location to do single user exports
         :return: None
         """
+        original_export_dir = self.get_export_dir()
         user_export_dir = self.get_export_dir() + local_export_dir
         user_root = '/Users/' + username.rstrip().lstrip()
         self.set_export_dir(user_export_dir + '/{0}/'.format(username))
         print("Export path: {0}".format(self.get_export_dir()))
         self.log_all_workspace_items(ws_path=user_root)
         self.download_notebooks(ws_dir='user_artifacts/')
+        # reset the original export dir for other calls to this method using the same client
+        self.set_export_dir(original_export_dir)
 
     def import_user_home(self, username, local_export_dir):
         """
@@ -107,6 +139,7 @@ class WorkspaceClient(ScimClient):
         :param username: user's home directory to export
         :return: None
         """
+        original_export_dir = self.get_export_dir()
         user_import_dir = self.get_export_dir() + local_export_dir
         if self.does_user_exist(username):
             print("Yes, we can upload since the user exists")
@@ -131,13 +164,14 @@ class WorkspaceClient(ScimClient):
                 # create upload path and remove file format extension
                 ws_file_path = upload_dir + '/' + f
                 # generate json args with binary data for notebook to upload to the workspace path
-                nb_input_args = get_user_import_args(local_file_path, ws_file_path)
+                nb_input_args = self.get_user_import_args(local_file_path, ws_file_path)
                 # call import to the workspace
                 if self.is_verbose():
                     print("Path: {0}".format(nb_input_args['path']))
                 resp_upload = self.post(WS_IMPORT, nb_input_args)
                 if self.is_verbose():
                     print(resp_upload)
+        self.set_export_dir(original_export_dir)
 
     def download_notebooks(self, ws_log_file='user_workspace.log', ws_dir='artifacts/'):
         """
@@ -163,7 +197,7 @@ class WorkspaceClient(ScimClient):
         :param export_dir: directory to store all notebooks
         :return: return the notebook path that's succssfully downloaded
         """
-        get_args = {'path': notebook_path, 'format': 'DBC'}
+        get_args = {'path': notebook_path, 'format': self.get_file_format()}
         if self.is_verbose():
             print("Downloading: {0}".format(get_args['path']))
         resp = self.get(WS_EXPORT, get_args)
@@ -178,7 +212,7 @@ class WorkspaceClient(ScimClient):
             save_path = export_dir[:-1] + nb_path + '/'
         else:
             save_path = export_dir
-        save_filename = save_path + os.path.basename(notebook_path) + '.dbc'
+        save_filename = save_path + os.path.basename(notebook_path) + '.' + resp.get('file_type')
         # If the local path doesn't exist,we create it before we save the contents
         if not os.path.exists(save_path) and save_path:
             os.makedirs(save_path, exist_ok=True)
@@ -423,7 +457,7 @@ class WorkspaceClient(ScimClient):
                 # create the ws full file path including filename
                 ws_file_path = upload_dir + f
                 # generate json args with binary data for notebook to upload to the workspace path
-                nb_input_args = get_user_import_args(local_file_path, ws_file_path)
+                nb_input_args = self.get_user_import_args(local_file_path, ws_file_path)
                 # call import to the workspace
                 if self.is_verbose():
                     print("Path: {0}".format(nb_input_args['path']))

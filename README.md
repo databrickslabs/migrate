@@ -170,11 +170,25 @@ python export_db.py --profile DEMO --metastore --cluster-name "Test"
 python export_db.py --profile DEMO --metastore --cluster-name "Test" --database "my_db"
 ```
 
+### Export Groups by Name
+This functionality exports group(s), their members, and corresponding notebooks.  
+This assumes an empty export directory to simplify the number of operations needed.  
+This does **not** include IAM roles as those likely change while moving across workspaces. 
+
+```bash
+# reset the export directory and export a set of groups
+python export_db.py --reset-export && python export_db.py --profile SRC --export-groups 'groupA,groupB'
+
+# import the groups that were exported
+python import_db.py --profile DST --import-groups
+```
+
 #### Export Help Text
 ```
 $ python export_db.py --help
-usage: export_db.py [-h] [--users] [--workspace] [--download] [--libs]
-                    [--clusters] [--jobs] [--metastore]
+usage: export_db.py [-h] [--users] [--workspace]
+                    [--notebook-format {DBC,SOURCE,HTML}] [--download]
+                    [--libs] [--clusters] [--jobs] [--metastore]
                     [--cluster-name CLUSTER_NAME] [--database DATABASE]
                     [--iam IAM] [--skip-failed] [--mounts] [--azure]
                     [--profile PROFILE] [--export-home EXPORT_HOME]
@@ -191,11 +205,16 @@ optional arguments:
   --users               Download all the users and groups in the workspace
   --workspace           Log all the notebook paths in the workspace. (metadata
                         only)
+  --notebook-format {DBC,SOURCE,HTML}
+                        Choose the file format to download the notebooks
+                        (default: DBC)
   --download            Download all notebooks for the environment
   --libs                Log all the libs for the environment
   --clusters            Log all the clusters for the environment
   --jobs                Log all the job configs for the environment
   --metastore           log all the metastore table definitions
+  --metastore-unicode   log all the metastore table definitions including
+                        unicode characters
   --cluster-name CLUSTER_NAME
                         Cluster name to export the metastore to a specific
                         cluster. Cluster will be started.
@@ -209,11 +228,15 @@ optional arguments:
   --export-home EXPORT_HOME
                         User workspace name to export, typically the users
                         email address
+  --export-groups EXPORT_GROUPS
+                        Group names to export as a set. Includes group, users,
+                        and notebooks.
   --workspace-acls      Permissions for workspace objects to export
   --silent              Silent all logging of export operations.
   --no-ssl-verification
                         Set Verify=False when making http requests.
   --debug               Enable debug logging
+  --reset-exports       Clear export directory
   --set-export-dir SET_EXPORT_DIR
                         Set the base directory to export artifacts
   --pause-all-jobs      Pause all scheduled jobs
@@ -223,12 +246,17 @@ optional arguments:
                         account id
   --old-account-id OLD_ACCOUNT_ID
                         Old account ID to filter on
+  --replace-old-email REPLACE_OLD_EMAIL
+                        Old email address to update from logs
+  --update-new-email UPDATE_NEW_EMAIL
+                        New email address to replace the logs
 ```
 
 #### Import Help Text
 ```
 $ python import_db.py --help
 usage: import_db.py [-h] [--users] [--workspace] [--workspace-acls]
+                    [--notebook-format {DBC,SOURCE,HTML}]
                     [--import-home IMPORT_HOME] [--archive-missing] [--libs]
                     [--clusters] [--jobs] [--metastore]
                     [--cluster-name CLUSTER_NAME] [--skip-failed] [--azure]
@@ -244,10 +272,15 @@ optional arguments:
   --users               Import all the users and groups from the logfile.
   --workspace           Import all notebooks from export dir into the
                         workspace.
+  --notebook-format {DBC,SOURCE,HTML}
+                        Choose the file format of the notebook to import
+                        (default: DBC)
   --workspace-acls      Permissions for workspace objects to import
   --import-home IMPORT_HOME
                         User workspace name to import, typically the users
                         email address
+  --import-groups       Groups to import into a new workspace. Includes group
+                        creation and user notebooks.
   --archive-missing     Import all missing users into the top level /Archive/
                         directory.
   --libs                Import all the libs from the logfile into the
@@ -255,6 +288,8 @@ optional arguments:
   --clusters            Import all the cluster configs for the environment
   --jobs                Import all job configurations to the environment.
   --metastore           Import the metastore to the workspace.
+  --metastore-unicode   Import all the metastore table definitions with
+                        unicode characters
   --cluster-name CLUSTER_NAME
                         Cluster name to import the metastore to a specific
                         cluster. Cluster will be started.

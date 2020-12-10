@@ -29,6 +29,7 @@ class dbclient:
         self._skip_failed = configs['skip_failed']
         self._is_verbose = configs['verbose']
         self._verify_ssl = configs['verify_ssl']
+        self._file_format = configs['file_format']
         if self._verify_ssl:
             # set these env variables if skip SSL verification is enabled
             os.environ['REQUESTS_CA_BUNDLE'] = ""
@@ -43,6 +44,14 @@ class dbclient:
 
     def is_skip_failed(self):
         return self._skip_failed
+
+    def get_file_format(self):
+        return self._file_format
+
+    def is_source_file_format(self):
+        if self._file_format == 'SOURCE':
+            return True
+        return False
 
     def test_connection(self):
         # verify the proper url settings to configure this client
@@ -222,4 +231,30 @@ class dbclient:
             group_file_backup = log_dir + 'groups/' + group_name + '.bak'
             os.remove(group_file_backup)
 
+    def update_email_addresses(self, old_email_address, new_email_address):
+        log_dir = self.get_export_dir()
+        user_log = log_dir + 'users.log'
+        # update the users log first
+        with fileinput.FileInput(user_log, inplace=True, backup='.bak') as fp:
+            for line in fp:
+                print(line.replace(old_email_address, new_email_address), end='')
 
+        # update the path for user notebooks in bulk export mode
+        bulk_export_dir = log_dir + 'artifacts/Users/'
+        old_bulk_export_dir = bulk_export_dir + old_email_address
+        new_bulk_export_dir = bulk_export_dir + new_email_address
+        os.rename(old_bulk_export_dir, new_bulk_export_dir)
+        # update the path for user notebooks in single user export mode
+        single_user_dir = log_dir + 'user_exports/'
+        old_single_user_dir = single_user_dir + old_email_address
+        new_single_user_dir = single_user_dir + new_email_address
+        if os.path.exists(old_single_user_dir):
+            os.rename(old_single_user_dir, new_single_user_dir)
+        old_single_user_nbs_dir = new_single_user_dir + '/user_artifacts/Users/' + old_email_address
+        new_single_user_nbs_dir = new_single_user_dir + '/user_artifacts/Users/' + new_email_address
+        if os.path.exists(old_single_user_nbs_dir):
+            os.rename(old_single_user_nbs_dir, new_single_user_nbs_dir)
+        # cleanup the backup users logfile
+        f_backup = user_log + '.bak'
+        os.remove(f_backup)
+        print("Update email address complete")

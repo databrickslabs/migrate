@@ -1,11 +1,23 @@
 import argparse
 import configparser
 import re
+from enum import Enum
 from os import path
 
 auth_key = ['host',
             'username',
             'token']
+
+
+class NotebookFormat(Enum):
+    dbc = 'DBC'
+    source = 'SOURCE'
+    html = 'HTML'
+    # jupyter is only supported for python notebooks. consider adding this back if there's demand
+    # jupyter = 'JUPYTER'
+
+    def __str__(self):
+        return self.value
 
 
 def is_azure_creds(creds):
@@ -14,9 +26,9 @@ def is_azure_creds(creds):
     return False
 
 
-def get_user_list(user_str):
-    user_list = map(lambda x: x.lstrip().rstrip(), user_str.split(','))
-    return list(user_list)
+def convert_args_to_list(arg_str):
+    arg_list = map(lambda x: x.lstrip().rstrip(), arg_str.split(','))
+    return list(arg_list)
 
 
 def get_login_credentials(creds_path='~/.databrickscfg', profile='DEFAULT'):
@@ -74,6 +86,10 @@ def get_export_parser():
     parser.add_argument('--workspace', action='store_true',
                         help='Log all the notebook paths in the workspace. (metadata only)')
 
+    parser.add_argument('--notebook-format', type=NotebookFormat,
+                        choices=list(NotebookFormat), default=NotebookFormat.dbc,
+                        help='Choose the file format to download the notebooks (default: DBC)')
+
     # download all user workspace notebooks
     parser.add_argument('--download', action='store_true',
                         help='Download all notebooks for the environment')
@@ -92,6 +108,10 @@ def get_export_parser():
     # get all metastore
     parser.add_argument('--metastore', action='store_true',
                         help='log all the metastore table definitions')
+
+    # get all metastore
+    parser.add_argument('--metastore-unicode', action='store_true',
+                        help='log all the metastore table definitions including unicode characters')
 
     # cluster name used to export the metastore
     parser.add_argument('--cluster-name', action='store',
@@ -122,6 +142,9 @@ def get_export_parser():
     parser.add_argument('--export-home', action='store',
                         help='User workspace name to export, typically the users email address')
 
+    parser.add_argument('--export-groups', action='store',
+                        help='Group names to export as a set. Includes group, users, and notebooks.')
+
     parser.add_argument('--workspace-acls', action='store_true',
                         help='Permissions for workspace objects to export')
 
@@ -133,6 +156,9 @@ def get_export_parser():
 
     parser.add_argument('--debug', action='store_true',
                         help='Enable debug logging')
+
+    parser.add_argument('--reset-exports', action='store_true',
+                        help='Clear export directory')
 
     parser.add_argument('--set-export-dir', action='store',
                         help='Set the base directory to export artifacts')
@@ -148,6 +174,12 @@ def get_export_parser():
 
     parser.add_argument('--old-account-id', action='store',
                         help='Old account ID to filter on')
+
+    parser.add_argument('--replace-old-email', action='store',
+                        help='Old email address to update from logs')
+
+    parser.add_argument('--update-new-email', action='store',
+                        help='New email address to replace the logs')
 
     return parser
 
@@ -167,8 +199,15 @@ def get_import_parser():
     parser.add_argument('--workspace-acls', action='store_true',
                         help='Permissions for workspace objects to import')
 
+    parser.add_argument('--notebook-format', type=NotebookFormat,
+                        choices=list(NotebookFormat), default=NotebookFormat.dbc,
+                        help='Choose the file format of the notebook to import (default: DBC)')
+
     parser.add_argument('--import-home', action='store',
                         help='User workspace name to import, typically the users email address')
+
+    parser.add_argument('--import-groups', action='store_true',
+                        help='Groups to import into a new workspace. Includes group creation and user notebooks.')
 
     # import all notebooks
     parser.add_argument('--archive-missing', action='store_true',
@@ -189,6 +228,10 @@ def get_import_parser():
     # import all metastore
     parser.add_argument('--metastore', action='store_true',
                         help='Import the metastore to the workspace.')
+
+    # get all metastore
+    parser.add_argument('--metastore-unicode', action='store_true',
+                        help='Import all the metastore table definitions with unicode characters')
 
     # cluster name used to import the metastore
     parser.add_argument('--cluster-name', action='store',
@@ -263,7 +306,8 @@ def build_client_config(url, token, args):
               'verbose': (not args.silent),
               'verify_ssl': (not args.no_ssl_verification),
               'skip_failed': args.skip_failed,
-              'debug': args.debug
+              'debug': args.debug,
+              'file_format': str(args.notebook_format)
               }
     if args.set_export_dir:
         if args.set_export_dir.rstrip()[-1] != '/':

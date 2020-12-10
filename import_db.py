@@ -37,6 +37,19 @@ def main():
         end = timer()
         print("Complete Single User Import Time: " + str(timedelta(seconds=end - start)))
 
+    if args.import_groups:
+        print("Importing Groups from logs")
+        start = timer()
+        scim_c = ScimClient(client_config)
+        scim_c.import_all_users_and_groups()
+        user_names = scim_c.get_users_from_log()
+        print('Export users notebooks:', user_names)
+        ws_c = WorkspaceClient(client_config)
+        for username in user_names:
+            ws_c.import_user_home(username, 'user_exports')
+        end = timer()
+        print("Complete User Export Time: " + str(timedelta(seconds=end - start)))
+
     if args.workspace:
         print("Import the complete workspace at {0}".format(now))
         print("Import on {0}".format(url))
@@ -135,19 +148,19 @@ def main():
         start = timer()
         jobs_c = JobsClient(client_config)
         url = jobs_c.get_url()
-        response = prompt_for_input(f'\nPlease confirm that you would like to delete jobs from {url} [yes/no]:\n')
+        response = prompt_for_input(f'\nPlease confirm that you would like to delete jobs from {url} [yes/no]:')
         if response:
             print("Deleting all job configs ... ")
             jobs_c.delete_all_jobs()
         end = timer()
         print("Delete all jobs time: " + str(timedelta(seconds=end - start)))
 
-    if args.metastore:
+    if args.metastore or args.metastore_unicode:
         print("Importing the metastore configs at {0}".format(now))
         start = timer()
         hive_c = HiveClient(client_config)
         # log job configs
-        hive_c.import_hive_metastore(cluster_name=args.cluster_name)
+        hive_c.import_hive_metastore(cluster_name=args.cluster_name, has_unicode=args.metastore_unicode)
         end = timer()
         print("Complete Metastore Import Time: " + str(timedelta(seconds=end - start)))
 

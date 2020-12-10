@@ -2,6 +2,7 @@ from dbclient import *
 from timeit import default_timer as timer
 from datetime import timedelta, datetime
 from os import makedirs
+import shutil
 
 
 # python 3.6
@@ -35,6 +36,22 @@ def main():
         start = timer()
         # log notebooks and libraries
         ws_c.export_user_home(username, 'user_exports')
+        end = timer()
+        print("Complete User Export Time: " + str(timedelta(seconds=end - start)))
+
+    if args.export_groups:
+        group_name_list = convert_args_to_list(args.export_groups)
+        print("Exporting Groups: {0}".format(group_name_list))
+        start = timer()
+        scim_c = ScimClient(client_config)
+        # log notebooks and libraries
+        user_names = scim_c.log_groups_from_list(group_name_list)
+        print('Export users notebooks:', user_names)
+        ws_c = WorkspaceClient(client_config)
+        for username in user_names:
+            is_user_home_empty = ws_c.is_user_home_empty(username)
+            if not is_user_home_empty:
+                ws_c.export_user_home(username, 'user_exports')
         end = timer()
         print("Complete User Export Time: " + str(timedelta(seconds=end - start)))
 
@@ -142,17 +159,17 @@ def main():
         end = timer()
         print("Unpaused all jobs time: " + str(timedelta(seconds=end - start)))
 
-    if args.metastore:
+    if args.metastore or args.metastore_unicode:
         print("Export the metastore configs at {0}".format(now))
         start = timer()
         hive_c = HiveClient(client_config)
         if args.database is not None:
             # export only a single database with a given iam role
             database_name = args.database
-            hive_c.export_database(database_name, args.cluster_name, args.iam)
+            hive_c.export_database(database_name, args.cluster_name, args.iam, has_unicode=args.metastore_unicode)
         else:
             # export all of the metastore
-            hive_c.export_hive_metastore(cluster_name=args.cluster_name)
+            hive_c.export_hive_metastore(cluster_name=args.cluster_name, has_unicode=args.metastore_unicode)
         end = timer()
         print("Complete Metastore Export Time: " + str(timedelta(seconds=end - start)))
 
@@ -172,6 +189,30 @@ def main():
         client.update_account_id(args.update_account_id, args.old_account_id)
         end = timer()
         print("Complete account id update time: " + str(timedelta(seconds=end - start)))
+
+    if args.replace_old_email and args.update_new_email:
+        print("Updating old email to new email address at {0}".format(now))
+        start = timer()
+        client = dbclient(client_config)
+        client.update_email_addresses(args.replace_old_email, args.update_new_email)
+        end = timer()
+        print("Complete email update time: " + str(timedelta(seconds=end - start)))
+
+    if args.reset_exports:
+        print('Request to clean up old export directory')
+        start = timer()
+        client = dbclient(client_config)
+        export_dir = client.get_export_dir()
+        response = prompt_for_input(f'\nPlease confirm that you would like to delete all the logs from {export_dir}'
+                                    f' [yes/no]:')
+        if response:
+            print('Deleting old export directory and logs ...')
+            try:
+                shutil.rmtree(export_dir)
+            except OSError as e:
+                print("Error: %s - %s." % (e.filename, e.strerror))
+        end = timer()
+        print("Completed cleanup: " + str(timedelta(seconds=end - start)))
 
 
 if __name__ == '__main__':

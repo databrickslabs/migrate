@@ -25,6 +25,21 @@ class ScimClient(dbclient):
         else:
             print("Users returned an empty object")
 
+    def get_users_from_log(self, users_log='users.log'):
+        """
+        fetch a list of user names from the users log file
+        meant to be used during group exports where the user list is a subset of users
+        :param users_log:
+        :return: a list of usernames that help identify their workspace paths
+        """
+        user_logfile = self.get_export_dir() + users_log
+        username_list = []
+        with open(user_logfile, 'r') as fp:
+            for u in fp:
+                user_json = json.loads(u)
+                username_list.append(user_json.get('userName'))
+        return username_list
+
     @staticmethod
     def is_member_a_user(member_json):
         if 'scim/v2/Users' in member_json['$ref']:
@@ -33,30 +48,73 @@ class ScimClient(dbclient):
 
     def add_username_to_group(self, group_json):
         # add the userName field to json since ids across environments may not match
-        members = group_json.get('members', None)
+        members = group_json.get('members', [])
         new_members = []
-        if members:
-            for m in members:
-                m_id = m['value']
-                if self.is_member_a_user(m):
-                    user_resp = self.get('/preview/scim/v2/Users/{0}'.format(m_id))
-                    m['userName'] = user_resp['userName']
-                    m['type'] = 'user'
-                else:
-                    m['type'] = 'group'
-                new_members.append(m)
+        for m in members:
+            m_id = m['value']
+            if self.is_member_a_user(m):
+                user_resp = self.get('/preview/scim/v2/Users/{0}'.format(m_id))
+                m['userName'] = user_resp['userName']
+                m['type'] = 'user'
+            else:
+                m['type'] = 'group'
+            new_members.append(m)
         group_json['members'] = new_members
         return group_json
 
     def log_all_groups(self, group_log_dir='groups/'):
         group_dir = self.get_export_dir() + group_log_dir
         os.makedirs(group_dir, exist_ok=True)
-        group_list = self.get("/preview/scim/v2/Groups").get('Resources', None)
-        if group_list:
-            for x in group_list:
-                group_name = x['displayName']
-                with open(group_dir + group_name, "w") as fp:
-                    fp.write(json.dumps(self.add_username_to_group(x)))
+        group_list = self.get("/preview/scim/v2/Groups").get('Resources', [])
+        for x in group_list:
+            group_name = x['displayName']
+            with open(group_dir + group_name, "w") as fp:
+                fp.write(json.dumps(self.add_username_to_group(x)))
+
+    @staticmethod
+    def build_group_dict(group_list):
+        group_dict = {}
+        for group in group_list:
+            group_dict[group.get('displayName')] = group
+        return group_dict
+
+    def log_groups_from_list(self, group_name_list, group_log_dir='groups/', users_logfile='users.log'):
+        """
+        take a list of groups and log all the members
+        :param group_name_list: a list obj of group names
+        :param group_log_dir:
+        :param users_logfile: logfile to store the user log data
+        :return: return a list of userNames to export their notebooks for the next api call
+        """
+        group_dir = self.get_export_dir() + group_log_dir
+        os.makedirs(group_dir, exist_ok=True)
+        group_list = self.get("/preview/scim/v2/Groups").get('Resources', [])
+        group_dict = self.build_group_dict(group_list)
+        member_id_list = []
+        for group_name in group_name_list:
+            group_details = group_dict[group_name]
+            members_list = group_details.get('members', [])
+            filtered_users = list(filter(lambda y: 'Users' in y.get('$ref', None), members_list))
+            filtered_sub_groups = list(filter(lambda y: 'Groups' in y.get('$ref', None), members_list))
+            if filtered_sub_groups:
+                sub_group_names = list(map(lambda z: z.get('display'), filtered_sub_groups))
+                group_name_list.extend(sub_group_names)
+            member_id_list.extend(list(map(lambda y: y['value'], filtered_users)))
+            with open(group_dir + group_name, "w") as fp:
+                group_details.pop('roles', None)  # removing the roles field from the groups arg
+                fp.write(json.dumps(self.add_username_to_group(group_details)))
+        users_log = self.get_export_dir() + users_logfile
+        user_names_list = []
+        with open(users_log, 'w') as u_fp:
+            for mid in member_id_list:
+                print('Exporting', mid)
+                api = f'/preview/scim/v2/Users/{mid}'
+                user_resp = self.get(api)
+                user_resp.pop('roles', None)  # remove roles since those can change during the migration
+                user_resp.pop('http_status_code', None)  # remove unnecessary params
+                user_names_list.append(user_resp.get('userName'))
+                u_fp.write(json.dumps(user_resp) + '\n')
+        return user_names_list
 
     def log_all_secrets(self, log_file='secrets.log'):
         secrets_log = self.get_export_dir() + log_file
@@ -246,6 +304,11 @@ class ScimClient(dbclient):
 
     @staticmethod
     def get_member_args(member_id_list):
+        """
+        helper function to form the json args to the patch request to update group memberships
+        :param member_id_list: member ids to add to a specific group
+        :return: dict args for the patch operation
+        """
         member_id_list_json = []
         for m_id in member_id_list:
             member_id_list_json.append({'value': '{0}'.format(m_id)})
