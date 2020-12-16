@@ -16,33 +16,38 @@ class ClustersClient(dbclient):
                       'custom_tags',
                       'cluster_log_conf',
                       'init_scripts',
+                      'docker_image',
                       'spark_env_vars',
                       'autotermination_minutes',
                       'enable_elastic_disk',
                       'instance_pool_id',
+                      'policy_id',
                       'pinned_by_user_name',
                       'creator_user_name',
                       'cluster_id'}
 
-    def cleanup_cluster_pool_configs(self, cluster_json, cluster_creator):
+    def cleanup_cluster_pool_configs(self, cluster_json, cluster_creator, is_job_cluster=False):
         """
         Pass in cluster json and cluster_creator to update fields that are not needed for clusters submitted to pools
         :param cluster_json:
         :param cluster_creator:
+        :param is_job_cluster: flag to not add tags for job clusters since those clusters don't have this behavior
+                as interactive clusters
         :return:
         """
         pool_id_dict = self.get_instance_pool_id_mapping()
         # if pool id exists, remove instance types
-        cluster_json.pop('node_type_id')
-        cluster_json.pop('driver_node_type_id')
-        cluster_json.pop('enable_elastic_disk')
-        # add custom tag for original cluster creator for cost tracking
-        if 'custom_tags' in cluster_json:
-            tags = cluster_json['custom_tags']
-            tags['OriginalCreator'] = cluster_creator
-            cluster_json['custom_tags'] = tags
-        else:
-            cluster_json['custom_tags'] = {'OriginalCreator': cluster_creator}
+        cluster_json.pop('node_type_id', None)
+        cluster_json.pop('driver_node_type_id', None)
+        cluster_json.pop('enable_elastic_disk', None)
+        if not is_job_cluster:
+            # add custom tag for original cluster creator for cost tracking
+            if 'custom_tags' in cluster_json:
+                tags = cluster_json['custom_tags']
+                tags['OriginalCreator'] = cluster_creator
+                cluster_json['custom_tags'] = tags
+            else:
+                cluster_json['custom_tags'] = {'OriginalCreator': cluster_creator}
         # remove all aws_attr except for IAM role if it exists
         if 'aws_attributes' in cluster_json:
             aws_conf = cluster_json.pop('aws_attributes')
@@ -167,6 +172,29 @@ class ClustersClient(dbclient):
     def get_spark_versions(self):
         return self.get("/clusters/spark-versions", print_json=True)
 
+    def get_new_policy_id_dict(self, policy_file='cluster_policies.log'):
+        """
+        mapping function to get the new policy ids. ids change when migrating to a new workspace
+        read the log file and map the old id to the new id
+        :param old_policy_id: str of the old id
+        :return: str of new policy id
+        """
+        policy_log = self.get_export_dir() + policy_file
+        current_policies = self.get('/policies/clusters/list').get('policies', [])
+        current_policies_dict = {}  # name : current policy id
+        for policy in current_policies:
+            current_name = policy['name']
+            current_id = policy['policy_id']
+            current_policies_dict[current_name] = current_id
+        policy_id_dict = {}
+        with open(policy_log, 'r') as fp:
+            for line in fp:
+                policy_conf = json.loads(line)
+                policy_name = policy_conf['name']
+                old_policy_id = policy_conf['policy_id']
+                policy_id_dict[old_policy_id] = current_policies_dict[policy_name] # old_id : new_id
+        return policy_id_dict
+
     def import_cluster_configs(self, log_file='clusters.log', acl_log_file='acl_clusters.log', filter_user=None):
         """
         Import cluster configs and update appropriate properties / tags in the new env
@@ -179,6 +207,7 @@ class ClustersClient(dbclient):
             print("No clusters to import.")
             return
         current_cluster_names = set([x.get('cluster_name', None) for x in self.get_cluster_list(False)])
+        old_2_new_policy_ids = self.get_new_policy_id_dict()  # dict of {old_id : new_id}
         # get instance pool id mappings
         with open(cluster_log, 'r') as fp:
             for line in fp:
@@ -188,6 +217,9 @@ class ClustersClient(dbclient):
                     print("Cluster already exists, skipping: {0}".format(cluster_name))
                     continue
                 cluster_creator = cluster_conf.pop('creator_user_name')
+                if 'policy_id' in cluster_conf:
+                    old_policy_id = cluster_conf['policy_id']
+                    cluster_conf['policy_id'] = old_2_new_policy_ids[old_policy_id]
                 # check for instance pools and modify cluster attributes
                 if 'instance_pool_id' in cluster_conf:
                     new_cluster_conf = self.cleanup_cluster_pool_configs(cluster_conf, cluster_creator)

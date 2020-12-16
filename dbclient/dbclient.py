@@ -204,46 +204,58 @@ class dbclient:
             if img_type == 'scala':
                 return x
 
+    def replace_file_contents(self, old_str, new_str, filename):
+        """
+        regex replace all occurrences of a string with a new value
+        :param old_str: old value to replace, e.g. account id, old email, etc.
+        :param new_str: new value
+        :param filename: logfile path relative to the export dir
+        :return:
+        """
+        log_dir = self.get_export_dir()
+        update_filename = log_dir + filename
+        with fileinput.FileInput(update_filename, inplace=True, backup='.bak') as fp:
+            for line in fp:
+                print(line.replace(old_str, new_str), end='')
+        # cleanup old backup file once completed
+        f_backup = log_dir + filename + '.bak'
+        os.remove(f_backup)
+
     def update_account_id(self, new_aws_account_id, old_account_id):
         log_dir = self.get_export_dir()
         logs_to_update = ['users.log',
                           'instance_profiles.log', 'clusters.log', 'cluster_policies.log',
                           'jobs.log']
         # update individual logs first
-        for log in logs_to_update:
-            filename = log_dir + log
-            with fileinput.FileInput(filename, inplace=True, backup='.bak') as fp:
-                for line in fp:
-                    print(line.replace(old_account_id, new_aws_account_id), end='')
+        for log_name in logs_to_update:
+            self.replace_file_contents(old_account_id, new_aws_account_id, log_name)
         # # update group logs
         group_dir = log_dir + 'groups/'
         groups = os.listdir(group_dir)
         for group_name in groups:
-            group_file = log_dir + 'groups/' + group_name
-            with fileinput.FileInput(group_file, inplace=True, backup='.bak') as fp:
-                for line in fp:
-                    print(line.replace(old_account_id, new_aws_account_id), end='')
-        # cleanup all backup files
-        for log in logs_to_update:
-            f_backup = log_dir + log + '.bak'
-            os.remove(f_backup)
-        for group_name in groups:
-            group_file_backup = log_dir + 'groups/' + group_name + '.bak'
-            os.remove(group_file_backup)
+            group_file = 'groups/' + group_name
+            self.replace_file_contents(old_account_id, new_aws_account_id, group_file)
 
     def update_email_addresses(self, old_email_address, new_email_address):
+        """
+        :param old_email_address:
+        :param new_email_address:
+        :return:
+        """
         log_dir = self.get_export_dir()
-        user_log = log_dir + 'users.log'
-        # update the users log first
-        with fileinput.FileInput(user_log, inplace=True, backup='.bak') as fp:
-            for line in fp:
-                print(line.replace(old_email_address, new_email_address), end='')
-
+        logs_to_update = ['users.log',
+                          'acl_jobs.log',
+                          'acl_clusters.log', 'acl_cluster_policies.log',
+                          'acl_notebooks.log', 'acl_directories.log']
+        for logfile in logs_to_update:
+            if os.path.exists(log_dir + logfile):
+                self.replace_file_contents(old_email_address, new_email_address, logfile)
         # update the path for user notebooks in bulk export mode
         bulk_export_dir = log_dir + 'artifacts/Users/'
         old_bulk_export_dir = bulk_export_dir + old_email_address
         new_bulk_export_dir = bulk_export_dir + new_email_address
-        os.rename(old_bulk_export_dir, new_bulk_export_dir)
+        if os.path.exists(old_bulk_export_dir):
+            os.rename(old_bulk_export_dir, new_bulk_export_dir)
         # update the path for user notebooks in single user export mode
         single_user_dir = log_dir + 'user_exports/'
         old_single_user_dir = single_user_dir + old_email_address
@@ -254,7 +266,4 @@ class dbclient:
         new_single_user_nbs_dir = new_single_user_dir + '/user_artifacts/Users/' + new_email_address
         if os.path.exists(old_single_user_nbs_dir):
             os.rename(old_single_user_nbs_dir, new_single_user_nbs_dir)
-        # cleanup the backup users logfile
-        f_backup = user_log + '.bak'
-        os.remove(f_backup)
         print("Update email address complete")

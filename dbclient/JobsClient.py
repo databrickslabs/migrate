@@ -3,7 +3,7 @@ import os
 from dbclient import *
 
 
-class JobsClient(dbclient):
+class JobsClient(ClustersClient):
 
     def get_jobs_default_cluster_conf(self):
         if self.is_aws():
@@ -57,9 +57,11 @@ class JobsClient(dbclient):
             return
         # get an old cluster id to new cluster id mapping object
         cluster_mapping = self.get_cluster_id_mapping()
+        old_2_new_policy_ids = self.get_new_policy_id_dict()  # dict { old_policy_id : new_policy_id }
         with open(jobs_log, 'r') as fp:
             for line in fp:
                 job_conf = json.loads(line)
+                job_creator = job_conf.get('creator_user_name', '')
                 job_settings = job_conf['settings']
                 job_schedule = job_settings.get('schedule', None)
                 if job_schedule:
@@ -76,6 +78,17 @@ class JobsClient(dbclient):
                         job_settings['new_cluster'] = self.get_jobs_default_cluster_conf()
                     else:
                         job_settings['existing_cluster_id'] = new_cid
+                else:  # new cluster config
+                    cluster_conf = job_settings['new_cluster']
+                    if 'policy_id' in cluster_conf:
+                        old_policy_id = cluster_conf['policy_id']
+                        cluster_conf['policy_id'] = old_2_new_policy_ids[old_policy_id]
+                    # check for instance pools and modify cluster attributes
+                    if 'instance_pool_id' in cluster_conf:
+                        new_cluster_conf = self.cleanup_cluster_pool_configs(cluster_conf, job_creator, True)
+                    else:
+                        new_cluster_conf = cluster_conf
+                    job_settings['new_cluster'] = new_cluster_conf
                 print("Current JID: {0}".format(job_conf['job_id']))
                 # creator can be none if the user is no longer in the org. see our docs page
                 creator_user_name = job_conf.get('creator_user_name', None)
