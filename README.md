@@ -145,6 +145,17 @@ python export_db.py --profile DEMO --jobs
 If we're unable to find old cluster ids that are no longer available, we'll reset the job template 
 to use a new default cluster. 
 
+Imported jobs into the new workspace are paused by default. We do not want to have 2 jobs run simultaneously. 
+Admins must pause their jobs with Databricks defined schedules using the following option:
+```bash
+python export_db.py --profile DEMO --pause-all-jobs
+```
+
+Un-pause all jobs in the new workspace:
+```bash
+python import_db.py --profile NEW_DEMO --unpause-all-jobs
+```
+
 ### Hive Metastore
 This section uses an API to remotely run Spark commands on a cluster, this API is called 
 [Execution Context](https://docs.databricks.com/dev-tools/api/1.2/index.html#execution-context)
