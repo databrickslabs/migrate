@@ -117,7 +117,7 @@ class JobsClient(ClustersClient):
             job_settings = job_conf['settings']
             job_schedule = job_settings.get('schedule', None)
             if job_schedule:
-                # set all imported jobs as paused or unpaused
+                # set all imported jobs as paused or un-paused
                 if pause:
                     job_schedule['pause_status'] = 'PAUSED'
                 else:

@@ -27,28 +27,20 @@ def main():
         print(url, token)
     now = str(datetime.now())
 
-    if args.import_home:
-        username = args.import_home
-        print("Importing home directory: {0}".format(username))
-        ws_c = WorkspaceClient(client_config)
-        start = timer()
-        # log notebooks and libraries
-        ws_c.import_user_home(username, 'user_exports')
-        end = timer()
-        print("Complete Single User Import Time: " + str(timedelta(seconds=end - start)))
-
-    if args.import_groups:
-        print("Importing Groups from logs")
-        start = timer()
+    if args.users:
+        print("Import all users and groups at {0}".format(now))
         scim_c = ScimClient(client_config)
+        if client_config['is_aws']:
+            print("Start import of instance profiles first to ensure they exist...")
+            cl_c = ClustersClient(client_config)
+            start = timer()
+            cl_c.import_instance_profiles()
+            end = timer()
+            print("Complete Instance Profile Import Time: " + str(timedelta(seconds=end - start)))
+        start = timer()
         scim_c.import_all_users_and_groups()
-        user_names = scim_c.get_users_from_log()
-        print('Export users notebooks:', user_names)
-        ws_c = WorkspaceClient(client_config)
-        for username in user_names:
-            ws_c.import_user_home(username, 'user_exports')
         end = timer()
-        print("Complete User Export Time: " + str(timedelta(seconds=end - start)))
+        print("Complete Users and Groups Import Time: " + str(timedelta(seconds=end - start)))
 
     if args.workspace:
         print("Import the complete workspace at {0}".format(now))
@@ -69,28 +61,6 @@ def main():
         ws_c.import_workspace_acls()
         end = timer()
         print("Complete Workspace acl Import Time: " + str(timedelta(seconds=end - start)))
-
-    if args.libs:
-        lib_c = LibraryClient(client_config)
-        start = timer()
-        print("Not supported today")
-        end = timer()
-        # print("Complete Library Import Time: " + str(timedelta(seconds=end - start)))
-
-    if args.users:
-        print("Import all users and groups at {0}".format(now))
-        scim_c = ScimClient(client_config)
-        if client_config['is_aws']:
-            print("Start import of instance profiles first to ensure they exist...")
-            cl_c = ClustersClient(client_config)
-            start = timer()
-            cl_c.import_instance_profiles()
-            end = timer()
-            print("Complete Instance Profile Import Time: " + str(timedelta(seconds=end - start)))
-        start = timer()
-        scim_c.import_all_users_and_groups()
-        end = timer()
-        print("Complete Users and Groups Import Time: " + str(timedelta(seconds=end - start)))
 
     if args.clusters:
         print("Import all cluster configs at {0}".format(now))
@@ -125,6 +95,15 @@ def main():
         end = timer()
         print("Complete Jobs Export Time: " + str(timedelta(seconds=end - start)))
 
+    if args.metastore or args.metastore_unicode:
+        print("Importing the metastore configs at {0}".format(now))
+        start = timer()
+        hive_c = HiveClient(client_config)
+        # log job configs
+        hive_c.import_hive_metastore(cluster_name=args.cluster_name, has_unicode=args.metastore_unicode)
+        end = timer()
+        print("Complete Metastore Import Time: " + str(timedelta(seconds=end - start)))
+
     if args.pause_all_jobs:
         print("Pause all current jobs {0}".format(now))
         start = timer()
@@ -155,14 +134,44 @@ def main():
         end = timer()
         print("Delete all jobs time: " + str(timedelta(seconds=end - start)))
 
-    if args.metastore or args.metastore_unicode:
-        print("Importing the metastore configs at {0}".format(now))
+    if args.single_user:
+        user_email = args.single_user
+        print(f"Import user {user_email} at {now}")
+        scim_c = ScimClient(client_config)
         start = timer()
-        hive_c = HiveClient(client_config)
-        # log job configs
-        hive_c.import_hive_metastore(cluster_name=args.cluster_name, has_unicode=args.metastore_unicode)
+        # log all users
+        scim_c.import_single_user(user_email)
         end = timer()
-        print("Complete Metastore Import Time: " + str(timedelta(seconds=end - start)))
+        print("Complete single user import: " + str(timedelta(seconds=end - start)))
+
+    if args.import_home:
+        username = args.import_home
+        print("Importing home directory: {0}".format(username))
+        ws_c = WorkspaceClient(client_config)
+        start = timer()
+        # log notebooks and libraries
+        ws_c.import_user_home(username, 'user_exports')
+        end = timer()
+        print("Complete Single User Import Time: " + str(timedelta(seconds=end - start)))
+
+    if args.import_groups:
+        print("Importing Groups from logs")
+        start = timer()
+        scim_c = ScimClient(client_config)
+        scim_c.import_all_users_and_groups()
+        user_names = scim_c.get_users_from_log()
+        print('Export users notebooks:', user_names)
+        ws_c = WorkspaceClient(client_config)
+        for username in user_names:
+            ws_c.import_user_home(username, 'user_exports')
+        end = timer()
+        print("Complete User Export Time: " + str(timedelta(seconds=end - start)))
+
+    if args.libs:
+        start = timer()
+        print("Not supported today")
+        end = timer()
+        # print("Complete Library Import Time: " + str(timedelta(seconds=end - start)))
 
 
 if __name__ == '__main__':

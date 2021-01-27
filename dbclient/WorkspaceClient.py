@@ -21,6 +21,14 @@ class WorkspaceClient(ScimClient):
     def get_language(self, file_ext):
         return self._languages[file_ext]
 
+    def get_top_level_folders(self):
+        # get top level folders excluding the /Users path
+        root_items = self.get(WS_LIST, {'path': '/'}).get('objects', [])
+        # filter out Projects and Users folders
+        non_users_dir = list(filter(lambda x: (x.get('path') != '/Users' and x.get('path') != '/Projects'),
+                                    root_items))
+        return non_users_dir
+
     def get_user_import_args(self, full_local_path, nb_full_path):
         """
         helper function to define the import parameters to upload a notebook object
@@ -38,7 +46,7 @@ class WorkspaceClient(ScimClient):
         }
         if is_source_format:
             in_args['language'] = self.get_language(nb_type)
-            in_args['object_type']: 'NOTEBOOK'
+            in_args['object_type'] = 'NOTEBOOK'
         return in_args
 
     @staticmethod
@@ -55,7 +63,7 @@ class WorkspaceClient(ScimClient):
     @staticmethod
     def is_user_ws_root(ws_dir):
         """
-        Checke if we're at the users home folder to skip folder creation
+        Check if we're at the users home folder to skip folder creation
         """
         if ws_dir == '/Users/' or ws_dir == '/Users':
             return True
@@ -137,6 +145,7 @@ class WorkspaceClient(ScimClient):
         logs/user_exports/{{USERNAME}}/ stores the log files to understand what was exported
         logs/user_exports/{{USERNAME}}/user_artifacts/ stores the notebook contents
         :param username: user's home directory to export
+        :param local_export_dir: the log directory for this users workspace items
         :return: None
         """
         original_export_dir = self.get_export_dir()
@@ -195,7 +204,7 @@ class WorkspaceClient(ScimClient):
         Helper function to download an individual notebook, or log the failure in the failure logfile
         :param notebook_path: an individual notebook path
         :param export_dir: directory to store all notebooks
-        :return: return the notebook path that's succssfully downloaded
+        :return: return the notebook path that's successfully downloaded
         """
         get_args = {'path': notebook_path, 'format': self.get_file_format()}
         if self.is_verbose():
@@ -227,7 +236,7 @@ class WorkspaceClient(ScimClient):
         :param item_type: DIRECTORY, NOTEBOOK, LIBRARY
         :return: list of items filtered by type
         """
-        supported_types = set(('DIRECTORY', 'NOTEBOOK', 'LIBRARY'))
+        supported_types = {'DIRECTORY', 'NOTEBOOK', 'LIBRARY'}
         if item_type not in supported_types:
             raise ValueError('Unsupported type provided: {0}.\n. Supported types: {1}'.format(item_type,
                                                                                               str(supported_types)))
@@ -258,6 +267,7 @@ class WorkspaceClient(ScimClient):
         :param ws_path: root path to log all the items of the notebook workspace
         :param workspace_log_file: logfile to store all the paths of the notebooks
         :param libs_log_file: library logfile to store workspace libraries
+        :param dir_log_file: log directory for users
         :return:
         """
         # define log file names for notebooks, folders, and libraries
@@ -298,8 +308,8 @@ class WorkspaceClient(ScimClient):
                             self.log_all_workspace_items(ws_path=dir_path, workspace_log_file=workspace_log_file,
                                                          libs_log_file=libs_log_file)
 
-    def get_obj_id_by_path(self, path):
-        resp = self.get(WS_STATUS, {'path': path})
+    def get_obj_id_by_path(self, input_path):
+        resp = self.get(WS_STATUS, {'path': input_path})
         obj_id = resp.get('object_id', None)
         return obj_id
 

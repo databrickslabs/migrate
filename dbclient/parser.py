@@ -109,6 +109,10 @@ def get_export_parser():
     parser.add_argument('--metastore', action='store_true',
                         help='log all the metastore table definitions')
 
+    # get all secret scopes
+    parser.add_argument('--secrets', action='store_true',
+                        help='log all the secret scopes')
+
     # get all metastore
     parser.add_argument('--metastore-unicode', action='store_true',
                         help='log all the metastore table definitions including unicode characters')
@@ -138,6 +142,9 @@ def get_export_parser():
     #
     parser.add_argument('--profile', action='store', default='DEFAULT',
                         help='Profile to parse the credentials')
+
+    parser.add_argument('--single-user', action='store',
+                        help='User\'s email to export their user identity and entitlements')
 
     parser.add_argument('--export-home', action='store',
                         help='User workspace name to export, typically the users email address')
@@ -246,6 +253,10 @@ def get_import_parser():
     #
     parser.add_argument('--profile', action='store', default='DEFAULT',
                         help='Profile to parse the credentials')
+
+    parser.add_argument('--single-user', action='store',
+                        help='User\'s email to export their user identity and entitlements')
+
     # Don't verify ssl
     parser.add_argument('--no-ssl-verification', action='store_true',
                         help='Set Verify=False when making http requests.')

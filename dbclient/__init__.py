@@ -7,4 +7,5 @@ from .ScimClient import ScimClient
 from .LibraryClient import LibraryClient
 from .WorkspaceClient import WorkspaceClient
 from .HiveClient import HiveClient
+from .SecretsClient import SecretsClient
 from .parser import *

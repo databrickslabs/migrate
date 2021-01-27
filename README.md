@@ -117,6 +117,7 @@ python export_db.py --profile DEMO --workspace-acls
 To import into a new workspace:
 ```bash
 python import_db.py --profile NEW_DEMO --workspace [--archive-missing]
+python import_db.py --profile NEW_DEMO --workspace-acls 
 ```
 If users have left your organization, their artifacts (notebooks / job templates) still exists. However, their user 
 object no longer exists. During the migration, we can keep the old users notebooks into the top level 
@@ -144,6 +145,10 @@ python export_db.py --profile DEMO --jobs
 ```
 If we're unable to find old cluster ids that are no longer available, we'll reset the job template 
 to use a new default cluster. 
+
+```bash
+python import_db.py --profile NEW_DEMO --jobs
+```
 
 Imported jobs into the new workspace are paused by default. We do not want to have 2 jobs run simultaneously. 
 Admins must pause their jobs with Databricks defined schedules using the following option:
