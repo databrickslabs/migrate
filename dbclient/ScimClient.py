@@ -60,7 +60,19 @@ class ScimClient(dbclient):
 
     @staticmethod
     def is_member_a_user(member_json):
-        if 'scim/v2/Users' in member_json['$ref']:
+        if 'Users/' in member_json['$ref']:
+            return True
+        return False
+
+    @staticmethod
+    def is_member_a_group(member_json):
+        if 'Groups/' in member_json['$ref']:
+            return True
+        return False
+
+    @staticmethod
+    def is_member_a_service_principal(member_json):
+        if 'ServicePrincipals/' in member_json['$ref']:
             return True
         return False
 
@@ -74,8 +86,12 @@ class ScimClient(dbclient):
                 user_resp = self.get('/preview/scim/v2/Users/{0}'.format(m_id))
                 m['userName'] = user_resp['userName']
                 m['type'] = 'user'
-            else:
+            elif self.is_member_a_group(m):
                 m['type'] = 'group'
+            elif self.is_member_a_service_principal(m):
+                m['type'] = 'service-principal'
+            else:
+                m['type'] = 'unknown'
             new_members.append(m)
         group_json['members'] = new_members
         return group_json

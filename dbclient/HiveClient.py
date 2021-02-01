@@ -94,7 +94,17 @@ class HiveClient(ClustersClient):
         db_json = ast.literal_eval(results['data'])
         return db_json
 
-    def export_database(self, db_name, cluster_name=None, iam_role=None, metastore_dir='metastore/', has_unicode=False):
+    def export_database(self, db_name, cluster_name=None, iam_role=None, metastore_dir='metastore/',
+                        has_unicode=False, db_log='database_details.log'):
+        """
+        :param db_name:  database name
+        :param cluster_name: cluster to run against if provided
+        :param iam_role: iam role to launch the cluster with
+        :param metastore_dir: directory to store all the metadata
+        :param has_unicode: whether the metadata has unicode characters to export
+        :param db_log: specific database properties logfile
+        :return:
+        """
         # check if instance profile exists, ask users to use --users first or enter yes to proceed.
         start = timer()
         if cluster_name:
@@ -109,6 +119,13 @@ class HiveClient(ClustersClient):
         failed_metastore_log_path = self.get_export_dir() + 'failed_metastore.log'
         if os.path.exists(failed_metastore_log_path):
             os.remove(failed_metastore_log_path)
+        database_logfile = self.get_export_dir() + db_log
+        resp = self.set_desc_database_helper(cid, ec_id)
+        if self.is_verbose():
+            print(resp)
+        with open(database_logfile, 'w') as fp:
+            db_json = self.get_desc_database_details(db_name, cid, ec_id)
+            fp.write(json.dumps(db_json) + '\n')
         os.makedirs(self.get_export_dir() + metastore_dir + db_name, exist_ok=True)
         self.log_all_tables(db_name, cid, ec_id, metastore_dir, failed_metastore_log_path, has_unicode)
 

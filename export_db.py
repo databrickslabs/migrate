@@ -1,7 +1,7 @@
 from dbclient import *
 from timeit import default_timer as timer
 from datetime import timedelta, datetime
-from os import makedirs
+import os
 import shutil
 
 
@@ -11,6 +11,9 @@ def main():
     my_parser = get_export_parser()
     # parse the args
     args = my_parser.parse_args()
+
+    if os.name == 'nt' and (not args.bypass_windows_check):
+        raise ValueError('This tool currently does not support running on Windows OS')
 
     # parse the path location of the Databricks CLI configuration
     login_args = get_login_credentials(profile=args.profile)
@@ -23,7 +26,7 @@ def main():
     token = login_args['token']
     client_config = build_client_config(url, token, args)
 
-    makedirs(client_config['export_dir'], exist_ok=True)
+    os.makedirs(client_config['export_dir'], exist_ok=True)
 
     if client_config['debug']:
         print(url, token)

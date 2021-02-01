@@ -188,6 +188,8 @@ def get_export_parser():
     parser.add_argument('--update-new-email', action='store',
                         help='New email address to replace the logs')
 
+    parser.add_argument('--bypass-windows-check', action='store_true',
+                        help='By-pass windows os checker')
     return parser
 
 
