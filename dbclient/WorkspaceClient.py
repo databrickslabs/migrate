@@ -362,11 +362,17 @@ class WorkspaceClient(ScimClient):
         object_acl = json.loads(acl_str)
         # the object_type
         object_type = object_acl.get('object_type', None)
-        obj_id = self.get(WS_STATUS, {'path': object_acl['path']}).get('object_id', None)
+        obj_path = object_acl['path']
+        obj_status = self.get(WS_STATUS, {'path': obj_path})
+        print("ws-stat: ", obj_status)
+        current_obj_id = obj_status.get('object_id', None)
+        if not current_obj_id:
+            print('Object id missing from destination workspace', obj_path)
+            return
         if object_type == 'directory':
-            object_id_with_type = f'/directories/{obj_id}'
+            object_id_with_type = f'/directories/{current_obj_id}'
         elif object_type == 'notebook':
-            object_id_with_type = f'/notebooks/{obj_id}'
+            object_id_with_type = f'/notebooks/{current_obj_id}'
         else:
             raise ValueError('Object for Workspace ACLs is Undefined')
         api_path = '/permissions' + object_id_with_type

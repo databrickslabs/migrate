@@ -9,8 +9,42 @@ from dbclient import *
 
 class HiveClient(ClustersClient):
 
-    def apply_table_ddl(self, local_table_path, ec_id, cid, has_unicode=False):
+    @staticmethod
+    def is_table_location_defined(local_table_path):
+        with open(local_table_path, 'r') as fp:
+            for line in fp:
+                # SHOW CREATE DDL command splits the keywords upon newlines
+                # making it easy to find if a LOCATION is defined in the table DDL
+                if line.startswith('LOCATION'):
+                    return True
+        return False
+
+    def update_table_ddl(self, local_table_path, db_path):
+        # check if the database location / path is the default DBFS path
+        table_name = os.path.basename(local_table_path)
+        is_db_default_path = db_path.startswith('dbfs:/user/hive/warehouse')
+        if (not is_db_default_path) and (not self.is_table_location_defined(local_table_path)):
+            # the LOCATION attribute is not defined and the Database has a custom location defined
+            # therefore we need to add it to the DDL, e.g. dbfs:/db_path/table_name
+            table_path = db_path + '/' + table_name
+            location_stmt = f"\nLOCATION '{table_path}'"
+            with open(local_table_path, 'a') as fp:
+                fp.write(location_stmt)
+            return True
+        return False
+
+    def apply_table_ddl(self, local_table_path, ec_id, cid, db_path, has_unicode=False):
+        """
+        Run DDL command on destination workspace
+        :param local_table_path: local file path to the table DDL
+        :param ec_id: execution context id to run remote commands
+        :param cid: cluster id to connect to
+        :param db_path: database S3 / Blob Storage / ADLS path for the Database
+        :param has_unicode: Whether the table definitions have unicode characters.
+        :return: rest api response
+        """
         # get file size in bytes
+        updated_table_status = self.update_table_ddl(local_table_path, db_path)
         f_size_bytes = os.path.getsize(local_table_path)
         if f_size_bytes > 1024 or has_unicode:
             # upload first to tmp DBFS path and apply
@@ -202,8 +236,12 @@ class HiveClient(ClustersClient):
         for db_name in db_list:
             # get the local database path to list tables
             local_db_path = metastore_local_dir + '/' + db_name
-            database_attributes = all_db_details_json[db_name]
+            database_attributes = all_db_details_json.get(db_name, '')
+            if not database_attributes:
+                print(all_db_details_json)
+                raise ValueError('Missing Database Attributes Log. Re-run metastore export')
             create_db_resp = self.create_database_db(db_name, ec_id, cid, database_attributes)
+            db_path = database_attributes.get('Location')
             if os.path.isdir(local_db_path):
                 # all databases should be directories, no files at this level
                 # list all the tables in the database local dir
@@ -212,7 +250,7 @@ class HiveClient(ClustersClient):
                     # build the path for the table where the ddl is stored
                     print("Importing table {0}.{1}".format(db_name, x))
                     local_table_ddl = metastore_local_dir + '/' + db_name + '/' + x
-                    is_successful = self.apply_table_ddl(local_table_ddl, ec_id, cid, has_unicode)
+                    is_successful = self.apply_table_ddl(local_table_ddl, ec_id, cid, db_path, has_unicode)
                     print(is_successful)
             else:
                 print("Error: Only databases should exist at this level: {0}".format(db_name))

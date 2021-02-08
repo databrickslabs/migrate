@@ -27,6 +27,12 @@ Support Matrix for Import and Export Operations:
 | ML Models         | Unsupported  | Unsupported  |
 | Table ACLs        | Unsupported  | Unsupported  |
 
+**DBFS Data Migration:**  
+* DBFS is a protected object storage location on AWS and Azure.
+* Data within the DBFS bucket can be very large, and the Databricks support team will need to help here. 
+  * The Databricks support team has a tool available to help with DBFS migrations between AWS workspaces today. 
+  * Azure DBFS migrations is work in progress. 
+
 **Note:** MLFlow objects cannot be exported / imported with this tool.
 For more details, please look [here](https://github.com/amesar/mlflow-tools/tree/master/mlflow_tools/export_import)
 
