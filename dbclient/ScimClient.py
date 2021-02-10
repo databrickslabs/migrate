@@ -399,9 +399,15 @@ class ScimClient(dbclient):
                     for m in members:
                         if self.is_user(m):
                             old_email = old_user_emails[m['value']]
-                            member_id_list.append(current_user_ids[old_email])
+                            this_user_id = current_user_ids.get(old_email, '')
+                            if not this_user_id:
+                                raise ValueError(f'Unable to find user {old_email} in the new workspace. '
+                                                 f'This users email case has changed and needs to be updated with '
+                                                 f'the --replace-old-email and --update-new-email options')
+                            member_id_list.append(this_user_id)
                         elif self.is_group(m):
-                            member_id_list.append(current_group_ids[m['display']])
+                            this_group_id = current_group_ids.get(m['display'])
+                            member_id_list.append(this_group_id)
                         else:
                             print("Skipping service principal members and other identities not within users/groups")
                     add_members_json = self.get_member_args(member_id_list)

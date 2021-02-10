@@ -10,6 +10,14 @@ from dbclient import *
 class HiveClient(ClustersClient):
 
     @staticmethod
+    def is_delta_table(local_path):
+        with open(local_path, 'r') as fp:
+            for line in fp:
+                if line.startswith('USING delta'):
+                    return True
+        return False
+
+    @staticmethod
     def is_table_location_defined(local_table_path):
         with open(local_table_path, 'r') as fp:
             for line in fp:
@@ -18,6 +26,44 @@ class HiveClient(ClustersClient):
                 if line.startswith('LOCATION'):
                     return True
         return False
+
+    @staticmethod
+    def get_ddl_by_keyword_group(local_path):
+        """
+        return a list of DDL strings that are grouped by keyword arguments and their parameters
+        """
+        ddl_statement = []
+        parameter_group = []
+        with open(local_path, 'r') as fp:
+            for line in fp:
+                raw = line.rstrip()
+                if raw[0] == ' ':
+                    parameter_group.append(raw)
+                else:
+                    if parameter_group:
+                        ddl_statement.append(''.join(parameter_group))
+                    parameter_group = [raw]
+            ddl_statement.append(''.join(parameter_group))
+        return ddl_statement
+
+    def get_local_tmp_ddl_if_applicable(self, current_local_ddl_path):
+        """
+        method to identify if we should update the current DDL if OPTIONS or TBLPROPERTIES keywords exist
+        """
+        ddl_statement = self.get_ddl_by_keyword_group(current_local_ddl_path)
+        tmp_ddl_path = self.get_export_dir() + 'tmp_ddl.txt'
+        return_tmp_file = False
+        with open(tmp_ddl_path, 'w') as fp:
+            for keyword_param in ddl_statement:
+                if keyword_param.startswith('OPTIONS') or keyword_param.startswith('TBLPROPERTIES'):
+                    return_tmp_file = True
+                    continue
+                fp.write(keyword_param + ' ')
+        if return_tmp_file:
+            return tmp_ddl_path
+        else:
+            os.remove(tmp_ddl_path)
+            return current_local_ddl_path
 
     def update_table_ddl(self, local_table_path, db_path):
         # check if the database location / path is the default DBFS path
@@ -45,6 +91,10 @@ class HiveClient(ClustersClient):
         """
         # get file size in bytes
         updated_table_status = self.update_table_ddl(local_table_path, db_path)
+        # update local table ddl to a new temp file with OPTIONS and TBLPROPERTIES removed from the DDL for delta tables
+        if self.is_delta_table(local_table_path):
+            local_table_path = self.get_local_tmp_ddl_if_applicable(local_table_path)
+
         f_size_bytes = os.path.getsize(local_table_path)
         if f_size_bytes > 1024 or has_unicode:
             # upload first to tmp DBFS path and apply
@@ -191,7 +241,7 @@ class HiveClient(ClustersClient):
                 self.log_all_tables(db_name, cid, ec_id, metastore_dir, failed_metastore_log_path, has_unicode)
 
         total_failed_entries = self.get_num_of_lines(failed_metastore_log_path)
-        if (not self.is_skip_failed()) and self.is_aws():
+        if (not self.is_skip_failed()) and self.is_aws() and total_failed_entries > 0:
             print("Retrying failed metastore export with registered IAM roles")
             self.retry_failed_metastore_export(cid, failed_metastore_log_path)
             print("Failed count before retry: " + str(total_failed_entries))

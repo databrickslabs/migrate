@@ -72,16 +72,21 @@ class ClustersClient(dbclient):
         import os
         real_path = os.path.dirname(os.path.realpath(__file__))
         if self.is_aws():
-            with open(real_path + '/../data/aws_cluster.json', 'r') as fp:
-                cluster_json = json.loads(fp.read())
-                # pull AWS attributes and update the IAM policy
-                aws_attr = cluster_json['aws_attributes']
-                print("Updating cluster with: " + iam_role)
-                aws_attr['instance_profile_arn'] = iam_role
-                cluster_json['aws_attributes'] = aws_attr
-                resp = self.post('/clusters/edit', cluster_json)
-                self.wait_for_cluster(cid)
-                return cid
+            print("Updating cluster with: " + iam_role)
+            current_cluster_json = self.get(f'/clusters/get?cluster_id={cid}')
+            run_properties = set(list(current_cluster_json.keys())) - self.create_configs
+            for p in run_properties:
+                del current_cluster_json[p]
+            if 'aws_attributes' in current_cluster_json:
+                aws_conf = current_cluster_json.pop('aws_attributes')
+                aws_conf['instance_profile_arn'] = iam_role
+            else:
+                aws_conf = {'instance_profile_arn': iam_role}
+            current_cluster_json['aws_attributes'] = aws_conf
+            resp = self.post('/clusters/edit', current_cluster_json)
+            print(resp)
+            new_cid = self.wait_for_cluster(cid)
+            return new_cid
         else:
             return False
 
