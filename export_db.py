@@ -60,7 +60,8 @@ def main():
         start = timer()
         # log notebooks and libraries
         ws_c.init_workspace_logfiles()
-        ws_c.log_all_workspace_items()
+        num_notebooks = ws_c.log_all_workspace_items()
+        print("Total number of notebooks logged: ", num_notebooks)
         end = timer()
         print("Complete Workspace Export Time: " + str(timedelta(seconds=end - start)))
 

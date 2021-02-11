@@ -141,8 +141,14 @@ class WorkspaceClient(ScimClient):
         user_root = '/Users/' + username.rstrip().lstrip()
         self.set_export_dir(user_export_dir + '/{0}/'.format(username))
         print("Export path: {0}".format(self.get_export_dir()))
-        self.log_all_workspace_items(ws_path=user_root)
-        self.download_notebooks(ws_dir='user_artifacts/')
+        num_of_nbs = self.log_all_workspace_items(ws_path=user_root)
+        if num_of_nbs == 0:
+            raise ValueError('User does not have any notebooks in this path. Please verify the case of the email')
+        num_of_nbs_dl = self.download_notebooks(ws_dir='user_artifacts/')
+        print(f"Total notebooks logged: {num_of_nbs}")
+        print(f"Total notebooks downloaded: {num_of_nbs_dl}")
+        if num_of_nbs != num_of_nbs_dl:
+            print(f"Notebooks logged != downloaded. Check the failed download file at: {user_export_dir}")
         # reset the original export dir for other calls to this method using the same client
         self.set_export_dir(original_export_dir)
 
@@ -294,6 +300,7 @@ class WorkspaceClient(ScimClient):
         if not os.path.exists(self.get_export_dir()):
             os.makedirs(self.get_export_dir(), exist_ok=True)
         items = self.get(WS_LIST, get_args).get('objects', None)
+        num_nbs = 0
         if self.is_verbose():
             print("Listing: {0}".format(get_args['path']))
         if items is not None:
@@ -304,9 +311,11 @@ class WorkspaceClient(ScimClient):
             libraries = self.filter_workspace_items(items, 'LIBRARY')
             with open(workspace_log, "a") as ws_fp, open(libs_log, "a") as libs_fp:
                 for x in notebooks:
+                    # notebook objects has path and object_id
                     if self.is_verbose():
-                        print("Saving path: {0}".format(x))
+                        print("Saving path: {0}".format(x.get('path')))
                     ws_fp.write(json.dumps(x) + '\n')
+                    num_nbs += 1
                 for y in libraries:
                     libs_fp.write(json.dumps(y) + '\n')
             # log all directories to export permissions
@@ -316,9 +325,10 @@ class WorkspaceClient(ScimClient):
                         dir_path = f.get('path', None)
                         if not WorkspaceClient.is_user_trash(dir_path):
                             dir_fp.write(json.dumps(f) + '\n')
-                            self.log_all_workspace_items(ws_path=dir_path,
-                                                         workspace_log_file=workspace_log_file,
-                                                         libs_log_file=libs_log_file)
+                            num_nbs += self.log_all_workspace_items(ws_path=dir_path,
+                                                                    workspace_log_file=workspace_log_file,
+                                                                    libs_log_file=libs_log_file)
+        return num_nbs
 
     def get_obj_id_by_path(self, input_path):
         resp = self.get(WS_STATUS, {'path': input_path})

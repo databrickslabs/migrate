@@ -276,11 +276,6 @@ class HiveClient(ClustersClient):
             return True
         return False
 
-    @staticmethod
-    def delete_dir_if_empty(local_dir):
-        if len(os.listdir(local_dir)) == 0:
-            os.rmdir(local_dir)
-
     def move_table_view(self, db_name, tbl_name, local_table_ddl, views_dir='metastore_views/'):
         metastore_view_dir = self.get_export_dir() + views_dir
         ddl_statement = self.get_ddl_by_keyword_group(local_table_ddl)

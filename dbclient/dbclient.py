@@ -68,6 +68,11 @@ class dbclient:
             return -1
         return 0
 
+    @staticmethod
+    def delete_dir_if_empty(local_dir):
+        if len(os.listdir(local_dir)) == 0:
+            os.rmdir(local_dir)
+
     def get(self, endpoint, json_params=None, version='2.0', print_json=False):
         if version:
             ver = version
