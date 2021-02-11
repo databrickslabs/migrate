@@ -269,8 +269,32 @@ class HiveClient(ClustersClient):
         spark_ddl = 'spark.sql(""" {0} """)'.format(table_ddl)
         return spark_ddl
 
-    def import_hive_metastore(self, cluster_name=None, metastore_dir='metastore', has_unicode=False):
+    @staticmethod
+    def is_ddl_a_view(ddl_list):
+        first_statement = ddl_list[0]
+        if first_statement.startswith('CREATE VIEW'):
+            return True
+        return False
+
+    @staticmethod
+    def delete_dir_if_empty(local_dir):
+        if len(os.listdir(local_dir)) == 0:
+            os.rmdir(local_dir)
+
+    def move_table_view(self, db_name, tbl_name, local_table_ddl, views_dir='metastore_views/'):
+        metastore_view_dir = self.get_export_dir() + views_dir
+        ddl_statement = self.get_ddl_by_keyword_group(local_table_ddl)
+        if self.is_ddl_a_view(ddl_statement):
+            dst_local_ddl = metastore_view_dir + db_name + '/' + tbl_name
+            os.rename(local_table_ddl, dst_local_ddl)
+            return True
+        return False
+
+    def import_hive_metastore(self, cluster_name=None, metastore_dir='metastore/', views_dir='metastore_views/',
+                              has_unicode=False):
         metastore_local_dir = self.get_export_dir() + metastore_dir
+        metastore_view_dir = self.get_export_dir() + views_dir
+        os.makedirs(metastore_view_dir, exist_ok=True)
         if cluster_name:
             cid = self.start_cluster_by_name(cluster_name)
         else:
@@ -284,8 +308,11 @@ class HiveClient(ClustersClient):
         # iterate over the databases saved locally
         all_db_details_json = self.get_database_detail_dict()
         for db_name in db_list:
+            # create a dir to host the view ddl if we find them
+            os.makedirs(metastore_view_dir + db_name, exist_ok=True)
             # get the local database path to list tables
-            local_db_path = metastore_local_dir + '/' + db_name
+            local_db_path = metastore_local_dir + db_name
+            # get a dict of the database attributes
             database_attributes = all_db_details_json.get(db_name, '')
             if not database_attributes:
                 print(all_db_details_json)
@@ -296,14 +323,31 @@ class HiveClient(ClustersClient):
                 # all databases should be directories, no files at this level
                 # list all the tables in the database local dir
                 tables = os.listdir(local_db_path)
-                for x in tables:
+                for tbl_name in tables:
                     # build the path for the table where the ddl is stored
-                    print("Importing table {0}.{1}".format(db_name, x))
-                    local_table_ddl = metastore_local_dir + '/' + db_name + '/' + x
-                    is_successful = self.apply_table_ddl(local_table_ddl, ec_id, cid, db_path, has_unicode)
-                    print(is_successful)
+                    print("Importing table {0}.{1}".format(db_name, tbl_name))
+                    local_table_ddl = metastore_local_dir + db_name + '/' + tbl_name
+                    if not self.move_table_view(db_name, tbl_name, local_table_ddl):
+                        # we hit a table ddl here, so we apply the ddl
+                        is_successful = self.apply_table_ddl(local_table_ddl, ec_id, cid, db_path, has_unicode)
+                        print(is_successful)
+                    else:
+                        print(f'Moving view ddl to re-apply later: {db_name}.{tbl_name}')
             else:
                 print("Error: Only databases should exist at this level: {0}".format(db_name))
+            self.delete_dir_if_empty(metastore_view_dir + db_name)
+        views_db_list = os.listdir(metastore_view_dir)
+        for db_name in views_db_list:
+            local_view_db_path = metastore_view_dir + db_name
+            database_attributes = all_db_details_json.get(db_name, '')
+            db_path = database_attributes.get('Location')
+            if os.path.isdir(local_view_db_path):
+                views = os.listdir(local_view_db_path)
+                for view_name in views:
+                    print("Importing view {0}.{1}".format(db_name, view_name))
+                    local_view_ddl = metastore_view_dir + db_name + '/' + view_name
+                    is_successful = self.apply_table_ddl(local_view_ddl, ec_id, cid, db_path, has_unicode)
+                    print(is_successful)
 
     def get_all_databases(self, cid, ec_id):
         # submit first command to find number of databases

@@ -29,6 +29,13 @@ class WorkspaceClient(ScimClient):
                                     root_items))
         return non_users_dir
 
+    def export_top_level_folders(self):
+        ls_tld = self.get_top_level_folders()
+        for tld_path in ls_tld:
+            print(tld_path)
+            #self.log_all_workspace_items(ws_path=tld_path)
+            #self.download_notebooks(ws_dir='user_artifacts/')
+
     def get_user_import_args(self, full_local_path, nb_full_path):
         """
         helper function to define the import parameters to upload a notebook object
@@ -190,6 +197,7 @@ class WorkspaceClient(ScimClient):
         :return: None
         """
         ws_log = self.get_export_dir() + ws_log_file
+        num_notebooks = 0
         if not os.path.exists(ws_log):
             raise Exception("Run --workspace first to download full log of all notebooks.")
         with open(ws_log, "r") as fp:
@@ -197,7 +205,10 @@ class WorkspaceClient(ScimClient):
             # pull the path from the data to download the individual notebook contents
             for notebook_data in fp:
                 notebook_path = json.loads(notebook_data).get('path', None).rstrip()
-                self.download_notebook_helper(notebook_path, export_dir=self.get_export_dir() + ws_dir)
+                dl_resp = self.download_notebook_helper(notebook_path, export_dir=self.get_export_dir() + ws_dir)
+                if 'error_code' not in dl_resp:
+                    num_notebooks += 1
+        return num_notebooks
 
     def download_notebook_helper(self, notebook_path, export_dir='artifacts/'):
         """
@@ -299,13 +310,14 @@ class WorkspaceClient(ScimClient):
                 for y in libraries:
                     libs_fp.write(json.dumps(y) + '\n')
             # log all directories to export permissions
-            with open(workspace_dir_log, "a") as dir_fp:
-                if folders:
+            if folders:
+                with open(workspace_dir_log, "a") as dir_fp:
                     for f in folders:
                         dir_path = f.get('path', None)
                         if not WorkspaceClient.is_user_trash(dir_path):
                             dir_fp.write(json.dumps(f) + '\n')
-                            self.log_all_workspace_items(ws_path=dir_path, workspace_log_file=workspace_log_file,
+                            self.log_all_workspace_items(ws_path=dir_path,
+                                                         workspace_log_file=workspace_log_file,
                                                          libs_log_file=libs_log_file)
 
     def get_obj_id_by_path(self, input_path):

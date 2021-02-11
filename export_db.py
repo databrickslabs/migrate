@@ -78,7 +78,8 @@ def main():
         ws_c = WorkspaceClient(client_config)
         start = timer()
         # log notebooks and libraries
-        ws_c.download_notebooks()
+        num_notebooks = ws_c.download_notebooks()
+        print(f"Total number of notebooks downloaded: {num_notebooks}")
         end = timer()
         print("Complete Workspace Download Time: " + str(timedelta(seconds=end - start)))
 
