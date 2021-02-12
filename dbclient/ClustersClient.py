@@ -177,6 +177,19 @@ class ClustersClient(dbclient):
     def get_spark_versions(self):
         return self.get("/clusters/spark-versions", print_json=True)
 
+    def get_instance_profiles_list(self):
+        if self.is_aws():
+            ip_json_list = self.get('/instance-profiles/list').get('instance_profiles', [])
+            iam_roles_list = list(map(lambda x: x.get('instance_profile_arn'), ip_json_list))
+            return iam_roles_list
+        return []
+
+    def get_iam_role_by_cid(self, cid):
+        if self.is_aws():
+            cluster_resp = self.get(f'/clusters/get?cluster_id={cid}')
+            return cluster_resp.get('aws_attributes').get('instance_profile_arn', None)
+        return None
+
     def get_new_policy_id_dict(self, policy_file='cluster_policies.log'):
         """
         mapping function to get the new policy ids. ids change when migrating to a new workspace
@@ -486,14 +499,15 @@ class ClustersClient(dbclient):
         result_payload = {'clusterId': cid, 'contextId': ec_id, 'commandId': com_id}
 
         resp = self.get('/commands/status', json_params=result_payload, version="1.2")
-        is_running = resp['status']
+        is_running = self.get_key(resp, 'status')
 
         # loop through the status api to check for the 'running' state call and sleep 1 second
         while (is_running == "Running") or (is_running == 'Queued'):
             resp = self.get('/commands/status', json_params=result_payload, version="1.2")
-            is_running = resp['status']
+            is_running = self.get_key(resp, 'status')
             time.sleep(1)
-        end_results = resp['results']
+        end_result_status = self.get_key(resp, 'status')
+        end_results = self.get_key(resp, 'results')
         if end_results.get('resultType', None) == 'error':
             print("ERROR: ")
             print(end_results.get('summary', None))

@@ -179,6 +179,7 @@ class HiveClient(ClustersClient):
         return db_json
 
     def export_database(self, db_name, cluster_name=None, iam_role=None, metastore_dir='metastore/',
+                        fail_log='failed_metastore.log', success_log='success_metastore.log',
                         has_unicode=False, db_log='database_details.log'):
         """
         :param db_name:  database name
@@ -193,16 +194,21 @@ class HiveClient(ClustersClient):
         start = timer()
         if cluster_name:
             cid = self.start_cluster_by_name(cluster_name)
+            current_iam = self.get_iam_role_by_cid(cid)
         else:
-            cid = self.launch_cluster(iam_role)
+            current_iam = iam_role
+            cid = self.launch_cluster(current_iam)
         end = timer()
         print("Cluster creation time: " + str(timedelta(seconds=end - start)))
         time.sleep(5)
         ec_id = self.get_execution_context(cid)
         # if metastore failed log path exists, cleanup before re-running
-        failed_metastore_log_path = self.get_export_dir() + 'failed_metastore.log'
+        failed_metastore_log_path = self.get_export_dir() + fail_log
+        success_metastore_log_path = self.get_export_dir() + success_log
         if os.path.exists(failed_metastore_log_path):
             os.remove(failed_metastore_log_path)
+        if os.path.exists(success_metastore_log_path):
+            os.remove(success_metastore_log_path)
         database_logfile = self.get_export_dir() + db_log
         resp = self.set_desc_database_helper(cid, ec_id)
         if self.is_verbose():
@@ -211,24 +217,35 @@ class HiveClient(ClustersClient):
             db_json = self.get_desc_database_details(db_name, cid, ec_id)
             fp.write(json.dumps(db_json) + '\n')
         os.makedirs(self.get_export_dir() + metastore_dir + db_name, exist_ok=True)
-        self.log_all_tables(db_name, cid, ec_id, metastore_dir, failed_metastore_log_path, has_unicode)
+        self.log_all_tables(db_name, cid, ec_id, metastore_dir, failed_metastore_log_path,
+                            success_metastore_log_path, current_iam, has_unicode)
 
     def export_hive_metastore(self, cluster_name=None, metastore_dir='metastore/', db_log='database_details.log',
-                              has_unicode=False):
+                              success_log='success_metastore.log', fail_log='failed_metastore.log', has_unicode=False):
         start = timer()
+        instance_profiles = self.get_instance_profiles_list()
         if cluster_name:
             cid = self.start_cluster_by_name(cluster_name)
+            current_iam_role = self.get_iam_role_by_cid(cid)
+        elif instance_profiles:
+            # if any instance profile exists, lets start w/ this on the first cluster to launch and export
+            current_iam_role = instance_profiles[0]
+            cid = self.launch_cluster(iam_role=current_iam_role)
         else:
+            current_iam_role = None
             cid = self.launch_cluster()
         end = timer()
         print("Cluster creation time: " + str(timedelta(seconds=end - start)))
         time.sleep(5)
         ec_id = self.get_execution_context(cid)
         # if metastore failed log path exists, cleanup before re-running
-        failed_metastore_log_path = self.get_export_dir() + 'failed_metastore.log'
+        failed_metastore_log_path = self.get_export_dir() + fail_log
+        success_metastore_log_path = self.get_export_dir() + success_log
         database_logfile = self.get_export_dir() + db_log
         if os.path.exists(failed_metastore_log_path):
             os.remove(failed_metastore_log_path)
+        if os.path.exists(success_metastore_log_path):
+            os.remove(success_metastore_log_path)
         all_dbs = self.get_all_databases(cid, ec_id)
         resp = self.set_desc_database_helper(cid, ec_id)
         if self.is_verbose():
@@ -238,12 +255,15 @@ class HiveClient(ClustersClient):
                 os.makedirs(self.get_export_dir() + metastore_dir + db_name, exist_ok=True)
                 db_json = self.get_desc_database_details(db_name, cid, ec_id)
                 fp.write(json.dumps(db_json) + '\n')
-                self.log_all_tables(db_name, cid, ec_id, metastore_dir, failed_metastore_log_path, has_unicode)
+                self.log_all_tables(db_name, cid, ec_id, metastore_dir, failed_metastore_log_path,
+                                    success_metastore_log_path, current_iam_role, has_unicode)
 
         total_failed_entries = self.get_num_of_lines(failed_metastore_log_path)
         if (not self.is_skip_failed()) and self.is_aws() and total_failed_entries > 0:
             print("Retrying failed metastore export with registered IAM roles")
-            self.retry_failed_metastore_export(cid, failed_metastore_log_path)
+            remaining_iam_roles = instance_profiles[1:]
+            self.retry_failed_metastore_export(cid, failed_metastore_log_path, remaining_iam_roles,
+                                               success_metastore_log_path, has_unicode)
             print("Failed count before retry: " + str(total_failed_entries))
             print("Total Databases attempted export: " + str(len(all_dbs)))
         else:
@@ -370,7 +390,8 @@ class HiveClient(ClustersClient):
                 print("Database: {0}".format(db))
         return all_dbs
 
-    def log_all_tables(self, db_name, cid, ec_id, metastore_dir, err_log_path, has_unicode=False):
+    def log_all_tables(self, db_name, cid, ec_id, metastore_dir, err_log_path, success_log_path, iam,
+                       has_unicode=False):
         all_tables_cmd = 'all_tables = [x.tableName for x in spark.sql("show tables in {0}").collect()]'.format(db_name)
         results = self.submit_command(cid, ec_id, all_tables_cmd)
         results = self.submit_command(cid, ec_id, 'print(len(all_tables))')
@@ -380,18 +401,22 @@ class HiveClient(ClustersClient):
         num_of_buckets = (num_of_tables // batch_size) + 1     # number of slices of the list to take
 
         all_tables = []
-        for m in range(0, num_of_buckets):
-            tables_slice = 'print(all_tables[{0}:{1}])'.format(batch_size*m, batch_size*(m+1))
-            results = self.submit_command(cid, ec_id, tables_slice)
-            table_names = ast.literal_eval(results['data'])
-            for table_name in table_names:
-                print("Table: {0}".format(table_name))
-                is_successful = self.log_table_ddl(cid, ec_id, db_name, table_name, metastore_dir,
-                                                   err_log_path, has_unicode)
-                if is_successful == 0:
-                    print(f"Exported {db_name}.{table_name}")
-                else:
-                    print("Logging failure")
+        with open(success_log_path, 'a') as sfp:
+            for m in range(0, num_of_buckets):
+                tables_slice = 'print(all_tables[{0}:{1}])'.format(batch_size*m, batch_size*(m+1))
+                results = self.submit_command(cid, ec_id, tables_slice)
+                table_names = ast.literal_eval(results['data'])
+                for table_name in table_names:
+                    print("Table: {0}".format(table_name))
+                    is_successful = self.log_table_ddl(cid, ec_id, db_name, table_name, metastore_dir,
+                                                       err_log_path, has_unicode)
+                    if is_successful == 0:
+                        print(f"Exported {db_name}.{table_name}")
+                        success_item = {'table': f'{db_name}.{table_name}', 'iam': iam}
+                        sfp.write(json.dumps(success_item))
+                        sfp.write('\n')
+                    else:
+                        print("Logging failure")
         return True
 
     def log_table_ddl(self, cid, ec_id, db_name, table_name, metastore_dir, err_log_path, has_unicode):
@@ -441,11 +466,11 @@ class HiveClient(ClustersClient):
                     fp.write(ddl_resp.get('data'))
                 return 0
 
-    def retry_failed_metastore_export(self, cid, failed_metastore_log_path, metastore_dir='metastore/'):
+    def retry_failed_metastore_export(self, cid, failed_metastore_log_path, iam_roles_list, success_metastore_log_path,
+                                      has_unicode, metastore_dir='metastore/'):
         # check if instance profile exists, ask users to use --users first or enter yes to proceed.
-        instance_profile_log_path = self.get_export_dir() + 'instance_profiles.log'
-        if self.is_aws():
-            do_instance_profile_exist = self.check_if_instance_profiles_exists()
+        if self.is_aws() and iam_roles_list:
+            do_instance_profile_exist = True
         else:
             do_instance_profile_exist = False
         # get total failed entries
@@ -457,32 +482,33 @@ class HiveClient(ClustersClient):
                 for table in err_log:
                     err_log_list.append(table)
 
-            with open(instance_profile_log_path, 'r') as iam_log:
-                for role in iam_log:
-                    role_json = json.loads(role)
-                    iam_role = role_json["instance_profile_arn"]
+            with open(success_metastore_log_path, 'a') as sfp:
+                for iam_role in iam_roles_list:
                     self.edit_cluster(cid, iam_role)
                     ec_id = self.get_execution_context(cid)
                     for table in err_log_list:
                         table_json = json.loads(table)
                         db_name = table_json['table'].split(".")[0]
                         table_name = table_json['table'].split(".")[1]
-                        ddl_stmt = 'print(spark.sql("show create table {0}.{1}").collect()[0][0])'.format(db_name,
-                                                                                                          table_name)
-                        results = self.submit_command(cid, ec_id, ddl_stmt)
-                        if results['resultType'] == 'text':
+
+                        is_successful = self.log_table_ddl(cid, ec_id, db_name, table_name, metastore_dir,
+                                                           failed_metastore_log_path, has_unicode)
+                        if is_successful == 0:
                             err_log_list.remove(table)
-                            with open(self.get_export_dir() + metastore_dir + db_name + '/' + table_name, "w") as fp:
-                                fp.write(results['data'])
+                            print(f"Exported {db_name}.{table_name}")
+                            success_item = {'table': f'{db_name}.{table_name}', 'iam': iam_role}
+                            sfp.write(json.dumps(success_item))
+                            sfp.write('\n')
                         else:
-                            print('failed to get ddl for {0}.{1} with iam role {2}'.format(db_name, table_name,
+                            print('Failed to get ddl for {0}.{1} with iam role {2}'.format(db_name, table_name,
                                                                                            iam_role))
 
-            os.remove(failed_metastore_log_path)
-            with open(failed_metastore_log_path, 'w') as fm:
-                for table in err_log_list:
-                    fm.write(table)
-            failed_count_after_retry = self.get_num_of_lines(failed_metastore_log_path)
-            print("Failed count after retry: " + str(failed_count_after_retry))
+                    os.remove(failed_metastore_log_path)
+                    with open(failed_metastore_log_path, 'w') as fm:
+                        for table in err_log_list:
+                            fm.write(table)
+                            fm.write('\n')
+                    failed_count_after_retry = self.get_num_of_lines(failed_metastore_log_path)
+                    print("Failed count after retry: " + str(failed_count_after_retry))
         else:
             print("No registered instance profiles to retry export")

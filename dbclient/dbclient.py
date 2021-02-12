@@ -146,6 +146,14 @@ class dbclient:
         return self.http_req('patch', endpoint, json_params, version, print_json)
 
     @staticmethod
+    def get_key(http_resp, key_name):
+        value = http_resp.get(key_name, None)
+        if value is None:
+            print(http_resp)
+            raise ValueError('Unable to find key')
+        return value
+
+    @staticmethod
     def my_map(F, items):
         to_return = []
         for elem in items:
