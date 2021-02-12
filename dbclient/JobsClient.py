@@ -150,5 +150,5 @@ class JobsClient(ClustersClient):
         for new_cluster in current_cl:
             old_cluster_id = old_clusters.get(new_cluster['cluster_name'], None)
             if old_cluster_id:
-                new_to_old_mapping[new_cluster['cluster_id']] = old_cluster_id
+                new_to_old_mapping[old_cluster_id] = new_cluster['cluster_id']
         return new_to_old_mapping
