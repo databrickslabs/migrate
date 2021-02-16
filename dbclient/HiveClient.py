@@ -507,7 +507,6 @@ class HiveClient(ClustersClient):
                     with open(failed_metastore_log_path, 'w') as fm:
                         for table in err_log_list:
                             fm.write(table)
-                            fm.write('\n')
                     failed_count_after_retry = self.get_num_of_lines(failed_metastore_log_path)
                     print("Failed count after retry: " + str(failed_count_after_retry))
         else:

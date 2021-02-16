@@ -241,13 +241,15 @@ class dbclient:
                           'jobs.log']
         # update individual logs first
         for log_name in logs_to_update:
-            self.replace_file_contents(old_account_id, new_aws_account_id, log_name)
+            if os.path.exists(log_dir + log_name):
+                self.replace_file_contents(old_account_id, new_aws_account_id, log_name)
         # # update group logs
         group_dir = log_dir + 'groups/'
         groups = os.listdir(group_dir)
         for group_name in groups:
             group_file = 'groups/' + group_name
-            self.replace_file_contents(old_account_id, new_aws_account_id, group_file)
+            if os.path.exists(log_dir + group_file):
+                self.replace_file_contents(old_account_id, new_aws_account_id, group_file)
 
     def update_email_addresses(self, old_email_address, new_email_address):
         """
