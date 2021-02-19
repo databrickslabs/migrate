@@ -2,6 +2,7 @@ import ast
 import os
 import time
 import base64
+import re
 from datetime import timedelta
 from timeit import default_timer as timer
 from dbclient import *
@@ -37,7 +38,7 @@ class HiveClient(ClustersClient):
         with open(local_path, 'r') as fp:
             for line in fp:
                 raw = line.rstrip()
-                if raw[0] == ' ':
+                if raw[0] == ' ' or raw[0] == ')':
                     parameter_group.append(raw)
                 else:
                     if parameter_group:
@@ -45,6 +46,16 @@ class HiveClient(ClustersClient):
                     parameter_group = [raw]
             ddl_statement.append(''.join(parameter_group))
         return ddl_statement
+
+    @staticmethod
+    def get_path_option_if_available(stmt):
+        # parse the OPTIONS keyword and pull out the `path` parameter if it exists
+        params = re.search(r'\((.*?)\)', stmt).group(1)
+        params_list = list(map(lambda p: p.lstrip().rstrip(), params.split(',')))
+        for x in params_list:
+            if x.startswith('path'):
+                return f'OPTIONS ( {x} )'
+        return ''
 
     def get_local_tmp_ddl_if_applicable(self, current_local_ddl_path):
         """
@@ -55,7 +66,13 @@ class HiveClient(ClustersClient):
         return_tmp_file = False
         with open(tmp_ddl_path, 'w') as fp:
             for keyword_param in ddl_statement:
-                if keyword_param.startswith('OPTIONS') or keyword_param.startswith('TBLPROPERTIES'):
+                if keyword_param.startswith('OPTIONS'):
+                    return_tmp_file = True
+                    options_param = self.get_path_option_if_available(keyword_param)
+                    if options_param:
+                        fp.write(options_param + ' ')
+                    continue
+                elif keyword_param.startswith('TBLPROPERTIES'):
                     return_tmp_file = True
                     continue
                 fp.write(keyword_param + ' ')
