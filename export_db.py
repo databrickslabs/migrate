@@ -200,6 +200,15 @@ def main():
         end = timer()
         print("Complete single user export: " + str(timedelta(seconds=end - start)))
 
+    if args.workspace_top_level_only:
+        print("Export top level workspace objects at {0}".format(now))
+        ws_c = WorkspaceClient(client_config)
+        start = timer()
+        # log notebooks and directory acls
+        ws_c.export_top_level_folders()
+        end = timer()
+        print("Complete Workspace Top Level Notebooks Export Time: " + str(timedelta(seconds=end - start)))
+
     if args.export_home:
         username = args.export_home
         print("Exporting home directory: {0}".format(username))

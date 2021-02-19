@@ -155,6 +155,9 @@ def get_export_parser():
     parser.add_argument('--workspace-acls', action='store_true',
                         help='Permissions for workspace objects to export')
 
+    parser.add_argument('--workspace-top-level-only', action='store_true',
+                        help='Download only top level notebook directories')
+
     parser.add_argument('--silent', action='store_true', default=False,
                         help='Silent all logging of export operations.')
     # Don't verify ssl
@@ -204,6 +207,9 @@ def get_import_parser():
     # import all notebooks
     parser.add_argument('--workspace', action='store_true',
                         help='Import all notebooks from export dir into the workspace.')
+
+    parser.add_argument('--workspace-top-level', action='store_true',
+                        help='Import all top level notebooks from export dir into the workspace. Excluding Users dirs')
 
     parser.add_argument('--workspace-acls', action='store_true',
                         help='Permissions for workspace objects to import')

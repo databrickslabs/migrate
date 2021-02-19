@@ -34,7 +34,7 @@ Support Matrix for Import and Export Operations:
   * Azure DBFS migrations is work in progress. 
 
 **Note:** MLFlow objects cannot be exported / imported with this tool.
-For more details, please look [here](https://github.com/amesar/mlflow-tools/tree/master/mlflow_tools/export_import)
+For more details, please look [here](https://github.com/amesar/mlflow-tools/)
 
 ## Workspace Analysis
 Import this [notebook](data/workspace_migration_analysis.py) to do an analysis of the number of objects within the 
@@ -206,21 +206,42 @@ python export_db.py --reset-export && python export_db.py --profile SRC --export
 python import_db.py --profile DST --import-groups
 ```
 
+### Export / Import Top Level Notebooks
+This will export all notebooks that are not a part of the `/Users/` directories to help migrate notebooks that are 
+outside of personal workspace directories. 
+```bash
+# reset the export directory and export the top level directories / notebooks
+python export_db.py --reset-export && python export_db.py --profile SRC --workspace-top-level-only
+# if ACLs are enabled, export the ACLs as well
+python export_db.py --profile SRC --workspace-acls
+
+# import the groups that were exported
+python import_db.py --profile DST --workspace-top-level
+# apply acls if needed 
+python import_db.py --profile DST --workspace-acls
+```
+
 #### Export Help Text
 ```
 $ python export_db.py --help
 usage: export_db.py [-h] [--users] [--workspace]
                     [--notebook-format {DBC,SOURCE,HTML}] [--download]
-                    [--libs] [--clusters] [--jobs] [--metastore]
-                    [--cluster-name CLUSTER_NAME] [--database DATABASE]
-                    [--iam IAM] [--skip-failed] [--mounts] [--azure]
-                    [--profile PROFILE] [--export-home EXPORT_HOME]
-                    [--workspace-acls] [--silent] [--no-ssl-verification]
-                    [--debug] [--set-export-dir SET_EXPORT_DIR]
-                    [--pause-all-jobs] [--unpause-all-jobs]
+                    [--libs] [--clusters] [--jobs] [--metastore] [--secrets]
+                    [--metastore-unicode] [--cluster-name CLUSTER_NAME]
+                    [--database DATABASE] [--iam IAM] [--skip-failed]
+                    [--mounts] [--azure] [--profile PROFILE]
+                    [--single-user SINGLE_USER] [--export-home EXPORT_HOME]
+                    [--export-groups EXPORT_GROUPS] [--workspace-acls]
+                    [--workspace-top-level-only] [--silent]
+                    [--no-ssl-verification] [--debug] [--reset-exports]
+                    [--set-export-dir SET_EXPORT_DIR] [--pause-all-jobs]
+                    [--unpause-all-jobs]
                     [--update-account-id UPDATE_ACCOUNT_ID]
                     [--old-account-id OLD_ACCOUNT_ID]
-
+                    [--replace-old-email REPLACE_OLD_EMAIL]
+                    [--update-new-email UPDATE_NEW_EMAIL]
+                    [--bypass-windows-check]
+                    
 Export full workspace artifacts from Databricks
 
 optional arguments:
@@ -255,6 +276,8 @@ optional arguments:
                         Group names to export as a set. Includes group, users,
                         and notebooks.
   --workspace-acls      Permissions for workspace objects to export
+  --workspace-top-level-only
+                        Download only top level notebook directories
   --silent              Silent all logging of export operations.
   --no-ssl-verification
                         Set Verify=False when making http requests.
@@ -278,16 +301,17 @@ optional arguments:
 #### Import Help Text
 ```
 $ python import_db.py --help
-usage: import_db.py [-h] [--users] [--workspace] [--workspace-acls]
-                    [--notebook-format {DBC,SOURCE,HTML}]
-                    [--import-home IMPORT_HOME] [--archive-missing] [--libs]
-                    [--clusters] [--jobs] [--metastore]
+usage: import_db.py [-h] [--users] [--workspace] [--workspace-top-level]
+                    [--workspace-acls] [--notebook-format {DBC,SOURCE,HTML}]
+                    [--import-home IMPORT_HOME] [--import-groups]
+                    [--archive-missing] [--libs] [--clusters] [--jobs]
+                    [--metastore] [--metastore-unicode]
                     [--cluster-name CLUSTER_NAME] [--skip-failed] [--azure]
-                    [--profile PROFILE] [--no-ssl-verification] [--silent]
-                    [--debug] [--set-export-dir SET_EXPORT_DIR]
-                    [--pause-all-jobs] [--unpause-all-jobs]
-                    [--delete-all-jobs]
-
+                    [--profile PROFILE] [--single-user SINGLE_USER]
+                    [--no-ssl-verification] [--silent] [--debug]
+                    [--set-export-dir SET_EXPORT_DIR] [--pause-all-jobs]
+                    [--unpause-all-jobs] [--delete-all-jobs]
+                    
 Import full workspace artifacts into Databricks
 
 optional arguments:
@@ -295,6 +319,9 @@ optional arguments:
   --users               Import all the users and groups from the logfile.
   --workspace           Import all notebooks from export dir into the
                         workspace.
+  --workspace-top-level
+                        Import all top level notebooks from export dir into
+                        the workspace. Excluding Users dirs
   --notebook-format {DBC,SOURCE,HTML}
                         Choose the file format of the notebook to import
                         (default: DBC)

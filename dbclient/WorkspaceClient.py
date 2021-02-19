@@ -23,18 +23,26 @@ class WorkspaceClient(ScimClient):
 
     def get_top_level_folders(self):
         # get top level folders excluding the /Users path
+        supported_types = ('NOTEBOOK', 'DIRECTORY')
         root_items = self.get(WS_LIST, {'path': '/'}).get('objects', [])
         # filter out Projects and Users folders
         non_users_dir = list(filter(lambda x: (x.get('path') != '/Users' and x.get('path') != '/Projects'),
                                     root_items))
-        return non_users_dir
+        dirs_and_nbs = list(filter(lambda x: (x.get('object_type') in supported_types),
+                                    non_users_dir))
+        return dirs_and_nbs
 
     def export_top_level_folders(self):
         ls_tld = self.get_top_level_folders()
-        for tld_path in ls_tld:
-            print(tld_path)
-            #self.log_all_workspace_items(ws_path=tld_path)
-            #self.download_notebooks(ws_dir='user_artifacts/')
+        logged_nb_count = 0
+        for tld_obj in ls_tld:
+            # obj has 3 keys, object_type, path, object_id
+            tld_path = tld_obj.get('path')
+            log_count = self.log_all_workspace_items(ws_path=tld_path)
+            logged_nb_count += log_count
+        dl_nb_count = self.download_notebooks()
+        print(f'Total logged notebooks: {logged_nb_count}')
+        print(f'Total Downloaded notebooks: {dl_nb_count}')
 
     def get_user_import_args(self, full_local_path, nb_full_path):
         """
@@ -122,11 +130,12 @@ class WorkspaceClient(ScimClient):
         """
         # get current number of saved workspaces
         user_home_dir = export_dir + 'Users'
-        ls = os.listdir(user_home_dir)
         num_of_users = 0
-        for x in ls:
-            if os.path.isdir(user_home_dir + '/' + x):
-                num_of_users += 1
+        if os.path.exists(user_home_dir):
+            ls = os.listdir(user_home_dir)
+            for x in ls:
+                if os.path.isdir(user_home_dir + '/' + x):
+                    num_of_users += 1
         return num_of_users
 
     def export_user_home(self, username, local_export_dir):
@@ -439,6 +448,39 @@ class WorkspaceClient(ScimClient):
         if stat.get('object_type', None) == 'DIRECTORY':
             return True
         return False
+
+    def does_path_exist(self, dir_path):
+        status_resp = self.get(WS_STATUS, {'path': dir_path})
+        if 'error_code' in status_resp:
+            if status_resp.get('error_code') == 'RESOURCE_DOES_NOT_EXIST':
+                return False
+            else:
+                print('Failure:' + json.dumps(status_resp))
+                return False
+        return True
+
+    def import_current_workspace_items(self,artifact_dir='artifacts/'):
+        src_dir = self.get_export_dir() + artifact_dir
+        for root, subdirs, files in os.walk(src_dir):
+            # replace the local directory with empty string to get the notebook workspace directory
+            nb_dir = '/' + root.replace(src_dir, '')
+            upload_dir = nb_dir
+            if not nb_dir == '/':
+                upload_dir = nb_dir + '/'
+            if not self.does_path_exist(upload_dir):
+                resp_mkdirs = self.post(WS_MKDIRS, {'path': upload_dir})
+            for f in files:
+                print("Uploading: {0}".format(f))
+                # create the local file path to load the DBC file
+                local_file_path = os.path.join(root, f)
+                # create the ws full file path including filename
+                ws_file_path = upload_dir + f
+                # generate json args with binary data for notebook to upload to the workspace path
+                nb_input_args = self.get_user_import_args(local_file_path, ws_file_path)
+                # call import to the workspace
+                if self.is_verbose():
+                    print("Path: {0}".format(nb_input_args['path']))
+                resp_upload = self.post(WS_IMPORT, nb_input_args)
 
     def import_all_workspace_items(self, artifact_dir='artifacts/', archive_missing=False):
         """

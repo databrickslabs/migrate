@@ -52,6 +52,16 @@ def main():
         end = timer()
         print("Complete Workspace Import Time: " + str(timedelta(seconds=end - start)))
 
+    if args.workspace_top_level:
+        print("Import the top level workspace items at {0}".format(now))
+        print("Import on {0}".format(url))
+        ws_c = WorkspaceClient(client_config)
+        start = timer()
+        # log notebooks and libraries
+        ws_c.import_current_workspace_items()
+        end = timer()
+        print("Complete Workspace Import Time: " + str(timedelta(seconds=end - start)))
+
     if args.workspace_acls:
         print("Import workspace ACLs at {0}".format(now))
         print("Import on {0}".format(url))
