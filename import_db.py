@@ -183,6 +183,15 @@ def main():
         end = timer()
         # print("Complete Library Import Time: " + str(timedelta(seconds=end - start)))
 
+    if args.get_repair_log:
+        print("Finding partitioned tables to repair at {0}".format(now))
+        start = timer()
+        hive_c = HiveClient(client_config)
+        # log job configs
+        hive_c.report_legacy_tables_to_fix()
+        end = timer()
+        print("Complete Report Time: " + str(timedelta(seconds=end - start)))
+
 
 if __name__ == '__main__':
     main()

@@ -244,9 +244,12 @@ def get_import_parser():
     parser.add_argument('--metastore', action='store_true',
                         help='Import the metastore to the workspace.')
 
-    # get all metastore
+    # import all metastore including defns with unicode
     parser.add_argument('--metastore-unicode', action='store_true',
                         help='Import all the metastore table definitions with unicode characters')
+
+    parser.add_argument('--get-repair-log', action='store_true',
+                        help='Report on current tables requiring repairs')
 
     # cluster name used to import the metastore
     parser.add_argument('--cluster-name', action='store',

@@ -14,7 +14,8 @@ class HiveClient(ClustersClient):
     def is_delta_table(local_path):
         with open(local_path, 'r') as fp:
             for line in fp:
-                if line.startswith('USING delta'):
+                lower_line = line.lower()
+                if lower_line.startswith('using delta'):
                     return True
         return False
 
@@ -38,6 +39,9 @@ class HiveClient(ClustersClient):
         with open(local_path, 'r') as fp:
             for line in fp:
                 raw = line.rstrip()
+                if not raw:
+                    # make sure it's not an empty line, continue if empty
+                    continue
                 if raw[0] == ' ' or raw[0] == ')':
                     parameter_group.append(raw)
                 else:
@@ -528,3 +532,45 @@ class HiveClient(ClustersClient):
                     print("Failed count after retry: " + str(failed_count_after_retry))
         else:
             print("No registered instance profiles to retry export")
+
+    def report_legacy_tables_to_fix(self, metastore_dir='metastore/', fix_table_log='repair_tables.log'):
+        metastore_local_dir = self.get_export_dir() + metastore_dir
+        fix_log = self.get_export_dir() + fix_table_log
+        db_list = os.listdir(metastore_local_dir)
+        num_of_tables = 0
+        with open(fix_log, 'w') as fp:
+            for db_name in db_list:
+                local_db_path = metastore_local_dir + db_name
+                if os.path.isdir(local_db_path):
+                    # all databases should be directories, no files at this level
+                    # list all the tables in the database local dir
+                    tables = os.listdir(local_db_path)
+                    for tbl_name in tables:
+                        local_table_ddl = local_db_path + '/' + tbl_name
+                        if self.is_legacy_table_partitioned(local_table_ddl):
+                            num_of_tables += 1
+                            print(f'Table needs repair: {db_name}.{tbl_name}')
+                            fp.write(f'{db_name}.{tbl_name}\n')
+        # once completed, check if the file exists
+        log_size = os.stat(fix_log).st_size
+        if log_size > 0:
+            # repair log exists, upload to the platform to repair these tables
+            print(f"Total number of tables needing repair: {num_of_tables}")
+            dbfs_path = '/tmp/migration/repair_ddl.log'
+            print(f"Uploading repair log to DBFS: {dbfs_path}")
+            path_args = {'path': dbfs_path, 'overwrite': 'true'}
+            file_content_json = {'files': open(fix_log, 'r')}
+            put_resp = self.post('/dbfs/put', path_args, files_json=file_content_json)
+            if self.is_verbose():
+                print(put_resp)
+        else:
+            os.remove(fix_log)
+
+    def is_legacy_table_partitioned(self, table_local_path):
+        if not self.is_delta_table(table_local_path):
+            ddl_group = self.get_ddl_by_keyword_group(table_local_path)
+            for kw in ddl_group:
+                kw_lower = kw.lower()
+                if kw_lower.startswith('partitioned by'):
+                    return True
+        return False

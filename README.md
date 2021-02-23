@@ -193,6 +193,14 @@ python export_db.py --profile DEMO --metastore --cluster-name "Test"
 python export_db.py --profile DEMO --metastore --cluster-name "Test" --database "my_db"
 ```
 
+To find legacy Hive tables that need to be repaired after a successful import, run the following:
+```
+python import_db.py --profile DST --get-repair-log
+```
+Once completed, it will upload a log to the destination location. 
+Use this [repair notebook](data/repair_tables_for_migration.py) to import into the destination environment to repair 
+all tables. 
+
 ### Export Groups by Name
 This functionality exports group(s), their members, and corresponding notebooks.  
 This assumes an empty export directory to simplify the number of operations needed.  
@@ -305,13 +313,13 @@ usage: import_db.py [-h] [--users] [--workspace] [--workspace-top-level]
                     [--workspace-acls] [--notebook-format {DBC,SOURCE,HTML}]
                     [--import-home IMPORT_HOME] [--import-groups]
                     [--archive-missing] [--libs] [--clusters] [--jobs]
-                    [--metastore] [--metastore-unicode]
+                    [--metastore] [--metastore-unicode] [--get-repair-log]
                     [--cluster-name CLUSTER_NAME] [--skip-failed] [--azure]
                     [--profile PROFILE] [--single-user SINGLE_USER]
                     [--no-ssl-verification] [--silent] [--debug]
                     [--set-export-dir SET_EXPORT_DIR] [--pause-all-jobs]
                     [--unpause-all-jobs] [--delete-all-jobs]
-                    
+                                        
 Import full workspace artifacts into Databricks
 
 optional arguments:
@@ -340,6 +348,7 @@ optional arguments:
   --metastore           Import the metastore to the workspace.
   --metastore-unicode   Import all the metastore table definitions with
                         unicode characters
+  --get-repair-log      Report on current tables requiring repairs
   --cluster-name CLUSTER_NAME
                         Cluster name to import the metastore to a specific
                         cluster. Cluster will be started.
