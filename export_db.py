@@ -190,6 +190,24 @@ def main():
         end = timer()
         print("Complete email update time: " + str(timedelta(seconds=end - start)))
 
+    if args.replace_email:
+        print("Updating old email(s) to new email(s)) at {0}".format(now))
+        start = timer()
+        client = dbclient(client_config)
+        #parse list list of e-mail mapping pairs. Format is:  old1@email.com:new1@e-mail.com,old2email.com:new2@email.com
+        emailpairs = args.replace_email.split(',')
+        print(str(len(emailpairs)) +' emails found to replace')
+        for emailpair in emailpairs:
+            if len(emailpair.split(':')) < 2:
+                print('Syntax error in e-mail '+emailpair+'. Old e-mail address and new e-mail address new to be separated by a :')
+            else:
+                old_email=emailpair.split(':')[0]
+                new_email=emailpair.split(':')[1]
+                print('Replacing old e-mail: '+old_email+' with new e-mail '+new_email)
+                client.update_email_addresses(old_email, new_email)
+        end = timer()
+        print("Complete email update time: " + str(timedelta(seconds=end - start)))
+
     if args.single_user:
         user_email = args.single_user
         print(f"Export user {user_email} at {now}")

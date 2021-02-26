@@ -191,6 +191,9 @@ def get_export_parser():
     parser.add_argument('--update-new-email', action='store',
                         help='New email address to replace the logs')
 
+    parser.add_argument('--replace-email', action='store',
+                        help='Update old emails with new e-mails. NOTE: Similar to replace-old-email but capable of using multiple e-mails. Format old1@email:new1@email.com,old2@email.com:new2@email.com')
+
     parser.add_argument('--bypass-windows-check', action='store_true',
                         help='By-pass windows os checker')
     return parser
