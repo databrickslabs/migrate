@@ -20,16 +20,6 @@ class HiveClient(ClustersClient):
         return False
 
     @staticmethod
-    def is_table_location_defined(local_table_path):
-        with open(local_table_path, 'r') as fp:
-            for line in fp:
-                # SHOW CREATE DDL command splits the keywords upon newlines
-                # making it easy to find if a LOCATION is defined in the table DDL
-                if line.startswith('LOCATION'):
-                    return True
-        return False
-
-    @staticmethod
     def get_ddl_by_keyword_group(local_path):
         """
         return a list of DDL strings that are grouped by keyword arguments and their parameters
@@ -60,6 +50,21 @@ class HiveClient(ClustersClient):
             if x.startswith('path'):
                 return f'OPTIONS ( {x} )'
         return ''
+
+    def is_table_location_defined(self, local_table_path):
+        """ check if LOCATION or OPTIONS(path ..) are defined for the table
+        """
+        ddl_statement = self.get_ddl_by_keyword_group(local_table_path)
+        for keyword_param in ddl_statement:
+            if keyword_param.startswith('OPTIONS'):
+                options_param = self.get_path_option_if_available(keyword_param)
+                if options_param:
+                    # if the return is not empty, the path option is provided which means its an external table
+                    return True
+            elif keyword_param.startswith('LOCATION'):
+                # if LOCATION is defined, we know the external table location
+                return True
+        return False
 
     def get_local_tmp_ddl_if_applicable(self, current_local_ddl_path):
         """
@@ -388,11 +393,7 @@ class HiveClient(ClustersClient):
     def get_all_databases(self, cid, ec_id):
         # submit first command to find number of databases
         # DBR 7.0 changes databaseName to namespace for the return value of show databases
-        if self.is_spark_3(cid):
-            all_dbs_cmd = 'all_dbs = [x.namespace for x in spark.sql("show databases").collect()]; print(len(all_dbs))'
-        else:
-            all_dbs_cmd = 'all_dbs = [x.databaseName for x in spark.sql("show databases").collect()]; print(len(' \
-                          'all_dbs)) '
+        all_dbs_cmd = 'all_dbs = [x.databaseName for x in spark.sql("show databases").collect()]; print(len(all_dbs))'
         results = self.submit_command(cid, ec_id, all_dbs_cmd)
         if results['resultType'] != 'text':
             print(json.dumps(results) + '\n')

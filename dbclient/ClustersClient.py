@@ -265,6 +265,7 @@ class ClustersClient(dbclient):
             for x in acl_fp:
                 data = json.loads(x)
                 cluster_name = data['cluster_name']
+                print(f'Applying acl for {cluster_name}')
                 acl_args = {'access_control_list' : self.build_acl_args(data['access_control_list'])}
                 cid = self.get_cluster_id_by_name(cluster_name)
                 if cid is None:
@@ -277,23 +278,26 @@ class ClustersClient(dbclient):
         policies_log = self.get_export_dir() + log_file
         acl_policies_log = self.get_export_dir() + acl_log_file
         # create the policies
-        with open(policies_log, 'r') as policy_fp:
-            for p in policy_fp:
-                policy_conf = json.loads(p)
-                # when creating the policy, we only need `name` and `definition` fields
-                create_args = {'name': policy_conf['name'],
-                               'definition': policy_conf['definition']}
-                resp = self.post('/policies/clusters/create', create_args)
-        # ACLs are created by using the `access_control_list` key
-        with open(acl_policies_log, 'r') as acl_fp:
-            id_map = self.get_policy_id_by_name_dict()
-            for x in acl_fp:
-                p_acl = json.loads(x)
-                acl_create_args = {'access_control_list': self.build_acl_args(p_acl['access_control_list'])}
-                policy_id = id_map[p_acl['name']]
-                api = f'/permissions/cluster-policies/{policy_id}'
-                resp = self.put(api, acl_create_args)
-                print(resp)
+        if os.path.exists(policies_log):
+            with open(policies_log, 'r') as policy_fp:
+                for p in policy_fp:
+                    policy_conf = json.loads(p)
+                    # when creating the policy, we only need `name` and `definition` fields
+                    create_args = {'name': policy_conf['name'],
+                                   'definition': policy_conf['definition']}
+                    resp = self.post('/policies/clusters/create', create_args)
+            # ACLs are created by using the `access_control_list` key
+            with open(acl_policies_log, 'r') as acl_fp:
+                id_map = self.get_policy_id_by_name_dict()
+                for x in acl_fp:
+                    p_acl = json.loads(x)
+                    acl_create_args = {'access_control_list': self.build_acl_args(p_acl['access_control_list'])}
+                    policy_id = id_map[p_acl['name']]
+                    api = f'/permissions/cluster-policies/{policy_id}'
+                    resp = self.put(api, acl_create_args)
+                    print(resp)
+        else:
+            print('Skipping cluster policies as no log file exists')
 
     def import_instance_pools(self, log_file='instance_pools.log'):
         pool_log = self.get_export_dir() + log_file
