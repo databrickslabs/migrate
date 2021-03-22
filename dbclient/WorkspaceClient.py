@@ -344,22 +344,28 @@ class WorkspaceClient(ScimClient):
         obj_id = resp.get('object_id', None)
         return obj_id
 
-    def log_acl_to_file(self, artifact_type, read_log_filename, write_log_filename):
+    def log_acl_to_file(self, artifact_type, read_log_filename, write_log_filename, failed_log_filename):
         """
         generic function to log the notebook/directory ACLs to specific file names
         :param artifact_type: set('notebooks', 'directories') ACLs to be logged
         :param read_log_filename: the list of the notebook paths / object ids
         :param write_log_filename: output file to store object_id acls
+        :param failed_log_filename: failed acl logs for resources, should be empty
         """
         read_log_path = self.get_export_dir() + read_log_filename
         write_log_path = self.get_export_dir() + write_log_filename
-        with open(read_log_path, 'r') as read_fp, open(write_log_path, 'w') as write_fp:
+        failed_log_path = self.get_export_dir() + failed_log_filename
+        with open(read_log_path, 'r') as read_fp, open(write_log_path, 'w') as write_fp, \
+                open(failed_log_path, 'w') as failed_fp:
             for x in read_fp:
                 data = json.loads(x)
                 obj_id = data.get('object_id', None)
                 api_endpoint = '/permissions/{0}/{1}'.format(artifact_type, obj_id)
                 acl_resp = self.get(api_endpoint)
                 acl_resp['path'] = data.get('path')
+                if 'error_code' in acl_resp:
+                    failed_fp.write(json.dumps(acl_resp) + '\n')
+                    continue
                 acl_resp.pop('http_status_code')
                 write_fp.write(json.dumps(acl_resp) + '\n')
 
@@ -373,12 +379,12 @@ class WorkspaceClient(ScimClient):
         # define log file names for notebooks, folders, and libraries
         print("Exporting the notebook permissions")
         start = timer()
-        self.log_acl_to_file('notebooks', workspace_log_file, 'acl_notebooks.log')
+        self.log_acl_to_file('notebooks', workspace_log_file, 'acl_notebooks.log', 'failed_acl_notebooks.log')
         end = timer()
         print("Complete Notebook ACLs Export Time: " + str(timedelta(seconds=end - start)))
         print("Exporting the directories permissions")
         start = timer()
-        self.log_acl_to_file('directories', dir_log_file, 'acl_directories.log')
+        self.log_acl_to_file('directories', dir_log_file, 'acl_directories.log', 'failed_acl_directories.log')
         end = timer()
         print("Complete Directories ACLs Export Time: " + str(timedelta(seconds=end - start)))
 
