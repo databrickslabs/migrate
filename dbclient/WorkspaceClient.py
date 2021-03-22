@@ -65,6 +65,14 @@ class WorkspaceClient(ScimClient):
         return in_args
 
     @staticmethod
+    def build_ws_lookup_table(success_ws_logfile):
+        ws_hashmap = set()
+        with open(success_ws_logfile, 'r') as fp:
+            for line in fp:
+                ws_hashmap.add(line.rstrip())
+        return ws_hashmap
+
+    @staticmethod
     def is_user_ws_item(ws_dir):
         """
         Checks if this is a user artifact / notebook.
@@ -83,7 +91,6 @@ class WorkspaceClient(ScimClient):
         if ws_dir == '/Users/' or ws_dir == '/Users':
             return True
         path_list = [x for x in ws_dir.split('/') if x]
-        print(path_list)
         if len(path_list) == 2 and path_list[0] == 'Users':
             return True
         return False
@@ -488,13 +495,29 @@ class WorkspaceClient(ScimClient):
                     print("Path: {0}".format(nb_input_args['path']))
                 resp_upload = self.post(WS_IMPORT, nb_input_args)
 
-    def import_all_workspace_items(self, artifact_dir='artifacts/', archive_missing=False):
+    def import_all_workspace_items(self, artifact_dir='artifacts/', success_log='success_ws_import.log',
+                                   failed_log='failed_ws_import.log', archive_missing=False, restart_from_last=False):
         """
         import all notebooks into a new workspace
         :param artifact_dir: notebook download directory
+        :param success_log: success log to allow recovery from last successful upload
+        :param failed_log: failed import log
         :param archive_missing: whether to put missing users into a /Archive/ top level directory
+        :param restart_from_last: flag to restart import and skip past successful imports
         """
         src_dir = self.get_export_dir() + artifact_dir
+        success_logfile = self.get_export_dir() + success_log
+        failed_logfile = self.get_export_dir() + failed_log
+        overwrite_or_append = 'w'
+        if restart_from_last:
+            # if we're restarting from checkpoint, append to the successful logfile
+            overwrite_or_append = 'a'
+            uploaded_hashmap = self.build_ws_lookup_table(success_logfile)
+            print(uploaded_hashmap)
+        else:
+            # delete the log if we start from the beginning
+            if os.path.exists(success_logfile):
+                os.remove(success_logfile)
         num_exported_users = self.get_num_of_saved_users(src_dir)
         num_current_users = self.get_current_users()
         if num_current_users == 0:
@@ -506,45 +529,56 @@ class WorkspaceClient(ScimClient):
             print("Re-run with the `--archive-missing` flag to load missing users into a separate directory")
             raise ValueError("Current number of users is less than number of user workspaces to import.")
         archive_users = set()
-        for root, subdirs, files in os.walk(src_dir):
-            # replace the local directory with empty string to get the notebook workspace directory
-            nb_dir = '/' + root.replace(src_dir, '')
-            upload_dir = nb_dir
-            if not nb_dir == '/':
-                upload_dir = nb_dir + '/'
-            if self.is_user_ws_item(upload_dir):
-                ws_user = self.get_user(upload_dir)
-                if archive_missing:
-                    if ws_user in archive_users:
-                        upload_dir = upload_dir.replace('Users', 'Archive', 1)
+        with open(success_logfile, overwrite_or_append) as success_fp, open(failed_logfile, 'w') as failed_fp:
+            for root, subdirs, files in os.walk(src_dir):
+                # replace the local directory with empty string to get the notebook workspace directory
+                nb_dir = '/' + root.replace(src_dir, '')
+                upload_dir = nb_dir
+                if not nb_dir == '/':
+                    upload_dir = nb_dir + '/'
+                if self.is_user_ws_item(upload_dir):
+                    ws_user = self.get_user(upload_dir)
+                    if archive_missing:
+                        if ws_user in archive_users:
+                            upload_dir = upload_dir.replace('Users', 'Archive', 1)
+                        elif not self.does_user_exist(ws_user):
+                            # add the user to the cache / set of missing users
+                            print("User workspace does not exist, adding to archive cache: {0}".format(ws_user))
+                            archive_users.add(ws_user)
+                            # append the archive path to the upload directory
+                            upload_dir = upload_dir.replace('Users', 'Archive', 1)
+                        else:
+                            print("User workspace exists: {0}".format(ws_user))
                     elif not self.does_user_exist(ws_user):
-                        # add the user to the cache / set of missing users
-                        print("User workspace does not exist, adding to archive cache: {0}".format(ws_user))
-                        archive_users.add(ws_user)
-                        # append the archive path to the upload directory
-                        upload_dir = upload_dir.replace('Users', 'Archive', 1)
+                        print("User {0} is missing. "
+                              "Please re-run with --archive-missing flag "
+                              "or first verify all users exist in the new workspace".format(ws_user))
+                        return
                     else:
-                        print("User workspace exists: {0}".format(ws_user))
-                elif not self.does_user_exist(ws_user):
-                    print("User {0} is missing. "
-                          "Please re-run with --archive-missing flag "
-                          "or first verify all users exist in the new workspace".format(ws_user))
-                    return
-                else:
-                    print("Uploading for user: {0}".format(ws_user))
-            # make the top level folder before uploading files within the loop
-            if not self.is_user_ws_root(upload_dir):
-                # if it is not the /Users/example@example.com/ root path, don't create the folder
-                resp_mkdirs = self.post(WS_MKDIRS, {'path': upload_dir})
-            for f in files:
-                print("Uploading: {0}".format(f))
-                # create the local file path to load the DBC file
-                local_file_path = os.path.join(root, f)
-                # create the ws full file path including filename
-                ws_file_path = upload_dir + f
-                # generate json args with binary data for notebook to upload to the workspace path
-                nb_input_args = self.get_user_import_args(local_file_path, ws_file_path)
-                # call import to the workspace
-                if self.is_verbose():
-                    print("Path: {0}".format(nb_input_args['path']))
-                resp_upload = self.post(WS_IMPORT, nb_input_args)
+                        print("Uploading for user: {0}".format(ws_user))
+                # make the top level folder before uploading files within the loop
+                if not self.is_user_ws_root(upload_dir):
+                    # if it is not the /Users/example@example.com/ root path, don't create the folder
+                    resp_mkdirs = self.post(WS_MKDIRS, {'path': upload_dir})
+                for f in files:
+                    print("Uploading: {0}".format(f))
+                    # create the local file path to load the DBC file
+                    local_file_path = os.path.join(root, f)
+                    # create the ws full file path including filename
+                    ws_file_path = upload_dir + f
+                    if restart_from_last:
+                        if ws_file_path in uploaded_hashmap:
+                            print(f"Skipping upload as file has already been uploaded: {ws_file_path}")
+                            continue
+                    # generate json args with binary data for notebook to upload to the workspace path
+                    nb_input_args = self.get_user_import_args(local_file_path, ws_file_path)
+                    # call import to the workspace
+                    if self.is_verbose():
+                        print("Path: {0}".format(nb_input_args['path']))
+                    resp_upload = self.post(WS_IMPORT, nb_input_args)
+                    if 'error_code' in resp_upload:
+                        # log this path to a success logfile
+                        print(f'Error uploading file: {ws_file_path}')
+                        failed_fp.write(json.dumps(resp_upload) + '\n')
+                    else:
+                        success_fp.write(ws_file_path + '\n')

@@ -211,6 +211,11 @@ def get_import_parser():
     parser.add_argument('--workspace', action='store_true',
                         help='Import all notebooks from export dir into the workspace.')
 
+    # skip previous successful imports
+    parser.add_argument('--restart-from-checkpoint', action='store_true',
+                        help='Restart the workspace import and skip previously successful imports. '
+                             'Only works with --workspace option')
+
     parser.add_argument('--workspace-top-level', action='store_true',
                         help='Import all top level notebooks from export dir into the workspace. Excluding Users dirs')
 
