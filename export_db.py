@@ -250,6 +250,9 @@ def main():
             is_user_home_empty = ws_c.is_user_home_empty(username)
             if not is_user_home_empty:
                 ws_c.export_user_home(username, 'user_exports')
+        print('Exporting users jobs:')
+        jobs_c = JobsClient(client_config)
+        jobs_c.log_job_configs(users_list=user_names)
         end = timer()
         print("Complete User Export Time: " + str(timedelta(seconds=end - start)))
 

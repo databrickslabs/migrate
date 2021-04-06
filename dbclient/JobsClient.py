@@ -30,23 +30,51 @@ class JobsClient(ClustersClient):
             job_ids[job['settings']['name']] = job['job_id']
         return job_ids
 
-    def log_job_configs(self, log_file='jobs.log', acl_file='acl_jobs.log'):
+    def update_imported_job_names(self):
+        # loop through and update the job names to remove the custom delimiter + job_id suffix
+        current_jobs_list = self.get_jobs_list()
+        for job in current_jobs_list:
+            job_id = job['job_id']
+            job_name = job['settings']['name']
+            # job name was set to `old_job_name:::{job_id}` to support duplicate job names
+            # we need to parse the old job name and update the current jobs
+            old_job_name = job_name.split(':::')[0]
+            new_settings = {'name': old_job_name}
+            update_args = {'job_id': job_id, 'new_settings': new_settings}
+            print('Updating job name:', update_args)
+            resp = self.post('/jobs/update', update_args)
+            print(resp)
+
+    def log_job_configs(self, users_list=[], log_file='jobs.log', acl_file='acl_jobs.log'):
         """
         log all job configs and the ACLs for each job
-        :param log_file:
-        :param acl_file:
+        :param users_list: a list of users / emails to filter the results upon (optional for group exports)
+        :param log_file: log file to store job configs as json entries per line
+        :param acl_file: log file to store job ACLs
         :return:
         """
         jobs_log = self.get_export_dir() + log_file
         acl_jobs_log = self.get_export_dir() + acl_file
         # pinned by cluster_user is a flag per cluster
-        jl = self.get_jobs_list(False)
+        jl_full = self.get_jobs_list(False)
+        if users_list:
+            # filter the jobs list to only contain users that exist within this list
+            jl = list(filter(lambda x: x['creator_user_name'] in users_list, jl_full))
+        else:
+            jl = jl_full
         with open(jobs_log, "w") as log_fp, open(acl_jobs_log, 'w') as acl_fp:
             for x in jl:
                 job_id = x['job_id']
+                new_job_name = x['settings']['name'] + ':::' + str(job_id)
+                # grab the settings obj
+                job_settings = x['settings']
+                # update the job name
+                job_settings['name'] = new_job_name
+                # reset the original struct with the new settings
+                x['settings'] = job_settings
                 log_fp.write(json.dumps(x) + '\n')
                 job_perms = self.get(f'/preview/permissions/jobs/{job_id}')
-                job_perms['job_name'] = x['settings']['name']
+                job_perms['job_name'] = new_job_name
                 acl_fp.write(json.dumps(job_perms) + '\n')
 
     def import_job_configs(self, log_file='jobs.log', acl_file='acl_jobs.log'):
@@ -89,7 +117,7 @@ class JobsClient(ClustersClient):
                     else:
                         new_cluster_conf = cluster_conf
                     job_settings['new_cluster'] = new_cluster_conf
-                print("Current JID: {0}".format(job_conf['job_id']))
+                print("Current Job Name: {0}".format(job_conf['settings']['name']))
                 # creator can be none if the user is no longer in the org. see our docs page
                 creator_user_name = job_conf.get('creator_user_name', None)
                 create_resp = self.post('/jobs/create', job_settings)
@@ -102,14 +130,16 @@ class JobsClient(ClustersClient):
             job_id_by_name = self.get_job_id_by_name()
             for line in acl_fp:
                 acl_conf = json.loads(line)
-                job_id = job_id_by_name[acl_conf['job_name']]
-                job_path = f'jobs/{job_id}'  # contains `/jobs/{job_id}` path
+                current_job_id = job_id_by_name[acl_conf['job_name']]
+                job_path = f'jobs/{current_job_id}'  # contains `/jobs/{job_id}` path
                 api = f'/preview/permissions/{job_path}'
                 # get acl permissions for jobs
                 acl_perms = self.build_acl_args(acl_conf['access_control_list'], True)
                 acl_create_args = {'access_control_list': acl_perms}
                 acl_resp = self.patch(api, acl_create_args)
                 print(acl_resp)
+        # update the imported job names
+        self.update_imported_job_names()
 
     def pause_all_jobs(self, pause=True):
         job_list = self.get('/jobs/list').get('jobs', None)
@@ -142,6 +172,8 @@ class JobsClient(ClustersClient):
         current_cl = self.get('/clusters/list').get('clusters', [])
         old_clusters = {}
         # build dict with old cluster name to cluster id mapping
+        if not os.path.exists(cluster_logfile):
+            raise ValueError('Clusters log must exist to map clusters to previous existing cluster ids')
         with open(cluster_logfile, 'r') as fp:
             for line in fp:
                 conf = json.loads(line)

@@ -175,6 +175,10 @@ def main():
         ws_c = WorkspaceClient(client_config)
         for username in user_names:
             ws_c.import_user_home(username, 'user_exports')
+        jobs_c = JobsClient(client_config)
+        # this will only import the groups jobs since we're filtering the jobs during the export process
+        print('Importing the groups members jobs:')
+        jobs_c.import_job_configs()
         end = timer()
         print("Complete User Export Time: " + str(timedelta(seconds=end - start)))
 
