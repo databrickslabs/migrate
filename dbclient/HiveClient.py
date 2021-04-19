@@ -125,7 +125,10 @@ class HiveClient(ClustersClient):
         if f_size_bytes > 1024 or has_unicode:
             # upload first to tmp DBFS path and apply
             dbfs_path = '/tmp/migration/tmp_import_ddl.txt'
-            path_args = {'path': dbfs_path, 'overwrite': 'true'}
+            path_args = {'path': dbfs_path}
+            del_resp = self.post('/dbfs/delete', path_args)
+            if self.is_verbose():
+                print(del_resp)
             file_content_json = {'files': open(local_table_path, 'r')}
             put_resp = self.post('/dbfs/put', path_args, files_json=file_content_json)
             if self.is_verbose():
