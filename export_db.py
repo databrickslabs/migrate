@@ -152,6 +152,14 @@ def main():
         end = timer()
         print("Complete Metastore Export Time: " + str(timedelta(seconds=end - start)))
 
+    if args.table_acls:
+        print("Export the table ACLs configs at {0}".format(now))
+        start = timer()
+        table_acls_c = TableACLsClient(client_config)
+        table_acls_c.export_table_acls(db_name=args.database)
+        end = timer()
+        print("Complete Table ACL Export Time: " + str(timedelta(seconds=end - start)))
+
     if args.secrets:
         if not args.cluster_name:
             print("Please provide an existing cluster name w/ --cluster-name option\n")
