@@ -1,34 +1,34 @@
 # Databricks notebook source
 # MAGIC %md #Export Table ACLs
 # MAGIC 
-# MAGIC Exports Table ACLS to a file on DBFS, which can be imported using the Import_Table_ACLs script
+# MAGIC Exports Table ACLS to a JSON file on DBFS, which can be imported using the Import_Table_ACLs script
 # MAGIC 
 # MAGIC Parameters:
 # MAGIC - Databases: [Optional] comma separated list of databases to be exported, if empty all databases will be exported
-# MAGIC - OutputPath: Path to write the exported file to (Choose a something under DBFS:/user/hive/warehouse, there an admin has write access)
-# MAGIC - OutputFormat: JSON
+# MAGIC - OutputPath: Path to write the exported file to 
 # MAGIC 
-# MAGIC Execution: Run the notebook on a cluster with Table ACL's enabled as a user who is an admin 
+# MAGIC Execution: **Run the notebook on a cluster with Table ACL's enabled as a user who is an admin** 
 # MAGIC 
 # MAGIC Supportes ACLs for Object types:
 # MAGIC - Catalog: included if all databases are exported, not included if databases to be exported are specified
 # MAGIC   - Database: included
 # MAGIC     - Table: included
 # MAGIC     - View: included
-# MAGIC     -
+# MAGIC - Anonymous Function: included (testing pending)
+# MAGIC - Any File: included
 # MAGIC 
-# MAGIC WARNING: Needs more testing and fixing ... so far all I know with certainty is, that it does not work quite right yet
-# MAGIC 
-# MAGIC tomi.schumacher@databricks.com
+# MAGIC Disclaimer: This notebook is still needs some more testing, check back soon as fixes might have been added.
 
 # COMMAND ----------
 
+# DBTITLE 1,Declare Parameters
 #dbutils.widgets.removeAll()
-dbutils.widgets.text("Databases","tomi_schumacher_adl_test, tomi_schumacher_adl_test_restricted","1: Databases (opt)")
-dbutils.widgets.text("OutputPath","dbfs:/tmp/migrate/tomi_table_acl_perms.json.gz","2: Output Path")
+dbutils.widgets.text("Databases","db_acl_test,db_acl_test_restricted","1: Databases (opt)")
+dbutils.widgets.text("OutputPath","dbfs:/tmp/migrate/test_table_acls.json.gz","2: Output Path")
 
 # COMMAND ----------
 
+# DBTITLE 1,Check Parameters
     
 if not dbutils.widgets.get("OutputPath").startswith("dbfs:/"):
    raise Exception(f"Unexpected value for notebook parameter 'InputPath', got <{dbutils.widgets.get('OutputPath')}>, but it must start with <dbfs:/........>")
@@ -36,6 +36,7 @@ if not dbutils.widgets.get("OutputPath").startswith("dbfs:/"):
 
 # COMMAND ----------
 
+# DBTITLE 1,Define Export Logic
 import pyspark.sql.functions as sf
 from typing import Callable, Iterator, Union, Optional, List
 import datetime;
@@ -48,8 +49,6 @@ def get_database_names():
     else:
       database_names.append(db.namespace)
   return database_names
-
-#Principal ActionType ObjectType ObjectKey
 
 def create_grants_df(database_name: str,object_type: str, object_key: str) -> List[str]:
   if object_type in ["CATALOG", "ANY FILE", "ANONYMOUS FUNCTION"]: #without object key
@@ -121,19 +120,10 @@ def create_table_ACLSs_df_for_databases(database_names: List[str]):
       
   return combined_grant_dfs
 
-# quick testing
-#database_names = None
-#database_names = ["tomi_schumacher_adl_test", "tomi_schumacher_adl_test_restricted"]
-#database_names = ["tomi_schumacher_adl_test_restricted"]
-
-#df  = create_table_ACLSs_df_for_databases(database_names)
-
-#display(df)
-
-
 
 # COMMAND ----------
 
+# DBTITLE 1,Run Export
 databases_raw = dbutils.widgets.get("Databases")
 output_path = dbutils.widgets.get("OutputPath")
 
@@ -150,7 +140,7 @@ table_ACLs_df = create_table_ACLSs_df_for_databases(databases)
 print(f"{datetime.datetime.now()} writing table ACLs to {output_path}")
 
 # with table ACLS active, I direct write to DBFS is not allowed, so we store
-# the dateframe as a table with a singe zipped JSON file sorted, for consitent file diffs
+# the dateframe as a table for single zipped JSON file sorted, for consitent file diffs
 (
   table_ACLs_df
  .coalesce(1)
@@ -167,11 +157,11 @@ print(f"{datetime.datetime.now()} writing table ACLs to {output_path}")
 # COMMAND ----------
 
 display(spark.read.format("json").load(output_path)) 
-#. Database Principal ActionType ObjectType ObjectKey
 
 # COMMAND ----------
 
 print(output_path)
 
 # COMMAND ----------
+
 

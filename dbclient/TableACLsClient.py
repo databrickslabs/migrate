@@ -24,8 +24,6 @@ class TableACLsClient(ClustersClient):
     This class inherits from the HiveClient to use some of the funtionaly
     inside HiveClient - it would be cleaner to refactor HiveClient
     and to pull some of the shared funtionality out.
-
-    tomi.schumacher@databricks.com
     """
 
     REAL_PATH = os.path.dirname(os.path.realpath(__file__))
