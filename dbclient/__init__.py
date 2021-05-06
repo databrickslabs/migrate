@@ -8,4 +8,5 @@ from .LibraryClient import LibraryClient
 from .WorkspaceClient import WorkspaceClient
 from .HiveClient import HiveClient
 from .SecretsClient import SecretsClient
+from .TableACLsClient import TableACLsClient
 from .parser import *
