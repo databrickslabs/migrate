@@ -113,7 +113,7 @@ def create_table_ACLSs_df_for_databases(database_names: List[str]):
       )
    
     #TODO ADD USER FUNCTION - not supported in SQL Analytics, so this can wait a bit
-    # ... SHOW USER FUNCTIONS LIKE  tomi_schumacher_adl_test_restricted.`*`;
+    # ... SHOW USER FUNCTIONS LIKE  <my db>.`*`;
     #. function_row['function']   ... nah does not seem to work
     
   #combined_grant_dfs = combined_grant_dfs.sort("")

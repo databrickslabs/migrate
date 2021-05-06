@@ -184,7 +184,7 @@ class TableACLsClient(ClustersClient):
 
         self.import_file_to_workspace(self.EXPORT_TABLE_ACLS_LOCAL_PATH, export_table_acls_workspace_path)
 
-        dbfs_acls_output_path = "dbfs:/tmp/migrate/tomi_table_acl_perms.json.gz"
+        dbfs_acls_output_path = "dbfs:/tmp/migrate/table_acl_perms.json.gz"
 
         run_notebook_params = {
             "Databases": db_name,
@@ -216,7 +216,7 @@ class TableACLsClient(ClustersClient):
         import_table_acls_workspace_path = f"/Users/{user_name}/tmp/migrate/Import_Table_ACLs.py"
         self.import_file_to_workspace(self.IMPORT_TABLE_ACLS_LOCAL_PATH, import_table_acls_workspace_path)
 
-        dbfs_acls_input_path = "dbfs:/tmp/migrate/tomi_table_acl_perms.json.gz"
+        dbfs_acls_input_path = "dbfs:/tmp/migrate/table_acl_perms.json.gz"
         self.copy_files_to_dbfs_path(self._export_dir + table_alcs_dir, dbfs_acls_input_path)
 
         run_notebook_params = {
