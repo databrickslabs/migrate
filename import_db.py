@@ -115,6 +115,15 @@ def main():
         end = timer()
         print("Complete Metastore Import Time: " + str(timedelta(seconds=end - start)))
 
+    if args.table_acls:
+        print("Importing table acls configs at {0}".format(now))
+        start = timer()
+        table_acls_c = TableACLsClient(client_config)
+        # log table ACLS configs
+        table_acls_c.import_table_acls()
+        end = timer()
+        print("Complete Table ACLs Import Time: " + str(timedelta(seconds=end - start)))
+
     if args.pause_all_jobs:
         print("Pause all current jobs {0}".format(now))
         start = timer()

@@ -338,15 +338,18 @@ class ClustersClient(dbclient):
         else:
             return False
 
-    def launch_cluster(self, iam_role=None):
+    def launch_cluster(self, iam_role=None, enable_table_acls=False):
         """ Launches a cluster to get DDL statements.
         Returns a cluster_id """
         # removed for now as Spark 3.0 will have backwards incompatible changes
         # version = self.get_latest_spark_version()
         import os
         real_path = os.path.dirname(os.path.realpath(__file__))
+
+        # add _table_acls suffix to cluster config path if enable_table_acls is set
+        cluster_json_postfix = '_table_acls' if enable_table_acls else ''
         if self.is_aws():
-            with open(real_path + '/../data/aws_cluster.json', 'r') as fp:
+            with open(f'{real_path}/../data/aws_cluster{cluster_json_postfix}.json', 'r') as fp:
                 cluster_json = json.loads(fp.read())
             if iam_role:
                 aws_attr = cluster_json['aws_attributes']
@@ -354,7 +357,7 @@ class ClustersClient(dbclient):
                 aws_attr['instance_profile_arn'] = iam_role
                 cluster_json['aws_attributes'] = aws_attr
         else:
-            with open(real_path + '/../data/azure_cluster.json', 'r') as fp:
+            with open(f'{real_path}/../data/azure_cluster{cluster_json_postfix}.json', 'r') as fp:
                 cluster_json = json.loads(fp.read())
         # set the latest spark release regardless of defined cluster json
         # cluster_json['spark_version'] = version['key']
