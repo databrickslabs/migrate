@@ -161,7 +161,7 @@ def main():
             table_acls_c.export_table_acls(db_name=args.database)
         else:
             # export table ACLs only for all databases
-            table_acls_c.export_table_acls('')
+            table_acls_c.export_table_acls(db_name='')
         end = timer()
         print("Complete Table ACL Export Time: " + str(timedelta(seconds=end - start)))
 
