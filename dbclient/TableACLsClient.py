@@ -166,10 +166,10 @@ class TableACLsClient(ClustersClient):
 
         return user_name
 
-    def export_table_acls(self, db_name=None, table_alcs_dir='table_acls/'):
+    def export_table_acls(self, db_name='', table_alcs_dir='table_acls/'):
         """Exports all table ACLs or just for a single database
 
-        :param db_name: unless set export ACLs for all databases
+        :param db_name: if set to empty strins, export ACLs for all databases
         :param table_alcs_dir: overwrite export path for table ACLs
         :return:
         """
