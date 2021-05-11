@@ -156,7 +156,12 @@ def main():
         print("Export the table ACLs configs at {0}".format(now))
         start = timer()
         table_acls_c = TableACLsClient(client_config)
-        table_acls_c.export_table_acls(db_name=args.database)
+        if args.database is not None:
+            # export table ACLs only for a single database
+            table_acls_c.export_table_acls(db_name=args.database)
+        else:
+            # export table ACLs only for all databases
+            table_acls_c.export_table_acls('')
         end = timer()
         print("Complete Table ACL Export Time: " + str(timedelta(seconds=end - start)))
 
