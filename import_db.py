@@ -2,6 +2,7 @@ from dbclient import *
 from timeit import default_timer as timer
 from datetime import timedelta, datetime
 from os import makedirs
+import json
 
 
 # python 3.6
@@ -120,9 +121,9 @@ def main():
         start = timer()
         table_acls_c = TableACLsClient(client_config)
         # log table ACLS configs
-        table_acls_c.import_table_acls()
+        notebook_exit_value = table_acls_c.import_table_acls()
         end = timer()
-        print("Complete Table ACLs Import Time: " + str(timedelta(seconds=end - start)))
+        print(f'Complete Table ACLs with exit value: {json.dumps(notebook_exit_value)}, Import Time: {timedelta(seconds=end - start)}')
 
     if args.pause_all_jobs:
         print("Pause all current jobs {0}".format(now))

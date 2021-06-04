@@ -3,7 +3,7 @@ from timeit import default_timer as timer
 from datetime import timedelta, datetime
 import os
 import shutil
-
+import json
 
 # python 3.6
 def main():
@@ -158,12 +158,20 @@ def main():
         table_acls_c = TableACLsClient(client_config)
         if args.database is not None:
             # export table ACLs only for a single database
-            table_acls_c.export_table_acls(db_name=args.database)
+            notebook_exit_value = table_acls_c.export_table_acls(db_name=args.database)
         else:
             # export table ACLs only for all databases
-            table_acls_c.export_table_acls(db_name='')
+            notebook_exit_value= table_acls_c.export_table_acls(db_name='')
         end = timer()
-        print("Complete Table ACL Export Time: " + str(timedelta(seconds=end - start)))
+        if notebook_exit_value['num_errors'] == 0:
+            print("Complete Table ACL Export Time: " + str(timedelta(seconds=end - start)))
+        elif notebook_exit_value['num_errors'] == -1:
+            print("Internal Notebook error, while executing  ACL Export , Time: " + str(timedelta(seconds=end - start)))
+        else:
+            print("Errors while exporting ACLs, some object's ACLs will be skipped  "
+                  + "(those objects ACL's will be ignored,they are documented with prefix 'ERROR_!!!'), "
+                  + f'notebook output: {json.dumps(notebook_exit_value)}, Table ACL Export Time: '
+                  + str(timedelta(seconds=end - start)))
 
     if args.secrets:
         if not args.cluster_name:

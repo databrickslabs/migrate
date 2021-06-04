@@ -4,6 +4,9 @@ import shutil
 
 
 # noinspection SpellCheckingInspection
+
+
+
 class TableACLsClient(ClustersClient):
     """
     Imports and Exports table ACLS to and from a JSON format.
@@ -125,14 +128,32 @@ class TableACLsClient(ClustersClient):
         }
         self.post("/dbfs/delete", dbfs_delete_params)
 
-    def wait_for_notebook_to_terminate(self, run_id):
+    def wait_for_notebook_to_terminate(self, run_id, max_num_retries = 5):
+        """
+        Polls a job run until the job terminates
+        :param run_id: the run to wait to terminate for
+        :return: result object of the run; successfull if res["state"]["result_state"] == "SUCCESS"
+        """
+        cur_num_retries = 0
         while True:  # TODO add a timeout here
-            res = self.get('/jobs/runs/get', {'run_id': run_id}, print_json=False)
-            if self.is_verbose():
-                print(f"polling for job to finish: {res['run_page_url']}")
-            if res["http_status_code"] != 200 or res["state"]['life_cycle_state'] == 'TERMINATED':
-                break
-            time.sleep(self.NOTEBOOK_RUN_POLLING_INTERVAL_SECONDS)
+            try:
+                res = self.get('/jobs/runs/get', {'run_id': run_id}, print_json=False)
+                if self.is_verbose():
+                    print(f"polling for job to finish: {res['run_page_url']}")
+                if res["http_status_code"] != 200 or res["state"]['life_cycle_state'] == 'TERMINATED':
+                    break
+                time.sleep(self.NOTEBOOK_RUN_POLLING_INTERVAL_SECONDS)
+            except Exception as e:
+                print(f"caught Exception while polling for job to finish: {str(e)}")
+                if cur_num_retries < max_num_retries:
+                    #TODO sleep some time, backoff more for retries - make this configurable
+                    time.sleep(self.NOTEBOOK_RUN_POLLING_INTERVAL_SECONDS * (cur_num_retries+3))
+                    cur_num_retries = cur_num_retries+1
+                else:
+                    print(f"max num retries exceeeded : giving up {str(e)}")
+                    raise
+
+        return res
 
     def run_notebook_on_cluster(self, cid, notebook_path, notebook_params):
         runs_submit_params = {
@@ -147,7 +168,7 @@ class TableACLsClient(ClustersClient):
 
         if res["http_status_code"] != 200:
             # TODO add more error_text
-            raise Exception("Could not run submit notebook")
+            raise Exception(f"Could not run submit notebook {notebook_path}")
 
         return res["run_id"]
 
@@ -165,6 +186,36 @@ class TableACLsClient(ClustersClient):
                 raise Exception(f"The table acl notebooks need to be run by an active admin user, {user_info}")
 
         return user_name
+
+    def interpret_notebook_run_metadata(self, notebook_run_metadata):
+
+        notebook_exit_value = None
+        if "state" in notebook_run_metadata and notebook_run_metadata["state"]["result_state"] == "SUCCESS":
+
+            # pickup notebook exit value set using dbutils.notebook.exit()
+            runs_submit_params = {
+                "run_id": notebook_run_metadata["run_id"]
+            }
+            res = self.get('/jobs/runs/get-output', runs_submit_params, print_json=True)
+            if 'notebook_output' in res and 'result' in res['notebook_output']:
+                notebook_exit_value = res['notebook_output']['result']
+                print(f'Successfull notebook run with notebook_output: {json.dumps(notebook_exit_value)}')
+            else:
+                print(f'Successfull notebook run without notebook_output')
+
+        else:
+            if "state" in notebook_run_metadata:
+                result_state = notebook_run_metadata['state']['result_state']
+            else:
+                result_state = "undefined"
+
+            print(f"ERROR : Notebook run failed: {notebook_run_metadata['run_page_url']}")
+            print(f"        ... http_status code {notebook_run_metadata['http_status_code']} ")
+            print(f'        ... notebook execution result_state:  {result_state}')
+            #TODO: Consider setting a non 0 exit code for some cases
+
+        return notebook_exit_value
+
 
     def export_table_acls(self, db_name='', table_alcs_dir='table_acls/'):
         """Exports all table ACLs or just for a single database
@@ -191,7 +242,7 @@ class TableACLsClient(ClustersClient):
             "OutputPath": dbfs_acls_output_path
         }
         run_id = self.run_notebook_on_cluster(cid, export_table_acls_workspace_path, run_notebook_params)
-        self.wait_for_notebook_to_terminate(run_id)
+        notebook_run_metadata = self.wait_for_notebook_to_terminate(run_id)
 
         # download all files inside output path from dbfs
         self.copy_files_from_dbfs_path(dbfs_acls_output_path, self._export_dir + table_alcs_dir, "table_acls.json.gz")
@@ -199,6 +250,13 @@ class TableACLsClient(ClustersClient):
         # leave notebook there, so it can be removed later
         # we leave the cluster running, makes trouble shooting more efficient
         print(f"We leave the cluster running, in case you needed again: cluster_id: {cid}")
+
+        notebook_exit_value = self.interpret_notebook_run_metadata(notebook_run_metadata)
+
+        if notebook_exit_value is None:
+            notebook_exit_value = { "total_num_acls": -1, "num_errors": -1 }
+
+        return notebook_exit_value
 
     def import_table_acls(self, table_alcs_dir='table_acls/'):
         """
@@ -223,7 +281,7 @@ class TableACLsClient(ClustersClient):
             "InputPath": dbfs_acls_input_path
         }
         run_id = self.run_notebook_on_cluster(cid, import_table_acls_workspace_path, run_notebook_params)
-        self.wait_for_notebook_to_terminate(run_id)
+        notebook_run_metadata = self.wait_for_notebook_to_terminate(run_id)
 
         # cleanup dbfs: remove one directory above dbfs_acls_input_path
         self.delete_files_on_dbfs(dbfs_acls_input_path[0:dbfs_acls_input_path.rindex('/')])
@@ -231,3 +289,15 @@ class TableACLsClient(ClustersClient):
         # leave notebook there, so it can be removed later
         # we leave the cluster running, makes trouble shooting more efficient
         print(f"We leave the cluster running, in case you needed again: cluster_id: {cid}")
+
+        notebook_exit_value = self.interpret_notebook_run_metadata(notebook_run_metadata)
+
+        if notebook_exit_value is None:
+            notebook_exit_value = {
+                  "total_num_acls": -1
+                  ,"num_sucessfully_executed": -1
+                  ,"num_execution_errors": -1
+                  ,"num_error_entries_acls": -1
+            }
+
+        return notebook_exit_value
