@@ -1,7 +1,7 @@
 from .ClustersClient import *
 import base64
 import shutil
-
+import json
 
 # noinspection SpellCheckingInspection
 
@@ -198,7 +198,7 @@ class TableACLsClient(ClustersClient):
             }
             res = self.get('/jobs/runs/get-output', runs_submit_params, print_json=True)
             if 'notebook_output' in res and 'result' in res['notebook_output']:
-                notebook_exit_value = res['notebook_output']['result']
+                notebook_exit_value = json.loads(res['notebook_output']['result'])
                 print(f'Successfull notebook run with notebook_output: {json.dumps(notebook_exit_value)}')
             else:
                 print(f'Successfull notebook run without notebook_output')
