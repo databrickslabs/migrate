@@ -120,7 +120,7 @@ def generate_table_acls_commands(table_ACLs_df, commented: bool=True, alter_owne
     
     if row["Principal"] == "ERROR_!!!":
       num_error_entries_acls = num_error_entries_acls + 1
-    else
+    else:
       total_num_acls = total_num_acls + 1
    
       
@@ -172,22 +172,24 @@ num_sucessfully_executed, num_execution_errors, error_causing_sqls = execute_sql
 #  - num_execution_errors : valid ACL entries that caused an error when executing
 #  - num_error_entries_acls : error entries in the imported JSON ignored, principal is set to `ERROR_!!!` and object_key and object_value are prefixed with `ERROR_!!!`
 
-exit_JSON_string = f'''{ 
+exit_JSON_string = f"""{{ 
   "total_num_acls":  {total_num_acls}
   ,"num_sucessfully_executed": {num_sucessfully_executed}
   ,"num_execution_errors": {num_execution_errors}
   ,"num_error_entries_acls": {num_error_entries_acls}
-}'''
+}}"""
 
 
 # COMMAND ----------
 
 # DBTITLE 1,Error causing SQL messages and error messages:
-if len(num_error_entries_acls) == 0:
+if len(error_causing_sqls) == 0:
   print("No SQL errors")
 else:
-  print(f"Number of SQL errors: {len(num_error_entries_acls)}\n\n")
-  print(json.dumps(num_error_entries_acls, indent=2))
+  print(f"Number of SQL errors: {len(error_causing_sqls)}\n\n")
+  l = [ str(o) for o in error_causing_sqls ]
+  print("\n".join(l))
+
 
 # COMMAND ----------
 
