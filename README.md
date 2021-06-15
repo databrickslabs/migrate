@@ -25,7 +25,7 @@ Support Matrix for Import and Export Operations:
 | Libraries         | Supported    | Unsupported  |
 | Secrets           | Unsupported  | Unsupported  |
 | ML Models         | Unsupported  | Unsupported  |
-| Table ACLs        | Unsupported  | Unsupported  |
+| Table ACLs        | Supported    | Supported    |
 
 **DBFS Data Migration:**  
 * DBFS is a protected object storage location on AWS and Azure.
@@ -54,6 +54,7 @@ current workspace. The last cell will print:
 4. Export notebook content 
 5. Export job templates
 6. Export Hive Metastore data 
+7. Export Table ACLs
 
 **Note:** During user / group import, users will be notified of the new workspace and account. This is required 
 for them to set up their credentials to access the new workspace. We need the user to exist before loading their 
@@ -201,6 +202,40 @@ Once completed, it will upload a log to the destination location.
 Use this [repair notebook](data/repair_tables_for_migration.py) to import into the destination environment to repair 
 all tables. 
 
+### Table ACLs
+The Table ACLs component includes all objects to which access is controlled using
+`DENNY` and `GRANT` SQL statements:
+- Catalog: included if all databases are exported
+  - Database: included
+    - Table: included
+    - View: included (they are treated like tables with ObjectType `TABLE`)
+- Anonymous Function: included 
+- Any File: included
+
+Unsupported object type:
+- User Function: not included yet
+
+This section uses the API to run notebooks on a cluster to perform the export and import.
+(For details, please refer to the [export table ACL notebook](data/notebooks/Export_Table_ACLs.py) 
+ or the [import table ACL notebook](data/notebooks/Import_Table_ACLs.py))
+
+By default, this will launch an small cluster in the `data/` folder with `acls` suffix to export the the table ACL data. 
+(This cluster needs to have table ACLs enabled, and it must be run with an admin user)
+
+```bash
+# export all table ACL entries 
+python export_db.py --profile DEMO --table-acls
+
+# export all table ACL entries within a specific database
+python export_db.py --profile DEMO --table-acls --database "my_db"
+```
+
+For large workspaces it is not uncommon to encounter some ACLs that cause problems when
+exporting: in such cases, a special log entry is made (marked with `ERROR_!!!`) and the export
+continues. At the end error counts will be provided, and the notebooks mentioned above
+contain detailed information on how to investigate any issues. Most errors are encountered
+with objects that are no longer functional anyway.
+
 ### Export Groups by Name
 This functionality exports group(s), their members, and corresponding notebooks.  
 This assumes an empty export directory to simplify the number of operations needed.  
@@ -267,11 +302,12 @@ optional arguments:
   --metastore           log all the metastore table definitions
   --metastore-unicode   log all the metastore table definitions including
                         unicode characters
+  --table-acls          log all table ACL grant and deny statements
   --cluster-name CLUSTER_NAME
                         Cluster name to export the metastore to a specific
                         cluster. Cluster will be started.
-  --database DATABASE   Database name to export for the metastore. Single
-                        database name supported
+  --database DATABASE   Database name to export for the metastore and table
+                        ACLs. Single database name supported
   --iam IAM             IAM Instance Profile to export metastore entires
   --skip-failed         Skip retries for any failed hive metastore exports.
   --mounts              Log all mount points.
@@ -348,6 +384,7 @@ optional arguments:
   --metastore           Import the metastore to the workspace.
   --metastore-unicode   Import all the metastore table definitions with
                         unicode characters
+  --table-acls          Import table acls to the workspace.
   --get-repair-log      Report on current tables requiring repairs
   --cluster-name CLUSTER_NAME
                         Cluster name to import the metastore to a specific

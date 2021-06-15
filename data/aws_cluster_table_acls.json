@@ -5,7 +5,9 @@
   "spark_conf": {
     "spark.databricks.cluster.profile": "serverless",
     "spark.databricks.repl.allowedLanguages": "python,sql",
-    "spark.databricks.acl.dfAclsEnabled": "true"
+    "spark.databricks.acl.dfAclsEnabled": "true",
+    "spark.sql.hive.metastore.version": "1.2.1",
+    "spark.sql.hive.metastore.jars": "maven"
   },
   "aws_attributes": {
     "first_on_demand": 1,
