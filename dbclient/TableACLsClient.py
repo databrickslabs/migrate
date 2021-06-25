@@ -1,10 +1,8 @@
 from .ClustersClient import *
 import base64
 import shutil
-import json
 
 # noinspection SpellCheckingInspection
-
 
 
 class TableACLsClient(ClustersClient):
@@ -215,7 +213,6 @@ class TableACLsClient(ClustersClient):
             #TODO: Consider setting a non 0 exit code for some cases
 
         return notebook_exit_value
-
 
     def export_table_acls(self, db_name='', table_alcs_dir='table_acls/'):
         """Exports all table ACLs or just for a single database

@@ -393,6 +393,7 @@ class ScimClient(dbclient):
         for group_name in groups:
             with open(group_dir + group_name, 'r') as fp:
                 members = json.loads(fp.read()).get('members', None)
+                print(f"Importing group {group_name} :")
                 if members:
                     # grab a list of ids to add either groups or users to this current group
                     member_id_list = []

@@ -274,6 +274,10 @@ def get_import_parser():
     parser.add_argument('--skip-failed', action='store_true', default=False,
                         help='Skip missing users that do not exist when importing user notebooks')
 
+    # get all secret scopes
+    parser.add_argument('--secrets', action='store_true',
+                        help='Import all secret scopes')
+
     # get azure logs
     parser.add_argument('--azure', action='store_true',
                         help='Run on Azure. (Default is AWS)')

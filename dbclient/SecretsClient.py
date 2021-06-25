@@ -59,3 +59,110 @@ class SecretsClient(ClustersClient):
                 resp = self.get('/secrets/acls/list', {'scope': scope_name})
                 resp['scope_name'] = scope_name
                 fp.write(json.dumps(resp) + '\n')
+
+    def load_acl_dict(self, acls_log_name='secret_scopes_acls.log'):
+        acls_log = self.get_export_dir() + acls_log_name
+        # create a dict by scope name to lookup and fetch the ACLs easily
+        acls_dict = {} # d[scope_name] = {'MANAGED' : [list_of_members], 'READ': [list_of_members] .. }
+        with open(acls_log, 'r') as log_fp:
+            for acl in log_fp:
+                acl_json = json.loads(acl)
+                s_name = acl_json.get('scope_name')
+                all_perms = acl_json.get('items', [])
+                scope_perms = {}
+                for x in all_perms:
+                    principal = x.get('principal')
+                    perm = x.get('permission')
+                    if perm in scope_perms:
+                        scope_perms[perm].append(principal)
+                    else:
+                        scope_perms[perm] = [principal]
+                acls_dict[s_name] = scope_perms
+#        print(json.dumps(acls_dict, indent=True))
+        return acls_dict
+
+    @staticmethod
+    def has_users_can_manage_permission(scope_name, acl_dict):
+        """
+        returns whether the users group has access permissions
+        returns the true if we can have them
+        :scope_name: string for the secret scope name
+        :acl_dict: ACLs dict ordered by permission keys, e.g. (MANAGE, USE, etc.)
+        """
+        scope_perms = acl_dict.get(scope_name)
+        # list of users/groups to manage the permissions
+        manage_perms = scope_perms.get('MANAGE', [])
+        if 'users' in manage_perms:
+            return True
+        return False
+
+    @staticmethod
+    def get_all_other_permissions(scope_name, acl_dict):
+        """
+        get the rest of the permissions for the secret scope besides `users` who can manage
+        """
+        scope_perms = acl_dict.get(scope_name)
+        can_manage_perms = set(scope_perms.get('MANAGE', []))
+        if 'users' in can_manage_perms:
+            can_manage_perms.remove('users')
+            if can_manage_perms:
+                # if the can_manage_perms is not empty, set it with `users` removed
+                scope_perms['MANAGE'] = can_manage_perms
+            else:
+                scope_perms.pop('MANAGE')
+        return scope_perms
+
+    def import_all_secrets(self, log_dir='secret_scopes/'):
+        scopes_dir = self.get_export_dir() + log_dir
+        failed_scopes = set()
+        scopes_acl_dict = self.load_acl_dict()
+        failed_acls_names = set()
+        for root, subdirs, files in os.walk(scopes_dir):
+            for scope_name in files:
+                file_path = root + scope_name
+                # print('Log file: ', file_path)
+                # check if scopes acls are empty, then skip
+                if scopes_acl_dict.get(scope_name, None) is None:
+                    print("Scope is empty with no manage permissions. Skipping...")
+                    continue
+                # check if users has can manage perms then we can add during creation time
+                has_user_manage = self.has_users_can_manage_permission(scope_name, scopes_acl_dict)
+                create_scope_args = {'scope': scope_name}
+                if has_user_manage:
+                    create_scope_args['initial_manage_principal'] = 'users'
+                other_permissions = self.get_all_other_permissions(scope_name, scopes_acl_dict)
+                create_resp = self.post('/secrets/scopes/create', create_scope_args)
+                print(create_resp)
+                if other_permissions:
+                    # use this dict minus the `users:MANAGE` permissions and apply the other permissions to the scope
+                    for perm, principal_list in other_permissions.items():
+                        put_acl_args = {"scope": scope_name,
+                                        "permission": perm}
+                        for x in principal_list:
+                            put_acl_args["principal"] = x
+                            print(put_acl_args)
+                            put_resp = self.post('/secrets/acls/put', put_acl_args)
+                            if put_resp.get('http_status_code') != 200:
+                                failed_acls_names.add(scope_name)
+                            print(put_resp)
+                # loop through the scope and create the k/v pairs
+                with open(file_path, 'r') as fp:
+                    for s in fp:
+                        s_dict = json.loads(s)
+                        k = s_dict.get('name')
+                        v = s_dict.get('value')
+                        if 'WARNING: skipped' in v:
+                            print("Skipping as value is corrupted due to being too large")
+                            failed_scopes.add(scope_name)  # add scope name that failed to manually investigate
+                            continue
+                        put_secret_args = {'scope': scope_name,
+                                           'key': k,
+                                           'string_value': v}
+                        put_resp = self.post('/secrets/put', put_secret_args)
+                        print(put_resp)
+        if failed_acls_names:
+            print("\nSecret ACLs replay failed. Please review the logs for these failed scopes:")
+            print(failed_acls_names)
+        if failed_scopes:
+            print("\nFailed re-creating secrets due to size of secret value. See scope name with failures:")
+            print(failed_scopes)

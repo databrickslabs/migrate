@@ -321,15 +321,21 @@ class ClustersClient(dbclient):
             list_of_profiles = [x['instance_profile_arn'] for x in ip_list]
         else:
             list_of_profiles = []
+        import_profiles_count = 0
         with open(ip_log, "r") as fp:
             for line in fp:
                 ip_arn = json.loads(line).get('instance_profile_arn', None)
                 if ip_arn not in list_of_profiles:
                     print("Importing arn: {0}".format(ip_arn))
                     resp = self.post('/instance-profiles/add', {'instance_profile_arn': ip_arn})
+                    if 'error_code' in resp:
+                        print("ERROR: Failed to add instance profile")
+                    else:
+                        import_profiles_count += 1
                     print(resp)
                 else:
-                    print("Skipping since profile exists: {0}".format(ip_arn))
+                    print("Skipping since profile already exists: {0}".format(ip_arn))
+        return import_profiles_count
 
     def is_spark_3(self, cid):
         spark_version = self.get(f'/clusters/get?cluster_id={cid}').get('spark_version', "")

@@ -23,9 +23,9 @@ Support Matrix for Import and Export Operations:
 | Metastore         | Supported    | Supported    |
 | Jobs (w/ ACLs)    | Supported    | Supported    |
 | Libraries         | Supported    | Unsupported  |
-| Secrets           | Unsupported  | Unsupported  |
-| ML Models         | Unsupported  | Unsupported  |
+| Secrets           | Supported    | Supported    |
 | Table ACLs        | Supported    | Supported    |
+| ML Models         | Unsupported  | Unsupported  |
 
 **DBFS Data Migration:**  
 * DBFS is a protected object storage location on AWS and Azure.
@@ -262,6 +262,16 @@ python export_db.py --profile SRC --workspace-acls
 python import_db.py --profile DST --workspace-top-level
 # apply acls if needed 
 python import_db.py --profile DST --workspace-acls
+```
+
+### Export / Import of Secrets
+This will export secret to allow migration of secrets to a new workspace.  
+There is a limit to the size of the secret value which will print a error if this fails.  
+```bash
+# to export you must use a cluster
+python export_db.py --profile SRC --secrets --cluster-name "my_cluster"
+# to import, you do not need a cluster
+python import_db.py --profile DST --secrets
 ```
 
 #### Export Help Text

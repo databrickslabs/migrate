@@ -3,7 +3,6 @@ from timeit import default_timer as timer
 from datetime import timedelta, datetime
 import os
 import shutil
-import json
 
 # python 3.6
 def main():
