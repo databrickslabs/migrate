@@ -117,13 +117,17 @@ def get_export_parser():
     parser.add_argument('--metastore-unicode', action='store_true',
                         help='log all the metastore table definitions including unicode characters')
 
+    # get all table ACLs (TODO need to make sure that unicode database object names are supported)
+    parser.add_argument('--table-acls', action='store_true',
+                        help='log all table ACL grant and deny statements')
+
     # cluster name used to export the metastore
     parser.add_argument('--cluster-name', action='store',
                         help='Cluster name to export the metastore to a specific cluster. Cluster will be started.')
 
-    # get database to export for metastore
+    # get database to export for metastore and table ACLs
     parser.add_argument('--database', action='store',
-                        help='Database name to export for the metastore. Single database name supported')
+                        help='Database name to export for the metastore and table ACLs. Single database name supported')
 
     # iam role used to export the metastore
     parser.add_argument('--iam', action='store',
@@ -256,6 +260,10 @@ def get_import_parser():
     parser.add_argument('--metastore-unicode', action='store_true',
                         help='Import all the metastore table definitions with unicode characters')
 
+    # import all table acls
+    parser.add_argument('--table-acls', action='store_true',
+                        help='Import table acls to the workspace.')
+
     parser.add_argument('--get-repair-log', action='store_true',
                         help='Report on current tables requiring repairs')
 
@@ -265,6 +273,10 @@ def get_import_parser():
     # skip failures
     parser.add_argument('--skip-failed', action='store_true', default=False,
                         help='Skip missing users that do not exist when importing user notebooks')
+
+    # get all secret scopes
+    parser.add_argument('--secrets', action='store_true',
+                        help='Import all secret scopes')
 
     # get azure logs
     parser.add_argument('--azure', action='store_true',

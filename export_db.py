@@ -4,7 +4,6 @@ from datetime import timedelta, datetime
 import os
 import shutil
 
-
 # python 3.6
 def main():
     # define a parser to identify what component to import / export
@@ -151,6 +150,27 @@ def main():
             hive_c.export_hive_metastore(cluster_name=args.cluster_name, has_unicode=args.metastore_unicode)
         end = timer()
         print("Complete Metastore Export Time: " + str(timedelta(seconds=end - start)))
+
+    if args.table_acls:
+        print("Export the table ACLs configs at {0}".format(now))
+        start = timer()
+        table_acls_c = TableACLsClient(client_config)
+        if args.database is not None:
+            # export table ACLs only for a single database
+            notebook_exit_value = table_acls_c.export_table_acls(db_name=args.database)
+        else:
+            # export table ACLs only for all databases
+            notebook_exit_value= table_acls_c.export_table_acls(db_name='')
+        end = timer()
+        if notebook_exit_value['num_errors'] == 0:
+            print("Complete Table ACL Export Time: " + str(timedelta(seconds=end - start)))
+        elif notebook_exit_value['num_errors'] == -1:
+            print("Internal Notebook error, while executing  ACL Export , Time: " + str(timedelta(seconds=end - start)))
+        else:
+            print("Errors while exporting ACLs, some object's ACLs will be skipped  "
+                  + "(those objects ACL's will be ignored,they are documented with prefix 'ERROR_!!!'), "
+                  + f'notebook output: {json.dumps(notebook_exit_value)}, Table ACL Export Time: '
+                  + str(timedelta(seconds=end - start)))
 
     if args.secrets:
         if not args.cluster_name:

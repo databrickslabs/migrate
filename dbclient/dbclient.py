@@ -22,7 +22,10 @@ class dbclient:
     http_error_codes = (401, 403)
 
     def __init__(self, configs):
-        self._token = {'Authorization': 'Bearer {0}'.format(configs['token'])}
+        self._token = {
+            'Authorization': 'Bearer {0}'.format(configs['token']), 
+            'User-Agent': 'databrickslabs-migrate/0.1.0'
+        }
         self._url = configs['url'].rstrip("/")
         self._export_dir = configs['export_dir']
         self._is_aws = configs['is_aws']

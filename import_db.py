@@ -115,6 +115,23 @@ def main():
         end = timer()
         print("Complete Metastore Import Time: " + str(timedelta(seconds=end - start)))
 
+    if args.table_acls:
+        print("Importing table acls configs at {0}".format(now))
+        start = timer()
+        table_acls_c = TableACLsClient(client_config)
+        # log table ACLS configs
+        notebook_exit_value = table_acls_c.import_table_acls()
+        end = timer()
+        print(f'Complete Table ACLs with exit value: {json.dumps(notebook_exit_value)}, Import Time: {timedelta(seconds=end - start)}')
+
+    if args.secrets:
+        print("Import secret scopes configs at {0}".format(now))
+        start = timer()
+        sc = SecretsClient(client_config)
+        sc.import_all_secrets()
+        end = timer()
+        print("Complete Secrets Import Time: " + str(timedelta(seconds=end - start)))
+
     if args.pause_all_jobs:
         print("Pause all current jobs {0}".format(now))
         start = timer()

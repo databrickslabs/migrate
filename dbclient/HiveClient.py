@@ -1,10 +1,10 @@
 import ast
+import base64
 import os
 import time
-import base64
-import re
 from datetime import timedelta
 from timeit import default_timer as timer
+
 from dbclient import *
 
 
