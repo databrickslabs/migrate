@@ -129,8 +129,7 @@ class WorkspaceClient(ScimClient):
             return False
         return True
 
-    @staticmethod
-    def get_num_of_saved_users(export_dir):
+    def get_num_of_saved_users(self, export_dir):
         """
         returns the number of exported user items to check against number of created users in the new workspace
         this helps identify if the new workspace is ready for the import, or if we should skip / archive failed imports
@@ -139,7 +138,7 @@ class WorkspaceClient(ScimClient):
         user_home_dir = export_dir + 'Users'
         num_of_users = 0
         if os.path.exists(user_home_dir):
-            ls = os.listdir(user_home_dir)
+            ls = self.listdir(user_home_dir)
             for x in ls:
                 if os.path.isdir(user_home_dir + '/' + x):
                     num_of_users += 1
@@ -187,7 +186,7 @@ class WorkspaceClient(ScimClient):
         self.set_export_dir(user_import_dir + '/{0}/'.format(username))
         print("Import local path: {0}".format(self.get_export_dir()))
         notebook_dir = self.get_export_dir() + 'user_artifacts/'
-        for root, subdirs, files in os.walk(notebook_dir):
+        for root, subdirs, files in self.walk(notebook_dir):
             upload_dir = '/' + root.replace(notebook_dir, '')
             # if the upload dir is the 2 root directories, skip and continue
             if upload_dir == '/' or upload_dir == '/Users':
@@ -474,7 +473,7 @@ class WorkspaceClient(ScimClient):
 
     def import_current_workspace_items(self,artifact_dir='artifacts/'):
         src_dir = self.get_export_dir() + artifact_dir
-        for root, subdirs, files in os.walk(src_dir):
+        for root, subdirs, files in self.walk(src_dir):
             # replace the local directory with empty string to get the notebook workspace directory
             nb_dir = '/' + root.replace(src_dir, '')
             upload_dir = nb_dir
@@ -530,7 +529,7 @@ class WorkspaceClient(ScimClient):
             raise ValueError("Current number of users is less than number of user workspaces to import.")
         archive_users = set()
         with open(success_logfile, overwrite_or_append) as success_fp, open(failed_logfile, 'w') as failed_fp:
-            for root, subdirs, files in os.walk(src_dir):
+            for root, subdirs, files in self.walk(src_dir):
                 # replace the local directory with empty string to get the notebook workspace directory
                 nb_dir = '/' + root.replace(src_dir, '')
                 upload_dir = nb_dir

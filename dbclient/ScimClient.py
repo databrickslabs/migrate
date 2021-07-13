@@ -186,7 +186,7 @@ class ScimClient(dbclient):
         if not os.path.exists(group_dir):
             print("No groups defined. Skipping group entitlement assignment")
             return
-        groups = os.listdir(group_dir)
+        groups = self.listdir(group_dir)
         for group_name in groups:
             with open(group_dir + group_name, 'r') as fp:
                 group_data = json.loads(fp.read())
@@ -203,7 +203,7 @@ class ScimClient(dbclient):
         if not os.path.exists(group_dir):
             print("No groups defined. Skipping group entitlement assignment")
             return
-        groups = os.listdir(group_dir)
+        groups = self.listdir(group_dir)
         for group_name in groups:
             with open(group_dir + group_name, 'r') as fp:
                 group_data = json.loads(fp.read())
@@ -373,7 +373,7 @@ class ScimClient(dbclient):
         if not os.path.exists(group_dir):
             print("No groups to import.")
             return
-        groups = os.listdir(group_dir)
+        groups = self.listdir(group_dir)
         create_args = {
             "schemas": ["urn:ietf:params:scim:schemas:core:2.0:Group"],
             "displayName": "default"

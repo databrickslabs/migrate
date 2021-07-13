@@ -346,7 +346,7 @@ class HiveClient(ClustersClient):
         time.sleep(2)
         ec_id = self.get_execution_context(cid)
         # get local databases
-        db_list = os.listdir(metastore_local_dir)
+        db_list = self.listdir(metastore_local_dir)
         # make directory in DBFS root bucket path for tmp data
         resp = self.post('/dbfs/mkdirs', {'path': '/tmp/migration/'})
         # iterate over the databases saved locally
@@ -366,7 +366,7 @@ class HiveClient(ClustersClient):
             if os.path.isdir(local_db_path):
                 # all databases should be directories, no files at this level
                 # list all the tables in the database local dir
-                tables = os.listdir(local_db_path)
+                tables = self.listdir(local_db_path)
                 for tbl_name in tables:
                     # build the path for the table where the ddl is stored
                     print("Importing table {0}.{1}".format(db_name, tbl_name))
@@ -380,13 +380,13 @@ class HiveClient(ClustersClient):
             else:
                 print("Error: Only databases should exist at this level: {0}".format(db_name))
             self.delete_dir_if_empty(metastore_view_dir + db_name)
-        views_db_list = os.listdir(metastore_view_dir)
+        views_db_list = self.listdir(metastore_view_dir)
         for db_name in views_db_list:
             local_view_db_path = metastore_view_dir + db_name
             database_attributes = all_db_details_json.get(db_name, '')
             db_path = database_attributes.get('Location')
             if os.path.isdir(local_view_db_path):
-                views = os.listdir(local_view_db_path)
+                views = self.listdir(local_view_db_path)
                 for view_name in views:
                     print("Importing view {0}.{1}".format(db_name, view_name))
                     local_view_ddl = metastore_view_dir + db_name + '/' + view_name
@@ -540,7 +540,7 @@ class HiveClient(ClustersClient):
     def report_legacy_tables_to_fix(self, metastore_dir='metastore/', fix_table_log='repair_tables.log'):
         metastore_local_dir = self.get_export_dir() + metastore_dir
         fix_log = self.get_export_dir() + fix_table_log
-        db_list = os.listdir(metastore_local_dir)
+        db_list = self.listdir(metastore_local_dir)
         num_of_tables = 0
         with open(fix_log, 'w') as fp:
             for db_name in db_list:
@@ -548,7 +548,7 @@ class HiveClient(ClustersClient):
                 if os.path.isdir(local_db_path):
                     # all databases should be directories, no files at this level
                     # list all the tables in the database local dir
-                    tables = os.listdir(local_db_path)
+                    tables = self.listdir(local_db_path)
                     for tbl_name in tables:
                         local_table_ddl = local_db_path + '/' + tbl_name
                         if self.is_legacy_table_partitioned(local_table_ddl):

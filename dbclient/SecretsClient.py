@@ -117,7 +117,7 @@ class SecretsClient(ClustersClient):
         failed_scopes = set()
         scopes_acl_dict = self.load_acl_dict()
         failed_acls_names = set()
-        for root, subdirs, files in os.walk(scopes_dir):
+        for root, subdirs, files in self.walk(scopes_dir):
             for scope_name in files:
                 file_path = root + scope_name
                 # print('Log file: ', file_path)
