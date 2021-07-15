@@ -2,7 +2,7 @@ from dbclient import *
 import os
 import time
 from timeit import default_timer as timer
-
+import base64
 
 class SecretsClient(ClustersClient):
 
@@ -157,7 +157,7 @@ class SecretsClient(ClustersClient):
                             continue
                         put_secret_args = {'scope': scope_name,
                                            'key': k,
-                                           'string_value': v}
+                                           'string_value': base64.b64decode(v.encode('ascii')).decode('ascii')}
                         put_resp = self.post('/secrets/put', put_secret_args)
                         print(put_resp)
         if failed_acls_names:
