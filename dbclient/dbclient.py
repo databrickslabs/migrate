@@ -278,7 +278,7 @@ class dbclient:
         """
         log_dir = self.get_export_dir()
         logs_to_update = ['users.log',
-                          'acl_jobs.log',
+                          'acl_jobs.log', 'jobs.log',
                           'acl_clusters.log', 'acl_cluster_policies.log',
                           'acl_notebooks.log', 'acl_directories.log']
         for logfile in logs_to_update:

@@ -57,9 +57,19 @@ class JobsClient(ClustersClient):
         acl_jobs_log = self.get_export_dir() + acl_file
         # pinned by cluster_user is a flag per cluster
         jl_full = self.get_jobs_list(False)
+        jl = []
         if users_list:
             # filter the jobs list to only contain users that exist within this list
-            jl = list(filter(lambda x: x['creator_user_name'] in users_list, jl_full))
+            # jl = list(filter(lambda x: x['creator_user_name'] in users_list, jl_full))
+            for x in jl_full:
+                job_id = x['job_id']
+                job_perms = self.get(f'/preview/permissions/jobs/{job_id}')
+
+                for jp in job_perms["access_control_list"]:
+                    for p in jp["all_permissions"]:
+                        if p["permission_level"] == "IS_OWNER" and (jp["user_name"] in users_list):
+                            x["creator_user_name"] = jp["user_name"]
+                            jl.append(x)
         else:
             jl = jl_full
         with open(jobs_log, "w") as log_fp, open(acl_jobs_log, 'w') as acl_fp:
