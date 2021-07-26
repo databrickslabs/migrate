@@ -1,6 +1,7 @@
 import ast
 import base64
 import os
+import re
 import time
 from datetime import timedelta
 from timeit import default_timer as timer
