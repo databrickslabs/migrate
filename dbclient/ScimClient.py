@@ -385,6 +385,7 @@ class ScimClient(dbclient):
             group_resp = self.post('/preview/scim/v2/Groups', create_args)
 
         # dict of { group_name : group_id }
+        groups = self.listdir(group_dir)
         current_group_ids = self.get_current_group_ids()
         # dict of { email : current_user_id }
         current_user_ids = self.get_current_user_ids()
