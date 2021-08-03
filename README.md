@@ -173,7 +173,7 @@ python import_db.py --profile NEW_DEMO --unpause-all-jobs
 This section uses an API to remotely run Spark commands on a cluster, this API is called 
 [Execution Context](https://docs.databricks.com/dev-tools/api/1.2/index.html#execution-context)
 
-By default, this will launch an small cluster in the `data/` folder to export the Hive Metastore data. 
+By default, this will launch a small cluster in the `data/` folder to export the Hive Metastore data. 
 If you need a specific IAM role to export the metastore, use the `--cluster-name` option to connect to 
 a specific cluster. 
 
@@ -219,7 +219,7 @@ This section uses the API to run notebooks on a cluster to perform the export an
 (For details, please refer to the [export table ACL notebook](data/notebooks/Export_Table_ACLs.py) 
  or the [import table ACL notebook](data/notebooks/Import_Table_ACLs.py))
 
-By default, this will launch an small cluster in the `data/` folder with `acls` suffix to export the the table ACL data. 
+By default, this will launch a small cluster in the `data/` folder with `acls` suffix to export the table ACL data. 
 (This cluster needs to have table ACLs enabled, and it must be run with an admin user)
 
 ```bash
@@ -266,7 +266,7 @@ python import_db.py --profile DST --workspace-acls
 
 ### Export / Import of Secrets
 This will export secret to allow migration of secrets to a new workspace.  
-There is a limit to the size of the secret value which will print a error if this fails.  
+There is a limit to the size of the secret value which will print an error if this fails.  
 ```bash
 # to export you must use a cluster
 python export_db.py --profile SRC --secrets --cluster-name "my_cluster"
