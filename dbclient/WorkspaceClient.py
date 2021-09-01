@@ -164,6 +164,10 @@ class WorkspaceClient(ScimClient):
         print(f"Total notebooks downloaded: {num_of_nbs_dl}")
         if num_of_nbs != num_of_nbs_dl:
             print(f"Notebooks logged != downloaded. Check the failed download file at: {user_export_dir}")
+        print(f"Exporting the notebook permissions for {username}")
+        self.log_acl_to_file('notebooks', 'user_workspace.log', 'acl_notebooks.log', 'failed_acl_notebooks.log')
+        print(f"Exporting the directories permissions for {username}")
+        self.log_acl_to_file('directories', 'user_dirs.log', 'acl_directories.log', 'failed_acl_directories.log')
         # reset the original export dir for other calls to this method using the same client
         self.set_export_dir(original_export_dir)
 
@@ -208,6 +212,17 @@ class WorkspaceClient(ScimClient):
                 resp_upload = self.post(WS_IMPORT, nb_input_args)
                 if self.is_verbose():
                     print(resp_upload)
+        # import the user's workspace ACLs
+        print(f"Importing the notebook acls for {username}")
+        notebook_acl_logs = user_import_dir + f'/{username}/acl_notebooks.log'
+        with open(notebook_acl_logs) as nb_acls_fp:
+            for nb_acl_str in nb_acls_fp:
+                self.apply_acl_on_object(nb_acl_str)
+        print(f"Importing the directory acls for {username}")
+        dir_acl_logs = user_import_dir + f'/{username}/acl_directories.log'
+        with open(dir_acl_logs) as dir_acls_fp:
+            for dir_acl_str in dir_acls_fp:
+                self.apply_acl_on_object(dir_acl_str)
         self.set_export_dir(original_export_dir)
 
     def download_notebooks(self, ws_log_file='user_workspace.log', ws_dir='artifacts/'):
