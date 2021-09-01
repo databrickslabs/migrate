@@ -213,16 +213,18 @@ class WorkspaceClient(ScimClient):
                 if self.is_verbose():
                     print(resp_upload)
         # import the user's workspace ACLs
-        print(f"Importing the notebook acls for {username}")
         notebook_acl_logs = user_import_dir + f'/{username}/acl_notebooks.log'
-        with open(notebook_acl_logs) as nb_acls_fp:
-            for nb_acl_str in nb_acls_fp:
-                self.apply_acl_on_object(nb_acl_str)
-        print(f"Importing the directory acls for {username}")
+        if os.path.exists(notebook_acl_logs):
+            print(f"Importing the notebook acls for {username}")
+            with open(notebook_acl_logs) as nb_acls_fp:
+                for nb_acl_str in nb_acls_fp:
+                    self.apply_acl_on_object(nb_acl_str)
         dir_acl_logs = user_import_dir + f'/{username}/acl_directories.log'
-        with open(dir_acl_logs) as dir_acls_fp:
-            for dir_acl_str in dir_acls_fp:
-                self.apply_acl_on_object(dir_acl_str)
+        if os.path.exists(dir_acl_logs):
+            print(f"Importing the directory acls for {username}")
+            with open(dir_acl_logs) as dir_acls_fp:
+                for dir_acl_str in dir_acls_fp:
+                    self.apply_acl_on_object(dir_acl_str)
         self.set_export_dir(original_export_dir)
 
     def download_notebooks(self, ws_log_file='user_workspace.log', ws_dir='artifacts/'):
