@@ -374,6 +374,9 @@ class WorkspaceClient(ScimClient):
         :param failed_log_filename: failed acl logs for resources, should be empty
         """
         read_log_path = self.get_export_dir() + read_log_filename
+        if not os.path.exists(read_log_path):
+            print(f"No log exists for {read_log_path}. Skipping ACL export ...")
+            return
         write_log_path = self.get_export_dir() + write_log_filename
         failed_log_path = self.get_export_dir() + failed_log_filename
         with open(read_log_path, 'r') as read_fp, open(write_log_path, 'w') as write_fp, \
