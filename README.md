@@ -143,6 +143,7 @@ The corollary is the `--import-home` option:
 ```bash
 python import_db.py --profile NEW_DEMO --import-home example@foobar.com
 ```
+This will include notebooks, directories, and their corresponding ACLs. 
 
 ### Jobs
 This section uses the [Jobs API](https://docs.databricks.com/dev-tools/api/latest/jobs.html)  
