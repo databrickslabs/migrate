@@ -52,6 +52,7 @@ class WorkspaceClient(ScimClient):
         :return: return the full input args to upload to the destination system
         """
         is_source_format = self.is_source_file_format()
+        is_overwrite = self.is_overwrite()
         fp = open(full_local_path, "rb")
         (nb_path_dest, nb_type) = os.path.splitext(nb_full_path)
         in_args = {
@@ -62,6 +63,7 @@ class WorkspaceClient(ScimClient):
         if is_source_format:
             in_args['language'] = self.get_language(nb_type)
             in_args['object_type'] = 'NOTEBOOK'
+        in_args['overwrite'] = is_overwrite
         return in_args
 
     @staticmethod

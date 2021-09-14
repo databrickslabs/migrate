@@ -33,6 +33,11 @@ class dbclient:
         self._is_verbose = configs['verbose']
         self._verify_ssl = configs['verify_ssl']
         self._file_format = configs['file_format']
+
+        self._overwrite = 'false'
+        if('overwrite' in configs):
+            self._overwrite = str(configs['overwrite']).casefold()
+
         if self._verify_ssl:
             # set these env variables if skip SSL verification is enabled
             os.environ['REQUESTS_CA_BUNDLE'] = ""
@@ -50,6 +55,9 @@ class dbclient:
 
     def get_file_format(self):
         return self._file_format
+
+    def is_overwrite(self):
+        return self._overwrite
 
     def is_source_file_format(self):
         if self._file_format == 'SOURCE':

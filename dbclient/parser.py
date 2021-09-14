@@ -233,6 +233,9 @@ def get_import_parser():
     parser.add_argument('--import-home', action='store',
                         help='User workspace name to import, typically the users email address')
 
+    parser.add_argument('--overwrite', action='store_true',
+                        help='Applies to --import-home. Overwrites existing workspace artifacts')
+
     parser.add_argument('--import-groups', action='store_true',
                         help='Groups to import into a new workspace. Includes group creation and user notebooks.')
 

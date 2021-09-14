@@ -175,6 +175,7 @@ def main():
     if args.import_home:
         username = args.import_home
         print("Importing home directory: {0}".format(username))
+        client_config['overwrite'] = args.overwrite
         ws_c = WorkspaceClient(client_config)
         start = timer()
         # log notebooks and libraries
