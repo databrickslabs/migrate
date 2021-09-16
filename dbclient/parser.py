@@ -226,6 +226,9 @@ def get_import_parser():
     parser.add_argument('--workspace-acls', action='store_true',
                         help='Permissions for workspace objects to import')
 
+    parser.add_argument('--overwrite-notebooks', action='store_true', default=False,
+                        help='Flag to overwrite notebooks to forcefully overwrite during notebook imports')
+
     parser.add_argument('--notebook-format', type=NotebookFormat,
                         choices=list(NotebookFormat), default=NotebookFormat.dbc,
                         help='Choose the file format of the notebook to import (default: DBC)')
@@ -351,6 +354,11 @@ def build_client_config(url, token, args):
               'debug': args.debug,
               'file_format': str(args.notebook_format)
               }
+    # this option only exists during imports so we check for existence
+    if 'overwrite_notebooks' in args:
+        config['overwrite_notebooks'] = args.overwrite_notebooks
+    else:
+        config['overwrite_notebooks'] = False
     if args.set_export_dir:
         if args.set_export_dir.rstrip()[-1] != '/':
             config['export_dir'] = args.set_export_dir + '/'

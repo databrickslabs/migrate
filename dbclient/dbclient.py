@@ -33,6 +33,7 @@ class dbclient:
         self._is_verbose = configs['verbose']
         self._verify_ssl = configs['verify_ssl']
         self._file_format = configs['file_format']
+        self._is_overwrite_notebook = configs['overwrite_notebooks']
         if self._verify_ssl:
             # set these env variables if skip SSL verification is enabled
             os.environ['REQUESTS_CA_BUNDLE'] = ""
@@ -55,6 +56,9 @@ class dbclient:
         if self._file_format == 'SOURCE':
             return True
         return False
+
+    def is_overwrite_notebooks(self):
+        return self._is_overwrite_notebook
 
     @staticmethod
     def listdir(f_path):

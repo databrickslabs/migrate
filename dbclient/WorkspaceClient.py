@@ -51,7 +51,6 @@ class WorkspaceClient(ScimClient):
         :param nb_full_path: full destination path, e.g. /Users/foo@db.com/bar.dbc . Includes extension / type
         :return: return the full input args to upload to the destination system
         """
-        is_source_format = self.is_source_file_format()
         fp = open(full_local_path, "rb")
         (nb_path_dest, nb_type) = os.path.splitext(nb_full_path)
         in_args = {
@@ -59,7 +58,11 @@ class WorkspaceClient(ScimClient):
             "path": nb_path_dest,
             "format": self.get_file_format()
         }
-        if is_source_format:
+        if self.is_source_file_format():
+            if self.is_overwrite_notebooks():
+                in_args['overwrite'] = True
+            if nb_type == '.dbc':
+                raise ValueError('Export is in DBC default format. Must export as SOURCE')
             in_args['language'] = self.get_language(nb_type)
             in_args['object_type'] = 'NOTEBOOK'
         return in_args

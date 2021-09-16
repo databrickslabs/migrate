@@ -13,9 +13,9 @@ This package uses credentials from the
 [Databricks CLI](https://docs.databricks.com/user-guide/dev-tools/databricks-cli.html)  
 
 **Pre-Requisites**
-To use this migration tool, you'll need:
-*An environment running linux with python, pip, git, and the databricks CLI installed.
-*Admin access to both the old and new databricks accounts.
+To use this migration tool, you'll need:  
+* An environment running linux with python, pip, git, and the databricks CLI installed.
+* Admin access to both the old and new databricks accounts.
 
 Generate Access Tokens for both the old and new databricks accounts
 Login to your Databricks account and navigate to "user settings"
@@ -292,7 +292,7 @@ python import_db.py --profile DST --import-groups
 
 ### Export / Import Top Level Notebooks
 This will export all notebooks that are not a part of the `/Users/` directories to help migrate notebooks that are 
-outside of personal workspace directories.  Usually, these will be notebooks in the '/shared/' directory.
+outside of personal workspace directories.  Usually, these will be notebooks in the '/Shared/' directory.
 
 ```bash
 # reset the export directory and export the top level directories / notebooks

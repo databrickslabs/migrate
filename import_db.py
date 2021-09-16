@@ -47,6 +47,10 @@ def main():
         print("Import on {0}".format(url))
         ws_c = WorkspaceClient(client_config)
         start = timer()
+        if ws_c.is_overwrite_notebooks():
+            # if OVERWRITE is configured, check that the SOURCE format option is used. Otherwise fail
+            if not ws_c.is_source_file_format():
+                raise ValueError('Overwrite notebooks only supports the SOURCE format. See Rest API docs for details')
         # log notebooks and libraries
         ws_c.import_all_workspace_items(archive_missing=args.archive_missing,
                                         restart_from_last=args.restart_from_checkpoint)
@@ -58,6 +62,10 @@ def main():
         print("Import on {0}".format(url))
         ws_c = WorkspaceClient(client_config)
         start = timer()
+        if ws_c.is_overwrite_notebooks():
+            # if OVERWRITE is configured, check that the SOURCE format option is used. Otherwise fail
+            if not ws_c.is_source_file_format():
+                raise ValueError('Overwrite notebooks only supports the SOURCE format. See Rest API docs for details')
         # log notebooks and libraries
         ws_c.import_current_workspace_items()
         end = timer()
@@ -178,6 +186,10 @@ def main():
         ws_c = WorkspaceClient(client_config)
         start = timer()
         # log notebooks and libraries
+        if ws_c.is_overwrite_notebooks():
+            # if OVERWRITE is configured, check that the SOURCE format option is used. Otherwise fail
+            if not ws_c.is_source_file_format():
+                raise ValueError('Overwrite notebooks only supports the SOURCE format. See Rest API docs for details')
         ws_c.import_user_home(username, 'user_exports')
         end = timer()
         print("Complete Single User Import Time: " + str(timedelta(seconds=end - start)))
@@ -190,6 +202,10 @@ def main():
         user_names = scim_c.get_users_from_log()
         print('Export users notebooks:', user_names)
         ws_c = WorkspaceClient(client_config)
+        if ws_c.is_overwrite_notebooks():
+            # if OVERWRITE is configured, check that the SOURCE format option is used. Otherwise fail
+            if not ws_c.is_source_file_format():
+                raise ValueError('Overwrite notebooks only supports the SOURCE format. See Rest API docs for details')
         for username in user_names:
             ws_c.import_user_home(username, 'user_exports')
         jobs_c = JobsClient(client_config)
