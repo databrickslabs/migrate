@@ -245,7 +245,7 @@ class WorkspaceClient(ScimClient):
             # notebook log metadata file now contains object_id to help w/ ACL exports
             # pull the path from the data to download the individual notebook contents
             for notebook_data in fp:
-                notebook_path = json.loads(notebook_data).get('path', None).rstrip()
+                notebook_path = json.loads(notebook_data).get('path', None).rstrip('\n')
                 dl_resp = self.download_notebook_helper(notebook_path, export_dir=self.get_export_dir() + ws_dir)
                 if 'error_code' not in dl_resp:
                     num_notebooks += 1
