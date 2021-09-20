@@ -59,7 +59,7 @@ class JobsClient(ClustersClient):
         jl_full = self.get_jobs_list(False)
         if users_list:
             # filter the jobs list to only contain users that exist within this list
-            jl = list(filter(lambda x: x['creator_user_name'] in users_list, jl_full))
+            jl = list(filter(lambda x: x.get('creator_user_name', '') in users_list, jl_full))
         else:
             jl = jl_full
         with open(jobs_log, "w") as log_fp, open(acl_jobs_log, 'w') as acl_fp:
