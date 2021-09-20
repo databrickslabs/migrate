@@ -15,17 +15,34 @@ class JobsClient(ClustersClient):
             return cluster_json
 
     def get_jobs_list(self, print_json=False):
-        """ Returns an array of json objects for jobs """
-        jobs = []
+        """ 
+        Returns an array of json objects for jobs. It might contain jobs in SINGLE_TASK and 
+        MULTI_TASK format. 
+        """
+        jobsById = {}
+        # fetch all jobs using API 2.0. The 'format' field of each job can either be SINGLE_TASK 
+        # or MULTI_TASK. MULTI_TASK jobs, however, are returned without task definitions (the 
+        # 'tasks' field) on API 2.0.
+        res = self.get("/jobs/list", print_json, version='2.0')
+        for job in res.get('jobs', []):
+            jobsById[job.get('job_id')] = job
+
         limit = 25 # max limit supported by the API
         offset = 0
         has_more = True
+        # fetch all jobs again, this time using API 2.1, in order to get MULTI_TASK jobs with 
+        # task definitions. Note that the 'format' field will be set as MULTI_TASK for all jobs 
+        # and the 'tasks' field will be present for all jobs as well
         while has_more:
             res = self.get(f'/jobs/list?expand_tasks=true&offset={offset}&limit={limit}', print_json, version='2.1')
             offset += limit
-            jobs.extend(res.get('jobs', []))
             has_more = res.get('has_more')
-        return jobs
+            for job in res.get('jobs', []):
+                jobId = job.get('job_id')
+                # only replaces "real" MULTI_TASK jobs, as they contain the task definitions.
+                if jobsById[jobId].get('format') == 'MULTI_TASK':
+                    jobsById[jobId] = job
+        return jobsById.values()
 
     def get_job_id_by_name(self):
         """
