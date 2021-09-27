@@ -15,9 +15,34 @@ class JobsClient(ClustersClient):
             return cluster_json
 
     def get_jobs_list(self, print_json=False):
-        """ Returns an array of json objects for jobs """
-        jobs = self.get("/jobs/list", print_json)
-        return jobs.get('jobs', [])
+        """ 
+        Returns an array of json objects for jobs. It might contain jobs in SINGLE_TASK and 
+        MULTI_TASK format. 
+        """
+        jobsById = {}
+        # fetch all jobs using API 2.0. The 'format' field of each job can either be SINGLE_TASK 
+        # or MULTI_TASK. MULTI_TASK jobs, however, are returned without task definitions (the 
+        # 'tasks' field) on API 2.0.
+        res = self.get("/jobs/list", print_json, version='2.0')
+        for job in res.get('jobs', []):
+            jobsById[job.get('job_id')] = job
+
+        limit = 25 # max limit supported by the API
+        offset = 0
+        has_more = True
+        # fetch all jobs again, this time using API 2.1, in order to get MULTI_TASK jobs with 
+        # task definitions. Note that the 'format' field will be set as MULTI_TASK for all jobs 
+        # and the 'tasks' field will be present for all jobs as well
+        while has_more:
+            res = self.get(f'/jobs/list?expand_tasks=true&offset={offset}&limit={limit}', print_json, version='2.1')
+            offset += limit
+            has_more = res.get('has_more')
+            for job in res.get('jobs', []):
+                jobId = job.get('job_id')
+                # only replaces "real" MULTI_TASK jobs, as they contain the task definitions.
+                if jobsById[jobId].get('format') == 'MULTI_TASK':
+                    jobsById[jobId] = job
+        return jobsById.values()
 
     def get_job_id_by_name(self):
         """
@@ -86,6 +111,30 @@ class JobsClient(ClustersClient):
         # get an old cluster id to new cluster id mapping object
         cluster_mapping = self.get_cluster_id_mapping()
         old_2_new_policy_ids = self.get_new_policy_id_dict()  # dict { old_policy_id : new_policy_id }
+
+        def adjust_ids_for_cluster(settings): #job_settings or task_settings
+            if 'existing_cluster_id' in settings:
+                old_cid = settings['existing_cluster_id']
+                # set new cluster id for existing cluster attribute
+                new_cid = cluster_mapping.get(old_cid, None)
+                if not new_cid:
+                    print("Existing cluster has been removed. Resetting job to use new cluster.")
+                    settings.pop('existing_cluster_id')
+                    settings['new_cluster'] = self.get_jobs_default_cluster_conf()
+                else:
+                    settings['existing_cluster_id'] = new_cid
+            else:  # new cluster config
+                cluster_conf = settings['new_cluster']
+                if 'policy_id' in cluster_conf:
+                    old_policy_id = cluster_conf['policy_id']
+                    cluster_conf['policy_id'] = old_2_new_policy_ids[old_policy_id]
+                # check for instance pools and modify cluster attributes
+                if 'instance_pool_id' in cluster_conf:
+                    new_cluster_conf = self.cleanup_cluster_pool_configs(cluster_conf, job_creator, True)
+                else:
+                    new_cluster_conf = cluster_conf
+                settings['new_cluster'] = new_cluster_conf
+
         with open(jobs_log, 'r') as fp:
             for line in fp:
                 job_conf = json.loads(line)
@@ -96,27 +145,12 @@ class JobsClient(ClustersClient):
                     # set all imported jobs as paused
                     job_schedule['pause_status'] = 'PAUSED'
                     job_settings['schedule'] = job_schedule
-                if 'existing_cluster_id' in job_settings:
-                    old_cid = job_settings['existing_cluster_id']
-                    # set new cluster id for existing cluster attribute
-                    new_cid = cluster_mapping.get(old_cid, None)
-                    if not new_cid:
-                        print("Existing cluster has been removed. Resetting job to use new cluster.")
-                        job_settings.pop('existing_cluster_id')
-                        job_settings['new_cluster'] = self.get_jobs_default_cluster_conf()
-                    else:
-                        job_settings['existing_cluster_id'] = new_cid
-                else:  # new cluster config
-                    cluster_conf = job_settings['new_cluster']
-                    if 'policy_id' in cluster_conf:
-                        old_policy_id = cluster_conf['policy_id']
-                        cluster_conf['policy_id'] = old_2_new_policy_ids[old_policy_id]
-                    # check for instance pools and modify cluster attributes
-                    if 'instance_pool_id' in cluster_conf:
-                        new_cluster_conf = self.cleanup_cluster_pool_configs(cluster_conf, job_creator, True)
-                    else:
-                        new_cluster_conf = cluster_conf
-                    job_settings['new_cluster'] = new_cluster_conf
+                if 'format' not in job_settings or job_settings.get('format') == 'SINGLE_TASK':
+                    adjust_ids_for_cluster(job_settings)
+                else:
+                    for task_settings in job_settings.get('tasks', []):
+                        adjust_ids_for_cluster(task_settings)
+
                 print("Current Job Name: {0}".format(job_conf['settings']['name']))
                 # creator can be none if the user is no longer in the org. see our docs page
                 creator_user_name = job_conf.get('creator_user_name', None)
@@ -142,7 +176,7 @@ class JobsClient(ClustersClient):
         self.update_imported_job_names()
 
     def pause_all_jobs(self, pause=True):
-        job_list = self.get('/jobs/list').get('jobs', None)
+        job_list = self.get_jobs_list()
         for job_conf in job_list:
             job_settings = job_conf['settings']
             job_schedule = job_settings.get('schedule', None)
