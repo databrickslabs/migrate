@@ -61,7 +61,7 @@ Support Matrix for Import and Export Operations:
   * Azure DBFS migrations is work in progress. 
 
 **Note:** MLFlow objects cannot be exported / imported with this tool.
-For more details, please look [here](https://github.com/amesar/mlflow-tools/)
+For more details, please look [here](https://github.com/amesar/mlflow-export-import/)
 
 ## Workspace Analysis
 Import this [notebook](data/workspace_migration_analysis.py) to do an analysis of the number of objects within the 
