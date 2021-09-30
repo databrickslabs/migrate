@@ -233,11 +233,12 @@ python export_db.py --profile DEMO --metastore --cluster-name "Test" --database 
 ```
 
 # import all metastore entries
+```bash
 python import_db.py --profile newDEMO --metastore
-
+```
 To find legacy Hive tables that need to be repaired after a successful import, run the following:
 ```
-python import_db.py --profile DST --get-repair-log
+python import_db.py --profile newDEMO --get-repair-log
 ```
 Once completed, it will upload a log to the destination location. 
 Use this [repair notebook](data/repair_tables_for_migration.py) to import into the destination environment to repair 
