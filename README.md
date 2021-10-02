@@ -233,11 +233,12 @@ python export_db.py --profile DEMO --metastore --cluster-name "Test" --database 
 ```
 
 # import all metastore entries
+```bash
 python import_db.py --profile newDEMO --metastore
-
+```
 To find legacy Hive tables that need to be repaired after a successful import, run the following:
 ```
-python import_db.py --profile DST --get-repair-log
+python import_db.py --profile newDEMO --get-repair-log
 ```
 Once completed, it will upload a log to the destination location. 
 Use this [repair notebook](data/repair_tables_for_migration.py) to import into the destination environment to repair 
@@ -245,7 +246,7 @@ all tables.
 
 ### Table ACLs
 The Table ACLs component includes all objects to which access is controlled using
-`DENNY` and `GRANT` SQL statements:
+`DENY` and `GRANT` SQL statements:
 - Catalog: included if all databases are exported
   - Database: included
     - Table: included
@@ -284,10 +285,10 @@ This does **not** include IAM roles as those likely change while moving across w
 
 ```bash
 # reset the export directory and export a set of groups
-python export_db.py --reset-export && python export_db.py --profile SRC --export-groups 'groupA,groupB'
+python export_db.py --reset-export && python export_db.py --profile DEMO --export-groups 'groupA,groupB'
 
 # import the groups that were exported
-python import_db.py --profile DST --import-groups
+python import_db.py --profile newDEMO --import-groups
 ```
 
 ### Export / Import Top Level Notebooks
@@ -311,9 +312,9 @@ This will export secret to allow migration of secrets to a new workspace.
 There is a limit to the size of the secret value which will print an error if this fails.  
 ```bash
 # to export you must use a cluster
-python export_db.py --profile SRC --secrets --cluster-name "my_cluster"
+python export_db.py --profile DEMO --secrets --cluster-name "my_cluster"
 # to import, you do not need a cluster
-python import_db.py --profile DST --secrets
+python import_db.py --profile newDEMO --secrets
 ```
 
 #### Export Help Text
