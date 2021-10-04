@@ -9,6 +9,8 @@ class Pipeline:
     """Class that coordinates run of a group of tasks, which form a DAG based on dependencies
     defined in add_task().
 
+    See pipeline_test.py for examples.
+
     TBD: The pipeline has built-in checkpoint i.e it will skip all complete tasks upon restart."""
 
     @dataclass
