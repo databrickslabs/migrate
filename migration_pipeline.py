@@ -30,18 +30,6 @@ def build_pipeline(config: PipelineConfig) -> Pipeline:
     config.session = config.session if config.session else generate_session()
     working_dir = f'{config.base_dir}/{config.user}/{config.workspace}/{config.session}'
     pipeline = Pipeline(working_dir)
+    # TODO: Add tasks to the pipeline.
 
-    # Example:
-    #
-    # task1 = ...
-    # task2 = ...
-    # task3 = ...
-    # task4 = ...
-    # node1 = pipeline.add_task(task1)
-    # node2 = pipeline.add_task(task2, [node1])
-    # node3 = pipeline.add_task(task3, [node1])
-    # node4 = pipeline.add_task(task4, [node2, node3])
-    #
-    # Execution order: task1 -> task2 & task3 -> task4.
-    #
     return pipeline
