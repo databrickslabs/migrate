@@ -20,6 +20,8 @@ class Pipeline:
         Attributes:
         - task: The task runs in the node.
         - children: The nodes that should run after the current node completes.
+
+        DON'T create Node instance in any way other than calling add_task.
         """
         task: AbstractTask = None
         children = []
