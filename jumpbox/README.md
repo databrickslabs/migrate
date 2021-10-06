@@ -1,6 +1,6 @@
 # Workspace Migration JumpBox
 
-This JumpBox is built off a light-weight AMI which was manually built off of an already configured EC2 instance. 
+This JumpBox is built off a light-weight AMI which was manually built off of an already configured EC2 instance.
 
 ## AMI Development
 
