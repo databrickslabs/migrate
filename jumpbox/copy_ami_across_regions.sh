@@ -22,7 +22,6 @@ if [ $# -ne 3 ] && [ $# -ne 4 ]; then
 fi
 
 # All available ST regions
-#declare -a StRegions=("us-east-1" "us-west-1")
 declare -a StRegions=("us-east-1" "us-west-1" "us-west-2" "ap-south-1" "ap-northeast-2" "ap-southeast-1" "ap-southeast-2" "ap-northeast-1" "ca-central-1" "eu-central-1" "eu-west-1" "eu-west-3" "sa-east-1")
 
 # Read the array values with space
