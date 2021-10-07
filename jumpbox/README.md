@@ -19,6 +19,10 @@ pip install databricks-cli
 python3 -m pip install requests
 ```
 
+### AMI copy
+One can copy the source AMI to all the ST available regions by running copy_ami_across_regions.sh script
+./copy_ami_across_regions.sh $SRC_AMI_ID $SRC_REGION $AMI_NAME [$AWS_PROFILE]
+e.g. ./copy_ami_across_regions.sh ami-019974f1631980b80 us-west-2 wm-jumpbox-v1.01 aws-dev_databricks-power-user
 
 ## Script Usage
 
@@ -27,10 +31,10 @@ Sets up a new working directory for the SRC_SHARD_NAME. The new directory will h
 
 
 ### ./refresh_migrate_script.sh [SRC_SHARD_NAME]
-Fetches and merges the latest changes of the workspace migration script. 
+Fetches and merges the latest changes of the workspace migration script.
 When using under the SRC_SHARD_NAME working directory, one does not need to pass in any argument.
 
 ###  TODO: python entry point
-Takes 
-SRC_SHARD_NAME,  SRC_HOST,  SRC_TOKEN, 
+Takes
+SRC_SHARD_NAME,  SRC_HOST,  SRC_TOKEN,
 DST_SHARD_NAME, DST_HOST, DST_TOKEN
