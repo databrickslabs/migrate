@@ -11,7 +11,7 @@ To make changes on top of the current AMI, one can just spin up an EC2 instance 
 
 
 ###  AMI history (all in us-west-2)
-ami-019974f1631980b80 (October/6th/2021): Initial AMI with basic scripts and libraries
+wm-jumpbox-v1.01 (ami-019974f1631980b80 10/6/2021): Initial AMI with basic scripts and libraries
 ```
 sudo yum install git -y
 sudo yum install pip -y
@@ -19,10 +19,18 @@ pip install databricks-cli
 python3 -m pip install requests
 ```
 
+wm-jumpbox-v1.02 (ami-034b2f47bcf31aba2 10/7/2021): Add copy_ami_across_regions.sh and jq library
+lets users copy AMIs inside the jumpbox
+```
+sudo yum install jq -y
+```
+
 ### AMI copy
 One can copy the source AMI to all the ST available regions by running copy_ami_across_regions.sh script
 ./copy_ami_across_regions.sh $SRC_AMI_ID $SRC_REGION $AMI_NAME [$AWS_PROFILE]
 e.g. ./copy_ami_across_regions.sh ami-019974f1631980b80 us-west-2 wm-jumpbox-v1.01 aws-dev_databricks-power-user
+
+One can run this from locally or inside the jumpbox (as long as the aws configuration is set)
 
 ## Script Usage
 
