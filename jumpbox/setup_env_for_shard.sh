@@ -1,8 +1,10 @@
 #!/bin/bash
+# ./setup_env_for_shard.sh SRC_SHARD_NAME
 set -ex
 
 if [ $# -ne 1 ]; then
         echo "Usage: ./setup_env_for_shard.sh SRC_SHARD_NAME"
+        echo "e.g. ./setup_env_for_shard.sh shard-qa"
         exit 1
 fi
 
