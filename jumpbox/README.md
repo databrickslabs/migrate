@@ -27,18 +27,20 @@ sudo yum install jq -y
 
 ### AMI copy
 One can copy the source AMI to all the ST available regions by running copy_ami_across_regions.sh script
-./copy_ami_across_regions.sh $SRC_AMI_ID $SRC_REGION $AMI_NAME [$AWS_PROFILE]
-e.g. ./copy_ami_across_regions.sh ami-019974f1631980b80 us-west-2 wm-jumpbox-v1.01 aws-dev_databricks-power-user
+`./copy_ami_across_regions.sh $SRC_AMI_ID $SRC_REGION $AMI_NAME [$AWS_PROFILE]`
+e.g. `./copy_ami_across_regions.sh ami-019974f1631980b80 us-west-2 wm-jumpbox-v1.01 aws-dev_databricks-power-user`
 
 One can run this from locally or inside the jumpbox (as long as the aws configuration is set)
 
 ## Script Usage
 
 ### ./setup_env_for_shard.sh $SRC_SHARD_NAME
+e.g. `./setup_env_for_shard.sh shard-qa`
 Sets up a new working directory for the SRC_SHARD_NAME. The new directory will have Workspace Migration script the user can use to migrate the workspace.
 
 
 ### ./refresh_migrate_script.sh [SRC_SHARD_NAME]
+e.g. `./refresh_migrate_script.sh shard-qa`
 Fetches and merges the latest changes of the workspace migration script.
 When using under the SRC_SHARD_NAME working directory, one does not need to pass in any argument.
 
