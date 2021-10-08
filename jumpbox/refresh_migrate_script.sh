@@ -1,5 +1,5 @@
 # Use this script to pull the latest version of the workspace migration repo.
-# Use this under the $SHARD_NAME directory.
+# Use this script under migreate/ or migreate/$shardName
 #!/bin/bash
 set -ex
 if [ $# -eq 0 ]; then
