@@ -1,5 +1,8 @@
+import logging
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from dataclasses import dataclass
+import functools
 from typing import List, Optional
 
 from .task import AbstractTask
@@ -26,13 +29,14 @@ class Pipeline:
         task: AbstractTask = None
         children = []
 
-    def __init__(self, working_dir: str):
+    def __init__(self, working_dir: str, dry_run: bool = False):
         """
         :param working_dir: the dir where the pipeline reads / writes checkpoints and outputs logs.
         """
         self._source = self.Node()
         self._working_dir = working_dir
         self._tasks = []
+        self._dry_run = dry_run
 
     def add_task(self, task: AbstractTask, parents: Optional[List[Node]] = None) -> Node:
         node = self.Node(task)
@@ -51,5 +55,11 @@ class Pipeline:
         """The current implementation runs task sequentially in a thread pool."""
         with ThreadPoolExecutor() as executor:
             for task in self._tasks:
-                future = executor.submit(task.run)
+                future = executor.submit(functools.partial(self._schedule, task))
                 future.result()
+
+    def _schedule(self, task: AbstractTask):
+        logging.info(f'Start `{task.name}`')
+        if not self._dry_run:
+            task.run()
+        logging.info(f'Complete `{task.name}`')
