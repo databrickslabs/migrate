@@ -1,6 +1,5 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
 from dataclasses import dataclass
 import functools
 from typing import List, Optional
@@ -55,10 +54,10 @@ class Pipeline:
         """The current implementation runs task sequentially in a thread pool."""
         with ThreadPoolExecutor() as executor:
             for task in self._tasks:
-                future = executor.submit(functools.partial(self._schedule, task))
+                future = executor.submit(functools.partial(self._run_task, task))
                 future.result()
 
-    def _schedule(self, task: AbstractTask):
+    def _run_task(self, task: AbstractTask):
         logging.info(f'Start `{task.name}`')
         if not self._dry_run:
             task.run()
