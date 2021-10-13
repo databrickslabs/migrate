@@ -21,23 +21,43 @@ def test_client_config():
     }
 
 
-class RequestMockContainer:
-    def __init__(self, mock_get):
-        self._mock_get = mock_get
-        self._get_requests = []
-        self._get_responses = []
+class MockFunctionCallContainer:
+    class _MockFunction:
+        def __init__(self, mock_function):
+            self._mock_function = mock_function
+            self._mock_requests = []
+            self._mock_responses = []
+
+        def enter(self):
+            self._mock_function.side_effect = self._mock_responses
+
+        def exit(self):
+            self._mock_function.assert_has_calls(self._mock_requests, any_order=False)
+
+        def call(self, request, response):
+            self._mock_requests.append(request)
+            self._mock_responses.append(response)
+
+    def __init__(self, mock_get=None, mock_post=None):
+        self._mock_functions = []
+        if mock_get is not None:
+            self._mock_get = self._MockFunction(mock_get)
+            self._mock_functions.append(self._mock_get)
+        if mock_post is not None:
+            self._mock_post = self._MockFunction(mock_post)
+            self._mock_functions.append(self._mock_post)
 
     def mock_get_call(self, request, response):
-        self._get_requests.append(request)
-        self._get_responses.append(response)
+        self._mock_get.call(request, response)
         return self
 
     def __enter__(self):
-        self._mock_get.side_effect = self._get_responses
+        for mock_function in self._mock_functions:
+            mock_function.enter()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
-        # self._mock_get.assert_has_calls(self._get_requests, any_order=False)
+        for mock_function in self._mock_functions:
+            mock_function.exit()
 
 
 def test_path(file_name):
@@ -52,7 +72,7 @@ def mock_request(endpoint, version='2.0'):
                          'Authorization': f'Bearer {client_config["token"]}',
                          'User-Agent': 'databrickslabs-migrate/0.1.0'
                      },
-                     verify=client_config['verify_ssl']),
+                     verify=client_config['verify_ssl'])
 
 
 def mock_response(value=None, file=None, status_code=200):
@@ -84,6 +104,7 @@ class BaseTaskTest(unittest.TestCase):
         :param actual - relative file name starting from client_config['export_dir']
         :param expected - relative file name starting from ./test_data
         """
+
         def read_json_file(file):
             with open(file, 'r') as f:
                 lines = sorted(f.readlines())
@@ -97,7 +118,7 @@ class BaseTaskTest(unittest.TestCase):
 class ExportUserTaskTest(BaseTaskTest):
     @mock.patch('requests.get')
     def test_run(self, mock_get):
-        with RequestMockContainer(mock_get).mock_get_call(
+        with MockFunctionCallContainer(mock_get=mock_get).mock_get_call(
                 mock_request('/preview/scim/v2/Users'), mock_response(file='users.json')
         ).mock_get_call(
             mock_request('/preview/scim/v2/Groups'), mock_response(file='groups.json')
