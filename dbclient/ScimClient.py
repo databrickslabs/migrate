@@ -371,14 +371,13 @@ class ScimClient(dbclient):
             print("No groups to import.")
             return
         groups = self.listdir(group_dir)
-        create_args = {
-            "schemas": ["urn:ietf:params:scim:schemas:core:2.0:Group"],
-            "displayName": "default"
-        }
         for x in groups:
             print('Creating group: {0}'.format(x))
             # set the create args displayName property aka group name
-            create_args['displayName'] = x
+            create_args = {
+                "schemas": ["urn:ietf:params:scim:schemas:core:2.0:Group"],
+                "displayName": x
+            }
             group_resp = self.post('/preview/scim/v2/Groups', create_args)
 
         # dict of { group_name : group_id }

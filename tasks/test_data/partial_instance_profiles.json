@@ -1,0 +1,8 @@
+{
+  "instance_profiles": [
+    {
+      "instance_profile_arn": "arn:aws:iam::role_b",
+      "is_meta_instance_profile": false
+    }
+  ]
+}
