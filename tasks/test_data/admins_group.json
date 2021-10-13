@@ -1,0 +1,27 @@
+{
+  "entitlements": [
+    {
+      "value": "allow-cluster-create"
+    }
+  ],
+  "displayName": "admins_group",
+  "roles": [
+    {
+      "value": "arn:aws:iam::role_a"
+    },
+    {
+      "value": "arn:aws:iam::role_b"
+    }
+  ],
+  "members": [
+    {
+      "display": "Alice",
+      "value": "001",
+      "$ref": "Users/001",
+      "userName": "alice@databricks.com",
+      "type": "user"
+    }
+  ],
+  "groups": [],
+  "id": "999"
+}
