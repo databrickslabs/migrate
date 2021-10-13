@@ -263,8 +263,8 @@ class WorkspaceClient(ScimClient):
             print("Downloading: {0}".format(get_args['path']))
         resp = self.get(WS_EXPORT, get_args)
         with open(self.get_export_dir() + 'failed_notebooks.log', 'a') as err_log:
-            if resp.get('error_code', None):
-                err_msg = {'error_code': resp.get('error_code'), 'path': notebook_path}
+            if resp.get('error', None):
+                err_msg = {'error': resp.get('error'), 'path': notebook_path}
                 err_log.write(json.dumps(err_msg) + '\n')
                 return err_msg
         nb_path = os.path.dirname(notebook_path)
