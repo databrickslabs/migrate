@@ -1,0 +1,51 @@
+{
+  "Resources": [
+    {
+      "entitlements": [
+        {
+          "value": "allow-cluster-create"
+        }
+      ],
+      "displayName": "admins_group",
+      "roles": [
+        {
+          "value": "arn:aws:iam::role_a"
+        },
+        {
+          "value": "arn:aws:iam::role_b"
+        }
+      ],
+      "members": [
+        {
+          "display": "Alice",
+          "value": "001",
+          "$ref": "Users/001"
+        }
+      ],
+      "groups": [],
+      "id": "999"
+    },
+    {
+      "entitlements": [
+        {
+          "value": "allow-cluster-create"
+        }
+      ],
+      "displayName": "testing_group",
+      "roles": [
+        {
+          "value": "arn:aws:iam::role_c"
+        }
+      ],
+      "members": [
+        {
+          "display": "Bob",
+          "value": "002",
+          "$ref": "Users/002"
+        }
+      ],
+      "groups": [],
+      "id": "998"
+    }
+  ]
+}

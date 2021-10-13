@@ -1,60 +1,9 @@
 import os.path
 import logging
-from datetime import timedelta, datetime
-from timeit import default_timer as timer
-from dbclient import *
-from pipeline import AbstractTask, Pipeline
-
-
-class UserExportTask(AbstractTask):
-    """Task that exports users and groups, which is equals to export_db.py --users."""
-
-    def __init__(self, client_config):
-        super().__init__(name="export_users_and_groups")
-        self.client_config = client_config
-
-    def run(self):
-        scim_c = ScimClient(self.client_config)
-        start = timer()
-        # log all users
-        scim_c.log_all_users()
-        end = timer()
-        print("Complete Users Export Time: " + str(timedelta(seconds=end - start)))
-        start = timer()
-        # log all groups
-        scim_c.log_all_groups()
-        end = timer()
-        print("Complete Group Export Time: " + str(timedelta(seconds=end - start)))
-        # log the instance profiles
-        if scim_c.is_aws():
-            cl_c = ClustersClient(self.client_config)
-            print("Start instance profile logging ...")
-            start = timer()
-            cl_c.log_instance_profiles()
-            end = timer()
-            print("Complete Instance Profile Export Time: " + str(timedelta(seconds=end - start)))
-
-
-class UserImportTask(AbstractTask):
-    """Task that imports users and groups, which is equals to import_db.py --users."""
-
-    def __init__(self, client_config):
-        super().__init__(name="import_users_and_groups")
-        self.client_config = client_config
-
-    def run(self):
-        scim_c = ScimClient(self.client_config)
-        if self.client_config['is_aws']:
-            print("Start import of instance profiles first to ensure they exist...")
-            cl_c = ClustersClient(self.client_config)
-            start = timer()
-            cl_c.import_instance_profiles()
-            end = timer()
-            print("Complete Instance Profile Import Time: " + str(timedelta(seconds=end - start)))
-        start = timer()
-        scim_c.import_all_users_and_groups()
-        end = timer()
-        print("Complete Users and Groups Import Time: " + str(timedelta(seconds=end - start)))
+from datetime import datetime
+from pipeline import Pipeline
+from dbclient import parser
+from tasks import *
 
 
 def generate_session() -> str:
@@ -63,10 +12,10 @@ def generate_session() -> str:
 
 def build_pipeline() -> Pipeline:
     """Build the pipeline based on the command line arguments."""
-    args = get_pipeline_parser().parse_args()
+    args = parser.get_pipeline_parser().parse_args()
 
-    login_args = get_login_credentials(profile=args.profile)
-    if is_azure_creds(login_args) and (not args.azure):
+    login_args = parser.get_login_credentials(profile=args.profile)
+    if parser.is_azure_creds(login_args) and (not args.azure):
         raise ValueError(
             'Login credentials do not match args. Please provide --azure flag for azure envs.')
 
@@ -74,11 +23,12 @@ def build_pipeline() -> Pipeline:
     # basic auth headers parse the credentials
     url = login_args['host']
     token = login_args['token']
-    client_config = build_client_config(url, token, args)
+    client_config = parser.build_client_config(url, token, args)
     session = args.session if args.session else generate_session()
     client_config['export_dir'] = os.path.join(client_config['export_dir'], session) + '/'
 
-    os.makedirs(client_config['export_dir'], exist_ok=True)
+    if not args.dry_run:
+        os.makedirs(client_config['export_dir'], exist_ok=True)
 
     if client_config['debug']:
         print(url, token)
