@@ -24,14 +24,18 @@ def build_pipeline() -> Pipeline:
     url = login_args['host']
     token = login_args['token']
     client_config = parser.build_client_config(url, token, args)
+
+    # Resume session if specified, and create a new one otherwise. Different session will work in
+    # different export_dir in order to be isolated.
     session = args.session if args.session else generate_session()
     client_config['export_dir'] = os.path.join(client_config['export_dir'], session) + '/'
+
+    if client_config['debug']:
+        logging.info(url, token)
 
     if not args.dry_run:
         os.makedirs(client_config['export_dir'], exist_ok=True)
 
-    if client_config['debug']:
-        print(url, token)
     pipeline = Pipeline(client_config['export_dir'], args.dry_run)
     export_user = pipeline.add_task(UserExportTask(client_config))
     pipeline.add_task(UserImportTask(client_config), [export_user])

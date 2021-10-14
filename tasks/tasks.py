@@ -7,7 +7,11 @@ from datetime import timedelta
 
 
 class UserExportTask(AbstractTask):
-    """Task that exports users and groups, which is equals to export_db.py --users."""
+    """Task that exports users and groups.
+
+    The behavior is equivalent to `$ python export_db.py --users`, which lives in main function of
+    export_db.py.
+    """
 
     def __init__(self, client_config):
         super().__init__(name="export_users_and_groups")
@@ -36,7 +40,11 @@ class UserExportTask(AbstractTask):
 
 
 class UserImportTask(AbstractTask):
-    """Task that imports users and groups, which is equals to import_db.py --users."""
+    """Task that imports users and groups.py --users.
+
+    The behavior is equivalent to `$ python import_db.py --users`, which lives in main function of
+    import_db.py.
+    """
 
     def __init__(self, client_config):
         super().__init__(name="import_users_and_groups")
