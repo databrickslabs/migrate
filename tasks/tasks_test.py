@@ -90,13 +90,11 @@ def mock_request(endpoint, version='2.0', json_params=None):
             'Authorization': f'Bearer {client_config["token"]}',
             'User-Agent': 'databrickslabs-migrate/0.1.0'
         },
+        'json': json_params,
         'verify': client_config['verify_ssl']
     }
 
-    if json_params:
-        kwargs['json'] = json_params
-
-    mock_call = mock.call(*args, **kwargs)
+    mock_call = mock.call(*args, **{k: v for k, v in kwargs.items() if v is not None})
     return mock_call
 
 
@@ -168,11 +166,13 @@ class ExportUserTaskTest(BaseTaskTest):
 
 
 class ImportUserTaskTest(BaseTaskTest):
+    @mock.patch('requests.patch')
     @mock.patch('requests.post')
     @mock.patch('requests.get')
-    def test_run(self, mock_get, mock_post):
+    def test_run(self, mock_get, mock_post, mock_patch):
+        # Import instance profiles.
         container = MockFunctionCallContainer(
-            mock_get=mock_get, mock_post=mock_post
+            mock_get=mock_get, mock_post=mock_post, mock_patch=mock_patch
         ).mock_get_call(
             mock_request('/instance-profiles/list'),
             mock_response(file='partial_instance_profiles.json')
@@ -186,6 +186,7 @@ class ImportUserTaskTest(BaseTaskTest):
             mock_response()
         )
 
+        # Import users.
         for user in read_json_file(log_path('users.log')):
             create_keys = ('emails', 'entitlements', 'displayName', 'name', 'userName')
             create_user = {k: user[k] for k in create_keys if k in user}
@@ -194,6 +195,12 @@ class ImportUserTaskTest(BaseTaskTest):
                 mock_response()
             )
 
+        # Check imported users.
+        container.mock_get_call(
+            mock_request('/preview/scim/v2/Users'), mock_response(file='users.json')
+        )
+
+        # Import groups.
         for group in ['admins_group', 'testing_group']:
             create_group = {
                 "schemas": ["urn:ietf:params:scim:schemas:core:2.0:Group"],
@@ -204,16 +211,92 @@ class ImportUserTaskTest(BaseTaskTest):
                 mock_response()
             )
 
-        container.mock_patch_call(
-            mock_request('/preview/scim/v2/Groups', json_params=create_group),
-            mock_response()
-        ).mock_get_call(
+        # Check imported groups.
+        container.mock_get_call(
             mock_request('/preview/scim/v2/Groups'), mock_response(file='groups.json')
-        ).mock_get_call(
-            mock_request('/preview/scim/v2/Users'), mock_response(file='users.json')
         )
 
-    with container:
+        # Add members.
+        for group_id, member_id in [('999', '001'), ('998', '002')]:
+            patch_members = {
+                "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+                "Operations": [{
+                    "op": "add",
+                    "value": {"members": [{
+                        "value": f"{member_id}"
+                    }]}
+                }]
+            }
+            container.mock_patch_call(
+                mock_request(f'/preview/scim/v2/Groups/{group_id}', json_params=patch_members),
+                mock_response()
+            )
+
+        # Add group roles.
+        container.mock_get_call(
+            mock_request('/preview/scim/v2/Groups'), mock_response(file='groups.json')
+        )
+
+        for group_id, roles in [
+            ('999', [{"value": "arn:aws:iam::role_a"}, {"value": "arn:aws:iam::role_b"}]),
+            ('998', [{"value": "arn:aws:iam::role_c"}])
+        ]:
+            patch_roles = {"schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+                           "Operations": [{"op": "add",
+                                           "path": "roles",
+                                           "value": roles}]}
+            patch_entitlements = {"schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+                                  "Operations": [{"op": "add",
+                                                  "path": "entitlements",
+                                                  "value": [{"value": "allow-cluster-create"}]}]}
+            container.mock_patch_call(
+                mock_request(f'/preview/scim/v2/Groups/{group_id}', json_params=patch_roles),
+                mock_response()
+            ).mock_patch_call(
+                mock_request(f'/preview/scim/v2/Groups/{group_id}', json_params=patch_entitlements),
+                mock_response()
+            )
+
+        # Add user roles.
+        # Only add missing roles.
+        for user_id, current_roles, expected_roles in [
+            ('001', [{"value": "arn:aws:iam::role_a"}], [{"value": "arn:aws:iam::role_b"}]),
+            ('002', [], [{"value": "arn:aws:iam::role_c"}])
+        ]:
+            patch_roles = {
+                'schemas': ['urn:ietf:params:scim:api:messages:2.0:PatchOp'],
+                'Operations': [
+                    {
+                        'op': 'add',
+                        'path': 'roles',
+                        'value': expected_roles
+                    }
+                ]
+            }
+            container.mock_get_call(
+                mock_request(f'/preview/scim/v2/Users/{user_id}'),
+                mock_response(value={'roles': current_roles, 'id': f'{user_id}'})
+            ).mock_patch_call(
+                mock_request(f'/preview/scim/v2/Users/{user_id}', json_params=patch_roles),
+                mock_response()
+            )
+
+        # Add user entitlements.
+        container.mock_get_call(
+            mock_request('/preview/scim/v2/Groups'), mock_response(file='groups.json')
+        )
+
+        for group_id in ['999', '998']:
+            patch_entitlements = {"schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+                                  "Operations": [{"op": "add",
+                                                  "path": "entitlements",
+                                                  "value": [{"value": "allow-cluster-create"}]}]}
+            container.mock_patch_call(
+                mock_request(f'/preview/scim/v2/Groups/{group_id}', json_params=patch_entitlements),
+                mock_response()
+            )
+
+        with container:
             UserImportTask(test_client_config()).run()
 
 
