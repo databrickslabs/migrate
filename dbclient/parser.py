@@ -369,3 +369,44 @@ def build_client_config(url, token, args):
     else:
         config['export_dir'] = 'azure_logs/'
     return config
+
+
+def get_pipeline_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description='Export user(s) workspace artifacts from Databricks')
+
+    parser.add_argument('--profile', action='store', default='DEFAULT',
+                        help='Profile to parse the credentials')
+
+    parser.add_argument('--azure', action='store_true', default=False,
+                        help='Run on Azure. (Default is AWS)')
+
+    parser.add_argument('--silent', action='store_true', default=False,
+                        help='Silent all logging of export operations.')
+
+    parser.add_argument('--no-ssl-verification', action='store_true',
+                        help='Set Verify=False when making http requests.')
+
+    parser.add_argument('--debug', action='store_true',
+                        help='Enable debug logging')
+
+    parser.add_argument('--set-export-dir', action='store',
+                        help='Set the base directory to export artifacts')
+
+    parser.add_argument('--notebook-format', type=NotebookFormat,
+                        choices=list(NotebookFormat), default=NotebookFormat.dbc,
+                        help='Choose the file format to download the notebooks (default: DBC)')
+
+    parser.add_argument('--overwrite-notebooks', action='store_true', default=False,
+                        help='Flag to overwrite notebooks to forcefully overwrite during notebook imports')
+
+    parser.add_argument('--skip-failed', action='store_true', default=False,
+                        help='Skip retries for any failed hive metastore exports.')
+
+    parser.add_argument('--session', action='store', default='',
+                        help='If set, pipeline resumes from latest checkpoint of given session; '
+                             'Otherwise, pipeline starts from beginning and creates a new session.')
+
+    parser.add_argument('--dry-run', action='store_true', default=False,
+                        help='Dry run the pipeline i.e. will not execute tasks if true.')
+
+    return parser

@@ -1,0 +1,3 @@
+{"instance_profile_arn": "arn:aws:iam::role_a", "is_meta_instance_profile": false}
+{"instance_profile_arn": "arn:aws:iam::role_c", "is_meta_instance_profile": false}
+{"instance_profile_arn": "arn:aws:iam::role_b", "is_meta_instance_profile": false}

@@ -15,7 +15,7 @@ class AppendTask(AbstractTask):
         AppendTask.result.append(self.number)
 
 
-class TestPipeline(unittest.TestCase):
+class PipelineTest(unittest.TestCase):
     def test_run(self):
         task_1 = AppendTask("task1", 1)
         task_2 = AppendTask("task2", 2)
