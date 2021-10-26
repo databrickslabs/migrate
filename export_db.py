@@ -3,6 +3,7 @@ from timeit import default_timer as timer
 from datetime import timedelta, datetime
 import os
 import shutil
+from checkpoint_service import *
 
 
 # python 3.6
@@ -27,6 +28,8 @@ def main():
     client_config = build_client_config(url, token, args)
 
     os.makedirs(client_config['export_dir'], exist_ok=True)
+
+    checkpoint_service = CheckpointService(client_config)
 
     if client_config['debug']:
         print(url, token)
@@ -56,7 +59,7 @@ def main():
 
     if args.workspace:
         print("Export the complete workspace at {0}".format(now))
-        ws_c = WorkspaceClient(client_config)
+        ws_c = WorkspaceClient(client_config, checkpoint_service)
         start = timer()
         # log notebooks and libraries
         ws_c.init_workspace_logfiles()
@@ -67,7 +70,7 @@ def main():
 
     if args.workspace_acls:
         print("Export the ACLs for workspace objects at {0}".format(now))
-        ws_c = WorkspaceClient(client_config)
+        ws_c = WorkspaceClient(client_config, checkpoint_service)
         start = timer()
         # log notebooks and directory acls
         ws_c.log_all_workspace_acls()
@@ -76,7 +79,7 @@ def main():
 
     if args.download:
         print("Starting complete workspace download at {0}".format(now))
-        ws_c = WorkspaceClient(client_config)
+        ws_c = WorkspaceClient(client_config, checkpoint_service)
         start = timer()
         # log notebooks and libraries
         num_notebooks = ws_c.download_notebooks()
@@ -141,7 +144,7 @@ def main():
     if args.metastore or args.metastore_unicode:
         print("Export the metastore configs at {0}".format(now))
         start = timer()
-        hive_c = HiveClient(client_config)
+        hive_c = HiveClient(client_config, checkpoint_service)
         if args.database is not None:
             # export only a single database with a given iam role
             database_name = args.database
@@ -266,7 +269,7 @@ def main():
         # log notebooks and libraries
         user_names = scim_c.log_groups_from_list(group_name_list)
         print('Export users notebooks:', user_names)
-        ws_c = WorkspaceClient(client_config)
+        ws_c = WorkspaceClient(client_config, checkpoint_service)
         for username in user_names:
             is_user_home_empty = ws_c.is_user_home_empty(username)
             if not is_user_home_empty:

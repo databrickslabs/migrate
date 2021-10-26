@@ -2,7 +2,7 @@ from dbclient import *
 from timeit import default_timer as timer
 from datetime import timedelta, datetime
 from os import makedirs
-
+from checkpoint_service import *
 
 # python 3.6
 def main():
@@ -23,6 +23,7 @@ def main():
 
     makedirs(client_config['export_dir'], exist_ok=True)
 
+    checkpoint_service = CheckpointService(client_config)
     if client_config['debug']:
         print(url, token)
     now = str(datetime.now())
@@ -45,22 +46,21 @@ def main():
     if args.workspace:
         print("Import the complete workspace at {0}".format(now))
         print("Import on {0}".format(url))
-        ws_c = WorkspaceClient(client_config)
+        ws_c = WorkspaceClient(client_config, checkpoint_service)
         start = timer()
         if ws_c.is_overwrite_notebooks():
             # if OVERWRITE is configured, check that the SOURCE format option is used. Otherwise fail
             if not ws_c.is_source_file_format():
                 raise ValueError('Overwrite notebooks only supports the SOURCE format. See Rest API docs for details')
         # log notebooks and libraries
-        ws_c.import_all_workspace_items(archive_missing=args.archive_missing,
-                                        restart_from_last=args.restart_from_checkpoint)
+        ws_c.import_all_workspace_items(archive_missing=args.archive_missing)
         end = timer()
         print("Complete Workspace Import Time: " + str(timedelta(seconds=end - start)))
 
     if args.workspace_top_level:
         print("Import the top level workspace items at {0}".format(now))
         print("Import on {0}".format(url))
-        ws_c = WorkspaceClient(client_config)
+        ws_c = WorkspaceClient(client_config, checkpoint_service)
         start = timer()
         if ws_c.is_overwrite_notebooks():
             # if OVERWRITE is configured, check that the SOURCE format option is used. Otherwise fail
@@ -74,7 +74,7 @@ def main():
     if args.workspace_acls:
         print("Import workspace ACLs at {0}".format(now))
         print("Import on {0}".format(url))
-        ws_c = WorkspaceClient(client_config)
+        ws_c = WorkspaceClient(client_config, checkpoint_service)
         start = timer()
         # log notebooks and libraries
         ws_c.import_workspace_acls()
@@ -117,7 +117,7 @@ def main():
     if args.metastore or args.metastore_unicode:
         print("Importing the metastore configs at {0}".format(now))
         start = timer()
-        hive_c = HiveClient(client_config)
+        hive_c = HiveClient(client_config, checkpoint_service)
         # log job configs
         hive_c.import_hive_metastore(cluster_name=args.cluster_name, has_unicode=args.metastore_unicode,
                                      should_repair_table=args.repair_metastore_tables)
@@ -127,7 +127,7 @@ def main():
     if args.repair_metastore_tables:
         print("Repairing metastore table")
         start = timer()
-        hive_c = HiveClient(client_config)
+        hive_c = HiveClient(client_config, checkpoint_service)
         hive_c.repair_legacy_tables(cluster_name=args.cluster_name)
         end = timer()
         print("Complete Metastore Repair Time: " + str(timedelta(seconds=end - start)))
