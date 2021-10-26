@@ -117,9 +117,6 @@ def get_export_parser():
     parser.add_argument('--metastore-unicode', action='store_true',
                         help='log all the metastore table definitions including unicode characters')
 
-    parser.add_argument('--repair-table', action='store_true', default=False,
-                        help='repair legacy tables after import of metatore')
-
     # get all table ACLs (TODO need to make sure that unicode database object names are supported)
     parser.add_argument('--table-acls', action='store_true',
                         help='log all table ACL grant and deny statements')
