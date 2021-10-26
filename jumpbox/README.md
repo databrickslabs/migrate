@@ -10,7 +10,7 @@ If necessary to formalize the AMI build process, we recommend investing in AMI b
 To make changes on top of the current AMI, one can just spin up an EC2 instance off of the current AMI and build a new AMI.
 
 
-###  AMI history (all in us-west-2) (starting from v1.02, AMIs are managed in aws-field-eng account: 997819012307)
+###  AMI history (all in us-west-2) (starting from v1.02, AMIs are managed in aws-field-eng account)
 wm-jumpbox-v1.01 (ami-019974f1631980b80 10/6/2021): Initial AMI with basic scripts and libraries
 ```
 sudo yum install git -y
