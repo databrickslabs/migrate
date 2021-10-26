@@ -598,6 +598,8 @@ class HiveClient(ClustersClient):
                     return True
         return False
 
+    # We need to wait for the cluster to be ready to get the execution context, otherwise the API will fail.
+    # Once the cluster is available via the clusters api, we still need to wait a few seconds for the driver to come online.
     def get_or_launch_cluster(self, cluster_name=None):
         if cluster_name:
             cid = self.start_cluster_by_name(cluster_name)
