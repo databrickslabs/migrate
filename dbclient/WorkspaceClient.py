@@ -12,7 +12,7 @@ WS_EXPORT = "/workspace/export"
 LS_ZONES = "/clusters/list-zones"
 
 
-class WorkspaceClient(ScimClient):
+class WorkspaceClient(CheckpointDbClient):
     _languages = {'.py': 'PYTHON',
                   '.scala': 'SCALA',
                   '.r': 'R',
@@ -237,6 +237,7 @@ class WorkspaceClient(ScimClient):
         :param ws_dir: export directory to store all notebooks
         :return: None
         """
+        self.restore_checkpoint_objects(WM_EXPORT, WORKSPACE_NOTEBOOK_OBJECT)
         ws_log = self.get_export_dir() + ws_log_file
         num_notebooks = 0
         if not os.path.exists(ws_log):
@@ -247,7 +248,7 @@ class WorkspaceClient(ScimClient):
             for notebook_data in fp:
                 notebook_path = json.loads(notebook_data).get('path', None).rstrip('\n')
                 dl_resp = self.download_notebook_helper(notebook_path, export_dir=self.get_export_dir() + ws_dir)
-                if 'error_code' not in dl_resp:
+                if 'error' not in dl_resp:
                     num_notebooks += 1
         return num_notebooks
 
@@ -261,7 +262,9 @@ class WorkspaceClient(ScimClient):
         get_args = {'path': notebook_path, 'format': self.get_file_format()}
         if self.is_verbose():
             print("Downloading: {0}".format(get_args['path']))
-        resp = self.get(WS_EXPORT, get_args)
+        (checkpoint_available, resp) = self.checkpoint_get(WM_EXPORT, WORKSPACE_NOTEBOOK_OBJECT, notebook_path, WS_EXPORT, get_args)
+        if checkpoint_available:
+            return {'path': notebook_path}
         with open(self.get_export_dir() + 'failed_notebooks.log', 'a') as err_log:
             if resp.get('error', None):
                 err_msg = {'error': resp.get('error'), 'path': notebook_path}
@@ -390,7 +393,9 @@ class WorkspaceClient(ScimClient):
                 data = json.loads(x)
                 obj_id = data.get('object_id', None)
                 api_endpoint = '/permissions/{0}/{1}'.format(artifact_type, obj_id)
-                acl_resp = self.get(api_endpoint)
+                (checkpoint_available, acl_resp) = self.checkpoint_get(WM_EXPORT, f"acl_{artifact_type}", obj_id, api_endpoint)
+                if checkpoint_available:
+                    continue
                 acl_resp['path'] = data.get('path')
                 if 'error_code' in acl_resp:
                     failed_fp.write(json.dumps(acl_resp) + '\n')
@@ -405,12 +410,14 @@ class WorkspaceClient(ScimClient):
         :param workspace_log_file: input file for user notebook listing
         :param dir_log_file: input file for user directory listing
         """
+        self.restore_checkpoint_objects(WM_EXPORT, WORKSPACE_NOTEBOOK_ACL_OBJECT)
         # define log file names for notebooks, folders, and libraries
         print("Exporting the notebook permissions")
         start = timer()
         self.log_acl_to_file('notebooks', workspace_log_file, 'acl_notebooks.log', 'failed_acl_notebooks.log')
         end = timer()
         print("Complete Notebook ACLs Export Time: " + str(timedelta(seconds=end - start)))
+        self.restore_checkpoint_objects(WM_EXPORT, WORKSPACE_DIRECTORY_ACL_OBJECT)
         print("Exporting the directories permissions")
         start = timer()
         self.log_acl_to_file('directories', dir_log_file, 'acl_directories.log', 'failed_acl_directories.log')

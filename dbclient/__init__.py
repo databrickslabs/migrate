@@ -1,5 +1,6 @@
 import json
 from .dbclient import dbclient
+from .checkpoint_dbclient import *
 from .ClustersClient import ClustersClient
 from .JobsClient import JobsClient
 from .DbfsClient import DbfsClient

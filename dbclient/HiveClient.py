@@ -232,6 +232,7 @@ class HiveClient(ClustersClient):
         print("Cluster creation time: " + str(timedelta(seconds=end - start)))
         time.sleep(5)
         ec_id = self.get_execution_context(cid)
+        completed_exported_tables = self.get_successful_exported_metastore_tables(success_log)
         # if metastore failed log path exists, cleanup before re-running
         failed_metastore_log_path = self.get_export_dir() + fail_log
         success_metastore_log_path = self.get_export_dir() + success_log
@@ -248,11 +249,12 @@ class HiveClient(ClustersClient):
             fp.write(json.dumps(db_json) + '\n')
         os.makedirs(self.get_export_dir() + metastore_dir + db_name, exist_ok=True)
         self.log_all_tables(db_name, cid, ec_id, metastore_dir, failed_metastore_log_path,
-                            success_metastore_log_path, current_iam, has_unicode)
+                            success_metastore_log_path, current_iam, has_unicode, completed_exported_tables)
 
     def export_hive_metastore(self, cluster_name=None, metastore_dir='metastore/', db_log='database_details.log',
                               success_log='success_metastore.log', fail_log='failed_metastore.log', has_unicode=False):
         start = timer()
+        completed_exported_tables = self.get_successful_exported_metastore_tables(success_log)
         instance_profiles = self.get_instance_profiles_list()
         if cluster_name:
             cid = self.start_cluster_by_name(cluster_name)
@@ -286,7 +288,7 @@ class HiveClient(ClustersClient):
                 db_json = self.get_desc_database_details(db_name, cid, ec_id)
                 fp.write(json.dumps(db_json) + '\n')
                 self.log_all_tables(db_name, cid, ec_id, metastore_dir, failed_metastore_log_path,
-                                    success_metastore_log_path, current_iam_role, has_unicode)
+                                    success_metastore_log_path, current_iam_role, has_unicode, completed_exported_tables)
 
         total_failed_entries = self.get_num_of_lines(failed_metastore_log_path)
         if (not self.is_skip_failed()) and self.is_aws() and total_failed_entries > 0:
@@ -299,6 +301,27 @@ class HiveClient(ClustersClient):
         else:
             print("Failed count: " + str(total_failed_entries))
             print("Total Databases attempted export: " + str(len(all_dbs)))
+
+    def get_successful_exported_metastore_tables(self, success_log):
+        tables = set()
+        success_metastore_log_path = self.get_export_dir() + success_log
+        if self.get_checkpoint_enabled() and os.path.exists(success_metastore_log_path):
+            print("Using checkpointing to load completed metastore tables")
+            with open(success_metastore_log_path, 'r') as fp:
+                for table in fp:
+                    item = json.loads(table.rstrip())
+                    tables.add(item['table'])
+        return tables
+
+    def get_successful_imported_metastore_tables(self, success_log):
+        tables = set()
+        success_metastore_log_path = self.get_export_dir() + success_log
+        if self.get_checkpoint_enabled() and os.path.exists(success_metastore_log_path):
+            print("Using checkpointing to load completed metastore tables")
+            with open(success_metastore_log_path, 'r') as fp:
+                for table in fp:
+                    tables.add(table.rstrip())
+        return tables
 
     @staticmethod
     def get_num_of_lines(filename):
@@ -336,9 +359,11 @@ class HiveClient(ClustersClient):
         return False
 
     def import_hive_metastore(self, cluster_name=None, metastore_dir='metastore/', views_dir='metastore_views/',
-                              has_unicode=False, should_repair_table=False):
+                              has_unicode=False, should_repair_table=False, success_log='success_metastore_import.log'):
         metastore_local_dir = self.get_export_dir() + metastore_dir
         metastore_view_dir = self.get_export_dir() + views_dir
+        success_metastore_log_path = self.get_export_dir() + success_log
+        completed_imported_tables = self.get_successful_imported_metastore_tables(success_log)
         os.makedirs(metastore_view_dir, exist_ok=True)
         (cid, ec_id) = self.get_or_launch_cluster(cluster_name)
         # get local databases
@@ -347,47 +372,56 @@ class HiveClient(ClustersClient):
         resp = self.post('/dbfs/mkdirs', {'path': '/tmp/migration/'})
         # iterate over the databases saved locally
         all_db_details_json = self.get_database_detail_dict()
-        for db_name in db_list:
-            # create a dir to host the view ddl if we find them
-            os.makedirs(metastore_view_dir + db_name, exist_ok=True)
-            # get the local database path to list tables
-            local_db_path = metastore_local_dir + db_name
-            # get a dict of the database attributes
-            database_attributes = all_db_details_json.get(db_name, '')
-            if not database_attributes:
-                print(all_db_details_json)
-                raise ValueError('Missing Database Attributes Log. Re-run metastore export')
-            create_db_resp = self.create_database_db(db_name, ec_id, cid, database_attributes)
-            db_path = database_attributes.get('Location')
-            if os.path.isdir(local_db_path):
-                # all databases should be directories, no files at this level
-                # list all the tables in the database local dir
-                tables = self.listdir(local_db_path)
-                for tbl_name in tables:
-                    # build the path for the table where the ddl is stored
-                    print("Importing table {0}.{1}".format(db_name, tbl_name))
-                    local_table_ddl = metastore_local_dir + db_name + '/' + tbl_name
-                    if not self.move_table_view(db_name, tbl_name, local_table_ddl):
-                        # we hit a table ddl here, so we apply the ddl
-                        is_successful = self.apply_table_ddl(local_table_ddl, ec_id, cid, db_path, has_unicode)
+        with open(success_metastore_log_path, 'a') as sfp:
+            for db_name in db_list:
+                # create a dir to host the view ddl if we find them
+                os.makedirs(metastore_view_dir + db_name, exist_ok=True)
+                # get the local database path to list tables
+                local_db_path = metastore_local_dir + db_name
+                # get a dict of the database attributes
+                database_attributes = all_db_details_json.get(db_name, '')
+                if not database_attributes:
+                    print(all_db_details_json)
+                    raise ValueError('Missing Database Attributes Log. Re-run metastore export')
+                create_db_resp = self.create_database_db(db_name, ec_id, cid, database_attributes)
+                db_path = database_attributes.get('Location')
+                if os.path.isdir(local_db_path):
+                    # all databases should be directories, no files at this level
+                    # list all the tables in the database local dir
+                    tables = self.listdir(local_db_path)
+                    for tbl_name in tables:
+                        # build the path for the table where the ddl is stored
+                        full_table_name = f"{db_name}.{tbl_name}"
+                        if full_table_name in completed_imported_tables:
+                            print(f"Table {full_table_name} found in checkpoint file, already imported")
+                        else:
+                            print(f"Importing table {full_table_name}")
+                            local_table_ddl = metastore_local_dir + db_name + '/' + tbl_name
+                            if not self.move_table_view(db_name, tbl_name, local_table_ddl):
+                                # we hit a table ddl here, so we apply the ddl
+                                is_successful = self.apply_table_ddl(local_table_ddl, ec_id, cid, db_path, has_unicode)
+                                sfp.write(full_table_name)
+                                sfp.write('\n')
+                                print(is_successful)
+                            else:
+                                print(f'Moving view ddl to re-apply later: {db_name}.{tbl_name}')
+                else:
+                    print("Error: Only databases should exist at this level: {0}".format(db_name))
+                self.delete_dir_if_empty(metastore_view_dir + db_name)
+            views_db_list = self.listdir(metastore_view_dir)
+            for db_name in views_db_list:
+                local_view_db_path = metastore_view_dir + db_name
+                database_attributes = all_db_details_json.get(db_name, '')
+                db_path = database_attributes.get('Location')
+                if os.path.isdir(local_view_db_path):
+                    views = self.listdir(local_view_db_path)
+                    for view_name in views:
+                        print("Importing view {0}.{1}".format(db_name, view_name))
+                        local_view_ddl = metastore_view_dir + db_name + '/' + view_name
+                        is_successful = self.apply_table_ddl(local_view_ddl, ec_id, cid, db_path, has_unicode)
+                        sfp.write(full_table_name)
+                        sfp.write('\n')
                         print(is_successful)
-                    else:
-                        print(f'Moving view ddl to re-apply later: {db_name}.{tbl_name}')
-            else:
-                print("Error: Only databases should exist at this level: {0}".format(db_name))
-            self.delete_dir_if_empty(metastore_view_dir + db_name)
-        views_db_list = self.listdir(metastore_view_dir)
-        for db_name in views_db_list:
-            local_view_db_path = metastore_view_dir + db_name
-            database_attributes = all_db_details_json.get(db_name, '')
-            db_path = database_attributes.get('Location')
-            if os.path.isdir(local_view_db_path):
-                views = self.listdir(local_view_db_path)
-                for view_name in views:
-                    print("Importing view {0}.{1}".format(db_name, view_name))
-                    local_view_ddl = metastore_view_dir + db_name + '/' + view_name
-                    is_successful = self.apply_table_ddl(local_view_ddl, ec_id, cid, db_path, has_unicode)
-                    print(is_successful)
 
         # repair legacy tables
         if should_repair_table:
@@ -417,7 +451,9 @@ class HiveClient(ClustersClient):
         return all_dbs
 
     def log_all_tables(self, db_name, cid, ec_id, metastore_dir, err_log_path, success_log_path, iam,
-                       has_unicode=False):
+                       has_unicode=False, completed_exported_tables=None):
+        if completed_exported_tables is None:
+            completed_exported_tables = set()
         all_tables_cmd = 'all_tables = [x.tableName for x in spark.sql("show tables in {0}").collect()]'.format(db_name)
         results = self.submit_command(cid, ec_id, all_tables_cmd)
         results = self.submit_command(cid, ec_id, 'print(len(all_tables))')
@@ -426,7 +462,6 @@ class HiveClient(ClustersClient):
         batch_size = 100    # batch size to iterate over databases
         num_of_buckets = (num_of_tables // batch_size) + 1     # number of slices of the list to take
 
-        all_tables = []
         with open(success_log_path, 'a') as sfp:
             for m in range(0, num_of_buckets):
                 tables_slice = 'print(all_tables[{0}:{1}])'.format(batch_size*m, batch_size*(m+1))
@@ -434,11 +469,15 @@ class HiveClient(ClustersClient):
                 table_names = ast.literal_eval(results['data'])
                 for table_name in table_names:
                     print("Table: {0}".format(table_name))
-                    is_successful = self.log_table_ddl(cid, ec_id, db_name, table_name, metastore_dir,
-                                                       err_log_path, has_unicode)
+                    full_table_name = f'{db_name}.{table_name}'
+                    if full_table_name in completed_exported_tables:
+                        is_successful = 0
+                    else:
+                        is_successful = self.log_table_ddl(cid, ec_id, db_name, table_name, metastore_dir,
+                                                           err_log_path, has_unicode)
                     if is_successful == 0:
-                        print(f"Exported {db_name}.{table_name}")
-                        success_item = {'table': f'{db_name}.{table_name}', 'iam': iam}
+                        print(f"Exported {full_table_name}")
+                        success_item = {'table': full_table_name, 'iam': iam}
                         sfp.write(json.dumps(success_item))
                         sfp.write('\n')
                     else:
