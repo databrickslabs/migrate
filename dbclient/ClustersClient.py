@@ -1,4 +1,7 @@
-import os, re, time
+import logging
+import os
+import re
+import time
 
 from dbclient import *
 
@@ -418,7 +421,11 @@ class ClustersClient(dbclient):
                             cluster_json['aws_attributes'] = aws_conf
                     cluster_json['aws_attributes'] = aws_conf
                 cluster_perms = self.get_cluster_acls(cluster_json['cluster_id'], cluster_json['cluster_name'])
-                acl_log_fp.write(json.dumps(cluster_perms) + '\n')
+                if cluster_perms['http_status_code'] == 200:
+                    acl_log_fp.write(json.dumps(cluster_perms) + '\n')
+                else:
+                    logging.error(f'Failed to get cluster ACL: {cluster_perms}')
+
                 if filter_user:
                     if cluster_json['creator_user_name'] == filter_user:
                         log_fp.write(json.dumps(cluster_json) + '\n')

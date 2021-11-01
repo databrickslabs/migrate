@@ -336,16 +336,11 @@ class HiveClient(ClustersClient):
         return False
 
     def import_hive_metastore(self, cluster_name=None, metastore_dir='metastore/', views_dir='metastore_views/',
-                              has_unicode=False):
+                              has_unicode=False, should_repair_table=False):
         metastore_local_dir = self.get_export_dir() + metastore_dir
         metastore_view_dir = self.get_export_dir() + views_dir
         os.makedirs(metastore_view_dir, exist_ok=True)
-        if cluster_name:
-            cid = self.start_cluster_by_name(cluster_name)
-        else:
-            cid = self.launch_cluster()
-        time.sleep(2)
-        ec_id = self.get_execution_context(cid)
+        (cid, ec_id) = self.get_or_launch_cluster(cluster_name)
         # get local databases
         db_list = self.listdir(metastore_local_dir)
         # make directory in DBFS root bucket path for tmp data
@@ -393,6 +388,11 @@ class HiveClient(ClustersClient):
                     local_view_ddl = metastore_view_dir + db_name + '/' + view_name
                     is_successful = self.apply_table_ddl(local_view_ddl, ec_id, cid, db_path, has_unicode)
                     print(is_successful)
+
+        # repair legacy tables
+        if should_repair_table:
+            self.report_legacy_tables_to_fix()
+            self.repair_legacy_tables(cid, ec_id)
 
     def get_all_databases(self, cid, ec_id):
         # submit first command to find number of databases
@@ -571,6 +571,24 @@ class HiveClient(ClustersClient):
         else:
             os.remove(fix_log)
 
+    def repair_legacy_tables(self, cluster_name=None, fix_table_log='repair_tables.log',
+                             failed_fix_table_log='failed_repair_tables.log'):
+        (cid, ec_id) = self.get_or_launch_cluster(cluster_name)
+        repair_table_list = self.get_export_dir() + fix_table_log
+        failed_repair_table_log = self.get_export_dir() + failed_fix_table_log
+        failed_repairs = 0
+        with open(repair_table_list, 'r') as fp, open(failed_repair_table_log, 'w') as failed_log_p:
+            for line in fp:
+                fqdn_table = line.strip()
+                repair_cmd = f"""spark.sql("MSCK REPAIR TABLE {fqdn_table}")"""
+                resp = self.submit_command(cid, ec_id, repair_cmd)
+                if resp.get('resultType', None) == 'error':
+                    failed_repairs += 1
+                    print(f'Table failed repair: {fqdn_table}')
+                    failed_log_p.write(json.dumps(resp) + "\n")
+
+        print(f"{failed_repairs} tables failed to repair. See errors in {failed_repair_table_log}")
+
     def is_legacy_table_partitioned(self, table_local_path):
         if not self.is_delta_table(table_local_path):
             ddl_group = self.get_ddl_by_keyword_group(table_local_path)
@@ -579,3 +597,14 @@ class HiveClient(ClustersClient):
                 if kw_lower.startswith('partitioned by'):
                     return True
         return False
+
+    # We need to wait for the cluster to be ready to get the execution context, otherwise the API will fail.
+    # Once the cluster is available via the clusters api, we still need to wait a few seconds for the driver to come online.
+    def get_or_launch_cluster(self, cluster_name=None):
+        if cluster_name:
+            cid = self.start_cluster_by_name(cluster_name)
+        else:
+            cid = self.launch_cluster()
+        time.sleep(2)
+        ec_id = self.get_execution_context(cid)
+        return cid, ec_id

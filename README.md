@@ -1,8 +1,8 @@
 # Databricks Migration Tool
 
 This is a migration package to log all Databricks resources for backup and/or migrating to another Databricks workspace.
-Migration allows a Databricks organization to move resources between Databricks Workspaces, 
-to move between different cloud providers, or to move to different regions / accounts.  
+Migration allows a Databricks organization to move resources between Databricks Workspaces,
+to move between different cloud providers, or to move to different regions / accounts.
 
 Packaged is based on python 3.6 and DBR 6.x and 7.x releases.  
 

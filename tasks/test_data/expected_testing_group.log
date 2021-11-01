@@ -1,0 +1,1 @@
+{"entitlements": [{"value": "allow-cluster-create"}], "displayName": "testing_group", "roles": [{"value": "arn:aws:iam::role_c"}], "members": [{"display": "Bob", "value": "002", "$ref": "Users/002", "userName": "bob@databricks.com", "type": "user"}], "groups": [], "id": "998"}

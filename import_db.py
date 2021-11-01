@@ -119,9 +119,18 @@ def main():
         start = timer()
         hive_c = HiveClient(client_config)
         # log job configs
-        hive_c.import_hive_metastore(cluster_name=args.cluster_name, has_unicode=args.metastore_unicode)
+        hive_c.import_hive_metastore(cluster_name=args.cluster_name, has_unicode=args.metastore_unicode,
+                                    should_repair_table=args.repair_table)
         end = timer()
         print("Complete Metastore Import Time: " + str(timedelta(seconds=end - start)))
+
+    if args.repair_metastore_tables:
+        print("Repairing metastore table")
+        start = timer()
+        hive_c = HiveClient(client_config)
+        hive_c.repair_legacy_tables(cluster_name=args.cluster_name)
+        end = timer()
+        print("Complete Metastore Repair Time: " + str(timedelta(seconds=end - start)))
 
     if args.table_acls:
         print("Importing table acls configs at {0}".format(now))
@@ -226,7 +235,7 @@ def main():
         start = timer()
         hive_c = HiveClient(client_config)
         # log job configs
-        hive_c.report_legacy_tables_to_fix()
+        hive_c.repair_legacy_tables()
         end = timer()
         print("Complete Report Time: " + str(timedelta(seconds=end - start)))
 
