@@ -393,8 +393,8 @@ class WorkspaceClient(CheckpointDbClient):
                 data = json.loads(x)
                 obj_id = data.get('object_id', None)
                 api_endpoint = '/permissions/{0}/{1}'.format(artifact_type, obj_id)
-                (checkpoint_available, acl_resp) = self.checkpoint_get(WM_EXPORT, f"acl_{artifact_type}", obj_id, api_endpoint)
-                if checkpoint_available:
+                (found_in_checkpoint, acl_resp) = self.checkpoint_get(WM_EXPORT, f"acl_{artifact_type}", obj_id, api_endpoint)
+                if found_in_checkpoint:
                     continue
                 acl_resp['path'] = data.get('path')
                 if 'error_code' in acl_resp:

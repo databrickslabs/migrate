@@ -302,6 +302,7 @@ class HiveClient(ClustersClient):
             print("Failed count: " + str(total_failed_entries))
             print("Total Databases attempted export: " + str(len(all_dbs)))
 
+    # Returns a set of fully qualified table names - {dbname}.{tablename}
     def get_successful_exported_metastore_tables(self, success_log):
         tables = set()
         success_metastore_log_path = self.get_export_dir() + success_log
@@ -313,6 +314,7 @@ class HiveClient(ClustersClient):
                     tables.add(item['table'])
         return tables
 
+    # Returns a set of fully qualified table names - {dbname}.{tablename}
     def get_successful_imported_metastore_tables(self, success_log):
         tables = set()
         success_metastore_log_path = self.get_export_dir() + success_log
@@ -626,7 +628,7 @@ class HiveClient(ClustersClient):
                     print(f'Table failed repair: {fqdn_table}')
                     failed_log_p.write(json.dumps(resp) + "\n")
 
-        print(f"{failed_repairs} tables failed to repair. See errors in {failed_repair_table_log}")
+        print(f"{failed_repairs} table(s) failed to repair. See errors in {failed_repair_table_log}")
 
     def is_legacy_table_partitioned(self, table_local_path):
         if not self.is_delta_table(table_local_path):
