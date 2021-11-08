@@ -270,7 +270,7 @@ def get_import_parser():
     parser.add_argument('--get-repair-log', action='store_true',
                         help='Report on current tables requiring repairs')
 
-    parser.add_argument('--repair-metastore-tables', action='store_true',
+    parser.add_argument('--repair-metastore-tables', action='store_true', default=False,
                         help='Repair legacy metastore tables')
 
     # cluster name used to import the metastore
