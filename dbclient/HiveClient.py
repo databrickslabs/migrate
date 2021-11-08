@@ -343,10 +343,9 @@ class HiveClient(ClustersClient):
         return False
 
     def import_hive_metastore(self, cluster_name=None, metastore_dir='metastore/', views_dir='metastore_views/',
-                              has_unicode=False, should_repair_table=False, success_log='success_metastore_import.log'):
+                              has_unicode=False, should_repair_table=False):
         metastore_local_dir = self.get_export_dir() + metastore_dir
         metastore_view_dir = self.get_export_dir() + views_dir
-        success_metastore_log_path = self.get_export_dir() + success_log
         checkpoint_metastore_set = self._checkpoint_service.get_checkpoint_object_set(WM_IMPORT, METASTORE_TABLES)
         os.makedirs(metastore_view_dir, exist_ok=True)
         (cid, ec_id) = self.get_or_launch_cluster(cluster_name)
@@ -356,58 +355,53 @@ class HiveClient(ClustersClient):
         resp = self.post('/dbfs/mkdirs', {'path': '/tmp/migration/'})
         # iterate over the databases saved locally
         all_db_details_json = self.get_database_detail_dict()
-        with open(success_metastore_log_path, 'a') as sfp:
-            for db_name in db_list:
-                # create a dir to host the view ddl if we find them
-                os.makedirs(metastore_view_dir + db_name, exist_ok=True)
-                # get the local database path to list tables
-                local_db_path = metastore_local_dir + db_name
-                # get a dict of the database attributes
-                database_attributes = all_db_details_json.get(db_name, '')
-                if not database_attributes:
-                    print(all_db_details_json)
-                    raise ValueError('Missing Database Attributes Log. Re-run metastore export')
-                create_db_resp = self.create_database_db(db_name, ec_id, cid, database_attributes)
-                db_path = database_attributes.get('Location')
-                if os.path.isdir(local_db_path):
-                    # all databases should be directories, no files at this level
-                    # list all the tables in the database local dir
-                    tables = self.listdir(local_db_path)
-                    for tbl_name in tables:
-                        # build the path for the table where the ddl is stored
-                        full_table_name = f"{db_name}.{tbl_name}"
-                        if checkpoint_metastore_set.contains(full_table_name):
-                            print(f"Table {full_table_name} found in checkpoint file, already imported")
+        for db_name in db_list:
+            # create a dir to host the view ddl if we find them
+            os.makedirs(metastore_view_dir + db_name, exist_ok=True)
+            # get the local database path to list tables
+            local_db_path = metastore_local_dir + db_name
+            # get a dict of the database attributes
+            database_attributes = all_db_details_json.get(db_name, '')
+            if not database_attributes:
+                print(all_db_details_json)
+                raise ValueError('Missing Database Attributes Log. Re-run metastore export')
+            create_db_resp = self.create_database_db(db_name, ec_id, cid, database_attributes)
+            db_path = database_attributes.get('Location')
+            if os.path.isdir(local_db_path):
+                # all databases should be directories, no files at this level
+                # list all the tables in the database local dir
+                tables = self.listdir(local_db_path)
+                for tbl_name in tables:
+                    # build the path for the table where the ddl is stored
+                    full_table_name = f"{db_name}.{tbl_name}"
+                    if checkpoint_metastore_set.contains(full_table_name):
+                        print(f"Table {full_table_name} found in checkpoint file, already imported")
+                    else:
+                        print(f"Importing table {full_table_name}")
+                        local_table_ddl = metastore_local_dir + db_name + '/' + tbl_name
+                        if not self.move_table_view(db_name, tbl_name, local_table_ddl):
+                            # we hit a table ddl here, so we apply the ddl
+                            is_successful = self.apply_table_ddl(local_table_ddl, ec_id, cid, db_path, has_unicode)
+                            checkpoint_metastore_set.write(full_table_name)
+                            print(is_successful)
                         else:
-                            print(f"Importing table {full_table_name}")
-                            local_table_ddl = metastore_local_dir + db_name + '/' + tbl_name
-                            if not self.move_table_view(db_name, tbl_name, local_table_ddl):
-                                # we hit a table ddl here, so we apply the ddl
-                                is_successful = self.apply_table_ddl(local_table_ddl, ec_id, cid, db_path, has_unicode)
-                                sfp.write(full_table_name)
-                                sfp.write('\n')
-                                checkpoint_metastore_set.write(full_table_name)
-                                print(is_successful)
-                            else:
-                                print(f'Moving view ddl to re-apply later: {db_name}.{tbl_name}')
-                else:
-                    print("Error: Only databases should exist at this level: {0}".format(db_name))
-                self.delete_dir_if_empty(metastore_view_dir + db_name)
-            views_db_list = self.listdir(metastore_view_dir)
-            for db_name in views_db_list:
-                local_view_db_path = metastore_view_dir + db_name
-                database_attributes = all_db_details_json.get(db_name, '')
-                db_path = database_attributes.get('Location')
-                if os.path.isdir(local_view_db_path):
-                    views = self.listdir(local_view_db_path)
-                    for view_name in views:
-                        print("Importing view {0}.{1}".format(db_name, view_name))
-                        local_view_ddl = metastore_view_dir + db_name + '/' + view_name
-                        is_successful = self.apply_table_ddl(local_view_ddl, ec_id, cid, db_path, has_unicode)
-                        sfp.write(full_table_name)
-                        sfp.write('\n')
-                        checkpoint_metastore_set.write(full_table_name)
-                        print(is_successful)
+                            print(f'Moving view ddl to re-apply later: {db_name}.{tbl_name}')
+            else:
+                print("Error: Only databases should exist at this level: {0}".format(db_name))
+            self.delete_dir_if_empty(metastore_view_dir + db_name)
+        views_db_list = self.listdir(metastore_view_dir)
+        for db_name in views_db_list:
+            local_view_db_path = metastore_view_dir + db_name
+            database_attributes = all_db_details_json.get(db_name, '')
+            db_path = database_attributes.get('Location')
+            if os.path.isdir(local_view_db_path):
+                views = self.listdir(local_view_db_path)
+                for view_name in views:
+                    print("Importing view {0}.{1}".format(db_name, view_name))
+                    local_view_ddl = metastore_view_dir + db_name + '/' + view_name
+                    is_successful = self.apply_table_ddl(local_view_ddl, ec_id, cid, db_path, has_unicode)
+                    checkpoint_metastore_set.write(full_table_name)
+                    print(is_successful)
 
         # repair legacy tables
         if should_repair_table:

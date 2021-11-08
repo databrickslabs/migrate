@@ -33,7 +33,6 @@ class dbclient:
         self._verify_ssl = configs['verify_ssl']
         self._file_format = configs['file_format']
         self._is_overwrite_notebook = configs['overwrite_notebooks']
-        self._completed_exported_objects = {}
         if self._verify_ssl:
             # set these env variables if skip SSL verification is enabled
             os.environ['REQUESTS_CA_BUNDLE'] = ""
@@ -95,8 +94,6 @@ class dbclient:
     def delete_dir_if_empty(local_dir):
         if len(os.listdir(local_dir)) == 0:
             os.rmdir(local_dir)
-
-
 
     def get(self, endpoint, json_params=None, version='2.0', print_json=False):
         if version:

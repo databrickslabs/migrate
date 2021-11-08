@@ -201,9 +201,6 @@ def get_export_parser():
     parser.add_argument('--bypass-windows-check', action='store_true',
                         help='By-pass windows os checker')
 
-    parser.add_argument('--set-checkpoint-dir', action='store',
-                        help='Set the base directory to store checkpoint logs')
-
     parser.add_argument('--use-checkpoint', action='store_true',
                         help='use checkpointing to speed up export')
     return parser
@@ -321,9 +318,6 @@ def get_import_parser():
 
     parser.add_argument('--delete-all-jobs', action='store_true',
                         help='Delete all jobs')
-
-    parser.add_argument('--set-checkpoint-dir', action='store',
-                    help='Set the base directory to store checkpoint logs')
 
     parser.add_argument('--use-checkpoint', action='store_true',
                         help='use checkpointing to speed up import')

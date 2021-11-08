@@ -408,6 +408,7 @@ class WorkspaceClient(dbclient):
                     continue
                 acl_resp.pop('http_status_code')
                 write_fp.write(json.dumps(acl_resp) + '\n')
+                write_fp.flush()
                 checkpoint_object_set.write(obj_id)
 
     def log_all_workspace_acls(self, workspace_log_file='user_workspace.log',

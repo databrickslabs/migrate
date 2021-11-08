@@ -37,7 +37,7 @@ class CheckpointObjectSet():
             with open(self._checkpoint_file, 'a+') as append_fp:
                 append_fp.write(object_key + "\n")
 
-    # returns True if object_key is already checkpointed and exists in the set
+    # returns True if object_key is already checkpointed
     def contains(self, object_key):
         exists = object_key in self._checkpoint_object_set
         if exists:
