@@ -8,7 +8,8 @@ from io import StringIO
 class TestHiveClient(unittest.TestCase):
 
     def test_get_or_launch_cluster_default(self):
-        hiveClient =  HiveClient(TEST_CONFIG)
+        checkpoint_service = MagicMock()
+        hiveClient =  HiveClient(TEST_CONFIG, checkpoint_service)
         hiveClient.launch_cluster = MagicMock(return_value ="123")
         hiveClient.get_execution_context = MagicMock(return_value ="456")
         (cid, ec_id) = hiveClient.get_or_launch_cluster()
@@ -16,7 +17,8 @@ class TestHiveClient(unittest.TestCase):
         self.assertEqual(ec_id, "456")
 
     def test_get_or_launch_cluster_cluster_name(self):
-        hiveClient =  HiveClient(TEST_CONFIG)
+        checkpoint_service = MagicMock()
+        hiveClient =  HiveClient(TEST_CONFIG, checkpoint_service)
         hiveClient.start_cluster_by_name = MagicMock(return_value ="123")
         hiveClient.get_execution_context = MagicMock(return_value ="456")
         (cid, ec_id) = hiveClient.get_or_launch_cluster("test")
@@ -31,7 +33,8 @@ class TestHiveClient(unittest.TestCase):
             if repair_cmd == cmd2:
                 return {"resultType": "error"}
 
-        hiveClient =  HiveClient(TEST_CONFIG)
+        checkpoint_service = MagicMock()
+        hiveClient =  HiveClient(TEST_CONFIG, checkpoint_service)
         hiveClient.get_export_dir = MagicMock(return_value ="")
         hiveClient.get_or_launch_cluster = MagicMock(return_value=("123", "456"))
         cmd1 = """spark.sql("MSCK REPAIR TABLE default.test_legacy1")"""
@@ -41,36 +44,4 @@ class TestHiveClient(unittest.TestCase):
             hiveClient.repair_legacy_tables(fix_table_log='test_repair_tables.log')
             output = fake_out.getvalue().split("\n")
             self.assertEqual(output[0], 'Table failed repair: default.test_legacy2')
-            self.assertEqual(output[1], '1 tables failed to repair. See errors in failed_repair_tables.log')
-
-    def test_get_successful_exported_metastore_tables(self):
-        # don't use checkpointing by default
-        hiveClient =  HiveClient(TEST_CONFIG)
-        hiveClient.get_export_dir = MagicMock(return_value ="checkpoint/")
-        tables = hiveClient.get_successful_exported_metastore_tables("success_metastore.log")
-        self.assertEqual(len(tables), 0)
-
-        # use checkpointing when enabled
-        TEST_CONFIG['use_checkpoint'] = True
-        hiveClient =  HiveClient(TEST_CONFIG)
-        hiveClient.get_export_dir = MagicMock(return_value ="checkpoint/")
-        tables = hiveClient.get_successful_exported_metastore_tables("success_metastore.log")
-        self.assertEqual(len(tables), 2)
-        self.assertTrue("default.abcd" in tables)
-        self.assertTrue("default.efgh" in tables)
-
-    def test_get_successful_imported_metastore_tables(self):
-        # don't use checkpointing by default
-        hiveClient =  HiveClient(TEST_CONFIG)
-        hiveClient.get_export_dir = MagicMock(return_value ="checkpoint/")
-        tables = hiveClient.get_successful_imported_metastore_tables("success_metastore_import.log")
-        self.assertEqual(len(tables), 0)
-
-        # use checkpointing when enabled
-        TEST_CONFIG['use_checkpoint'] = True
-        hiveClient =  HiveClient(TEST_CONFIG)
-        hiveClient.get_export_dir = MagicMock(return_value ="checkpoint/")
-        tables = hiveClient.get_successful_imported_metastore_tables("success_metastore_import.log")
-        self.assertEqual(len(tables), 1)
-        self.assertTrue("default.abcd" in tables)
-        self.assertFalse("default.efgh" in tables)
+            self.assertEqual(output[1], '1 table(s) failed to repair. See errors in failed_repair_tables.log')

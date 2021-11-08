@@ -1,7 +1,8 @@
 import ast
-import base64
 import os
 import re
+import base64
+from checkpoint_service import *
 import time
 from datetime import timedelta
 from timeit import default_timer as timer
@@ -10,6 +11,10 @@ from dbclient import *
 
 
 class HiveClient(ClustersClient):
+
+    def __init__(self, configs, checkpoint_service):
+        super().__init__(configs)
+        self._checkpoint_service = checkpoint_service
 
     @staticmethod
     def is_delta_table(local_path):
@@ -232,7 +237,7 @@ class HiveClient(ClustersClient):
         print("Cluster creation time: " + str(timedelta(seconds=end - start)))
         time.sleep(5)
         ec_id = self.get_execution_context(cid)
-        completed_exported_tables = self.get_successful_exported_metastore_tables(success_log)
+        checkpoint_metastore_set = self._checkpoint_service.get_checkpoint_object_set(WM_EXPORT, METASTORE_TABLES)
         # if metastore failed log path exists, cleanup before re-running
         failed_metastore_log_path = self.get_export_dir() + fail_log
         success_metastore_log_path = self.get_export_dir() + success_log
@@ -249,12 +254,12 @@ class HiveClient(ClustersClient):
             fp.write(json.dumps(db_json) + '\n')
         os.makedirs(self.get_export_dir() + metastore_dir + db_name, exist_ok=True)
         self.log_all_tables(db_name, cid, ec_id, metastore_dir, failed_metastore_log_path,
-                            success_metastore_log_path, current_iam, has_unicode, completed_exported_tables)
+                            success_metastore_log_path, current_iam, checkpoint_metastore_set, has_unicode)
 
     def export_hive_metastore(self, cluster_name=None, metastore_dir='metastore/', db_log='database_details.log',
                               success_log='success_metastore.log', fail_log='failed_metastore.log', has_unicode=False):
         start = timer()
-        completed_exported_tables = self.get_successful_exported_metastore_tables(success_log)
+        checkpoint_metastore_set = self._checkpoint_service.get_checkpoint_object_set(WM_EXPORT, METASTORE_TABLES)
         instance_profiles = self.get_instance_profiles_list()
         if cluster_name:
             cid = self.start_cluster_by_name(cluster_name)
@@ -288,42 +293,19 @@ class HiveClient(ClustersClient):
                 db_json = self.get_desc_database_details(db_name, cid, ec_id)
                 fp.write(json.dumps(db_json) + '\n')
                 self.log_all_tables(db_name, cid, ec_id, metastore_dir, failed_metastore_log_path,
-                                    success_metastore_log_path, current_iam_role, has_unicode, completed_exported_tables)
+                                    success_metastore_log_path, current_iam_role, checkpoint_metastore_set, has_unicode)
 
         total_failed_entries = self.get_num_of_lines(failed_metastore_log_path)
         if (not self.is_skip_failed()) and self.is_aws() and total_failed_entries > 0:
             print("Retrying failed metastore export with registered IAM roles")
             remaining_iam_roles = instance_profiles[1:]
             self.retry_failed_metastore_export(cid, failed_metastore_log_path, remaining_iam_roles,
-                                               success_metastore_log_path, has_unicode)
+                                               success_metastore_log_path, has_unicode, checkpoint_metastore_set)
             print("Failed count before retry: " + str(total_failed_entries))
             print("Total Databases attempted export: " + str(len(all_dbs)))
         else:
             print("Failed count: " + str(total_failed_entries))
             print("Total Databases attempted export: " + str(len(all_dbs)))
-
-    # Returns a set of fully qualified table names - {dbname}.{tablename}
-    def get_successful_exported_metastore_tables(self, success_log):
-        tables = set()
-        success_metastore_log_path = self.get_export_dir() + success_log
-        if self.get_checkpoint_enabled() and os.path.exists(success_metastore_log_path):
-            print("Using checkpointing to load completed metastore tables")
-            with open(success_metastore_log_path, 'r') as fp:
-                for table in fp:
-                    item = json.loads(table.rstrip())
-                    tables.add(item['table'])
-        return tables
-
-    # Returns a set of fully qualified table names - {dbname}.{tablename}
-    def get_successful_imported_metastore_tables(self, success_log):
-        tables = set()
-        success_metastore_log_path = self.get_export_dir() + success_log
-        if self.get_checkpoint_enabled() and os.path.exists(success_metastore_log_path):
-            print("Using checkpointing to load completed metastore tables")
-            with open(success_metastore_log_path, 'r') as fp:
-                for table in fp:
-                    tables.add(table.rstrip())
-        return tables
 
     @staticmethod
     def get_num_of_lines(filename):
@@ -365,7 +347,7 @@ class HiveClient(ClustersClient):
         metastore_local_dir = self.get_export_dir() + metastore_dir
         metastore_view_dir = self.get_export_dir() + views_dir
         success_metastore_log_path = self.get_export_dir() + success_log
-        completed_imported_tables = self.get_successful_imported_metastore_tables(success_log)
+        checkpoint_metastore_set = self._checkpoint_service.get_checkpoint_object_set(WM_IMPORT, METASTORE_TABLES)
         os.makedirs(metastore_view_dir, exist_ok=True)
         (cid, ec_id) = self.get_or_launch_cluster(cluster_name)
         # get local databases
@@ -394,7 +376,7 @@ class HiveClient(ClustersClient):
                     for tbl_name in tables:
                         # build the path for the table where the ddl is stored
                         full_table_name = f"{db_name}.{tbl_name}"
-                        if full_table_name in completed_imported_tables:
+                        if checkpoint_metastore_set.contains(full_table_name):
                             print(f"Table {full_table_name} found in checkpoint file, already imported")
                         else:
                             print(f"Importing table {full_table_name}")
@@ -404,6 +386,7 @@ class HiveClient(ClustersClient):
                                 is_successful = self.apply_table_ddl(local_table_ddl, ec_id, cid, db_path, has_unicode)
                                 sfp.write(full_table_name)
                                 sfp.write('\n')
+                                checkpoint_metastore_set.write(full_table_name)
                                 print(is_successful)
                             else:
                                 print(f'Moving view ddl to re-apply later: {db_name}.{tbl_name}')
@@ -423,6 +406,7 @@ class HiveClient(ClustersClient):
                         is_successful = self.apply_table_ddl(local_view_ddl, ec_id, cid, db_path, has_unicode)
                         sfp.write(full_table_name)
                         sfp.write('\n')
+                        checkpoint_metastore_set.write(full_table_name)
                         print(is_successful)
 
         # repair legacy tables
@@ -453,9 +437,7 @@ class HiveClient(ClustersClient):
         return all_dbs
 
     def log_all_tables(self, db_name, cid, ec_id, metastore_dir, err_log_path, success_log_path, iam,
-                       has_unicode=False, completed_exported_tables=None):
-        if completed_exported_tables is None:
-            completed_exported_tables = set()
+                       checkpoint_metastore_set, has_unicode=False):
         all_tables_cmd = 'all_tables = [x.tableName for x in spark.sql("show tables in {0}").collect()]'.format(db_name)
         results = self.submit_command(cid, ec_id, all_tables_cmd)
         results = self.submit_command(cid, ec_id, 'print(len(all_tables))')
@@ -472,7 +454,7 @@ class HiveClient(ClustersClient):
                 for table_name in table_names:
                     print("Table: {0}".format(table_name))
                     full_table_name = f'{db_name}.{table_name}'
-                    if full_table_name in completed_exported_tables:
+                    if checkpoint_metastore_set.contains(full_table_name):
                         is_successful = 0
                     else:
                         is_successful = self.log_table_ddl(cid, ec_id, db_name, table_name, metastore_dir,
@@ -484,6 +466,7 @@ class HiveClient(ClustersClient):
                         sfp.write('\n')
                     else:
                         print("Logging failure")
+                    checkpoint_metastore_set.write(full_table_name)
         return True
 
     def log_table_ddl(self, cid, ec_id, db_name, table_name, metastore_dir, err_log_path, has_unicode):
@@ -534,7 +517,7 @@ class HiveClient(ClustersClient):
                 return 0
 
     def retry_failed_metastore_export(self, cid, failed_metastore_log_path, iam_roles_list, success_metastore_log_path,
-                                      has_unicode, metastore_dir='metastore/'):
+                                      has_unicode, checkpoint_metastore_set, metastore_dir='metastore/'):
         # check if instance profile exists, ask users to use --users first or enter yes to proceed.
         if self.is_aws() and iam_roles_list:
             do_instance_profile_exist = True
@@ -566,6 +549,7 @@ class HiveClient(ClustersClient):
                             success_item = {'table': f'{db_name}.{table_name}', 'iam': iam_role}
                             sfp.write(json.dumps(success_item))
                             sfp.write('\n')
+                            checkpoint_metastore_set.write(f'{db_name}.{table_name}')
                         else:
                             print('Failed to get ddl for {0}.{1} with iam role {2}'.format(db_name, table_name,
                                                                                            iam_role))

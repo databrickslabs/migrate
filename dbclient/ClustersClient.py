@@ -6,7 +6,7 @@ import time
 from dbclient import *
 
 
-class ClustersClient(CheckpointDbClient):
+class ClustersClient(dbclient):
     create_configs = {'num_workers',
                       'autoscale',
                       'cluster_name',

@@ -1,7 +1,7 @@
 TEST_CONFIG = {
     'token': 'test_token',
     'url': 'test_url',
-    'export_dir': '/',
+    'export_dir': './',
     'is_aws': 'True',
     'skip_failed': True,
     'verbose': False,

@@ -1,5 +1,6 @@
 import base64
 from dbclient import *
+from checkpoint_service import *
 from timeit import default_timer as timer
 from datetime import timedelta
 import os
@@ -12,7 +13,11 @@ WS_EXPORT = "/workspace/export"
 LS_ZONES = "/clusters/list-zones"
 
 
-class WorkspaceClient(CheckpointDbClient):
+class WorkspaceClient(dbclient):
+    def __init__(self, configs, checkpoint_service):
+        super().__init__(configs)
+        self._checkpoint_service = checkpoint_service
+
     _languages = {'.py': 'PYTHON',
                   '.scala': 'SCALA',
                   '.r': 'R',
@@ -237,7 +242,7 @@ class WorkspaceClient(CheckpointDbClient):
         :param ws_dir: export directory to store all notebooks
         :return: None
         """
-        self.restore_checkpoint_objects(WM_EXPORT, WORKSPACE_NOTEBOOK_OBJECT)
+        checkpoint_notebook_set = self._checkpoint_service.get_checkpoint_object_set(WM_EXPORT, WORKSPACE_NOTEBOOK_OBJECT)
         ws_log = self.get_export_dir() + ws_log_file
         num_notebooks = 0
         if not os.path.exists(ws_log):
@@ -247,24 +252,24 @@ class WorkspaceClient(CheckpointDbClient):
             # pull the path from the data to download the individual notebook contents
             for notebook_data in fp:
                 notebook_path = json.loads(notebook_data).get('path', None).rstrip('\n')
-                dl_resp = self.download_notebook_helper(notebook_path, export_dir=self.get_export_dir() + ws_dir)
+                dl_resp = self.download_notebook_helper(notebook_path, checkpoint_notebook_set, export_dir=self.get_export_dir() + ws_dir)
                 if 'error' not in dl_resp:
                     num_notebooks += 1
         return num_notebooks
 
-    def download_notebook_helper(self, notebook_path, export_dir='artifacts/'):
+    def download_notebook_helper(self, notebook_path, checkpoint_notebook_set, export_dir='artifacts/'):
         """
         Helper function to download an individual notebook, or log the failure in the failure logfile
         :param notebook_path: an individual notebook path
         :param export_dir: directory to store all notebooks
         :return: return the notebook path that's successfully downloaded
         """
+        if checkpoint_notebook_set.contains(notebook_path):
+            return {'path': notebook_path}
         get_args = {'path': notebook_path, 'format': self.get_file_format()}
         if self.is_verbose():
             print("Downloading: {0}".format(get_args['path']))
-        (checkpoint_available, resp) = self.checkpoint_get(WM_EXPORT, WORKSPACE_NOTEBOOK_OBJECT, notebook_path, WS_EXPORT, get_args)
-        if checkpoint_available:
-            return {'path': notebook_path}
+        resp = self.get(WS_EXPORT, get_args)
         with open(self.get_export_dir() + 'failed_notebooks.log', 'a') as err_log:
             if resp.get('error', None):
                 err_msg = {'error': resp.get('error'), 'path': notebook_path}
@@ -282,6 +287,7 @@ class WorkspaceClient(CheckpointDbClient):
             os.makedirs(save_path, exist_ok=True)
         with open(save_filename, "wb") as f:
             f.write(base64.b64decode(resp['content']))
+        checkpoint_notebook_set.write(notebook_path)
         return {'path': notebook_path}
 
     def filter_workspace_items(self, item_list, item_type):
@@ -373,7 +379,7 @@ class WorkspaceClient(CheckpointDbClient):
         obj_id = resp.get('object_id', None)
         return obj_id
 
-    def log_acl_to_file(self, artifact_type, read_log_filename, write_log_filename, failed_log_filename):
+    def log_acl_to_file(self, artifact_type, read_log_filename, write_log_filename, failed_log_filename, checkpoint_object_set):
         """
         generic function to log the notebook/directory ACLs to specific file names
         :param artifact_type: set('notebooks', 'directories') ACLs to be logged
@@ -392,16 +398,17 @@ class WorkspaceClient(CheckpointDbClient):
             for x in read_fp:
                 data = json.loads(x)
                 obj_id = data.get('object_id', None)
-                api_endpoint = '/permissions/{0}/{1}'.format(artifact_type, obj_id)
-                (found_in_checkpoint, acl_resp) = self.checkpoint_get(WM_EXPORT, f"acl_{artifact_type}", obj_id, api_endpoint)
-                if found_in_checkpoint:
+                if checkpoint_object_set.contains(obj_id):
                     continue
+                api_endpoint = '/permissions/{0}/{1}'.format(artifact_type, obj_id)
+                acl_resp = self.get(api_endpoint)
                 acl_resp['path'] = data.get('path')
                 if 'error_code' in acl_resp:
                     failed_fp.write(json.dumps(acl_resp) + '\n')
                     continue
                 acl_resp.pop('http_status_code')
                 write_fp.write(json.dumps(acl_resp) + '\n')
+                checkpoint_object_set.write(obj_id)
 
     def log_all_workspace_acls(self, workspace_log_file='user_workspace.log',
                                dir_log_file='user_dirs.log'):
@@ -410,17 +417,17 @@ class WorkspaceClient(CheckpointDbClient):
         :param workspace_log_file: input file for user notebook listing
         :param dir_log_file: input file for user directory listing
         """
-        self.restore_checkpoint_objects(WM_EXPORT, WORKSPACE_NOTEBOOK_ACL_OBJECT)
         # define log file names for notebooks, folders, and libraries
         print("Exporting the notebook permissions")
         start = timer()
-        self.log_acl_to_file('notebooks', workspace_log_file, 'acl_notebooks.log', 'failed_acl_notebooks.log')
+        acl_notebook_checkpoint_set = self._checkpoint_service.get_checkpoint_object_set(WM_EXPORT, WORKSPACE_NOTEBOOK_ACL_OBJECT)
+        self.log_acl_to_file('notebooks', workspace_log_file, 'acl_notebooks.log', 'failed_acl_notebooks.log', acl_notebook_checkpoint_set)
         end = timer()
         print("Complete Notebook ACLs Export Time: " + str(timedelta(seconds=end - start)))
-        self.restore_checkpoint_objects(WM_EXPORT, WORKSPACE_DIRECTORY_ACL_OBJECT)
+        acl_dir_checkpoint_set = self._checkpoint_service.get_checkpoint_object_set(WM_EXPORT, WORKSPACE_DIRECTORY_ACL_OBJECT)
         print("Exporting the directories permissions")
         start = timer()
-        self.log_acl_to_file('directories', dir_log_file, 'acl_directories.log', 'failed_acl_directories.log')
+        self.log_acl_to_file('directories', dir_log_file, 'acl_directories.log', 'failed_acl_directories.log', acl_dir_checkpoint_set)
         end = timer()
         print("Complete Directories ACLs Export Time: " + str(timedelta(seconds=end - start)))
 
@@ -524,29 +531,19 @@ class WorkspaceClient(CheckpointDbClient):
                     print("Path: {0}".format(nb_input_args['path']))
                 resp_upload = self.post(WS_IMPORT, nb_input_args)
 
-    def import_all_workspace_items(self, artifact_dir='artifacts/', success_log='success_ws_import.log',
-                                   failed_log='failed_ws_import.log', archive_missing=False, restart_from_last=False):
+    def import_all_workspace_items(self, artifact_dir='artifacts/', failed_log='failed_ws_import.log',
+                                   archive_missing=False):
         """
         import all notebooks into a new workspace
         :param artifact_dir: notebook download directory
         :param success_log: success log to allow recovery from last successful upload
         :param failed_log: failed import log
         :param archive_missing: whether to put missing users into a /Archive/ top level directory
-        :param restart_from_last: flag to restart import and skip past successful imports
         """
         src_dir = self.get_export_dir() + artifact_dir
-        success_logfile = self.get_export_dir() + success_log
         failed_logfile = self.get_export_dir() + failed_log
         overwrite_or_append = 'w'
-        if restart_from_last:
-            # if we're restarting from checkpoint, append to the successful logfile
-            overwrite_or_append = 'a'
-            uploaded_hashmap = self.build_ws_lookup_table(success_logfile)
-            print(uploaded_hashmap)
-        else:
-            # delete the log if we start from the beginning
-            if os.path.exists(success_logfile):
-                os.remove(success_logfile)
+        checkpoint_notebook_set = self._checkpoint_service.get_checkpoint_object_set(WM_IMPORT, WORKSPACE_NOTEBOOK_OBJECT)
         num_exported_users = self.get_num_of_saved_users(src_dir)
         num_current_users = self.get_current_users()
         if num_current_users == 0:
@@ -558,7 +555,7 @@ class WorkspaceClient(CheckpointDbClient):
             print("Re-run with the `--archive-missing` flag to load missing users into a separate directory")
             raise ValueError("Current number of users is less than number of user workspaces to import.")
         archive_users = set()
-        with open(success_logfile, overwrite_or_append) as success_fp, open(failed_logfile, 'w') as failed_fp:
+        with open(failed_logfile, 'w') as failed_fp:
             for root, subdirs, files in self.walk(src_dir):
                 # replace the local directory with empty string to get the notebook workspace directory
                 nb_dir = '/' + root.replace(src_dir, '')
@@ -595,10 +592,9 @@ class WorkspaceClient(CheckpointDbClient):
                     local_file_path = os.path.join(root, f)
                     # create the ws full file path including filename
                     ws_file_path = upload_dir + f
-                    if restart_from_last:
-                        if ws_file_path in uploaded_hashmap:
-                            print(f"Skipping upload as file has already been uploaded: {ws_file_path}")
-                            continue
+                    if checkpoint_notebook_set.contains(ws_file_path):
+                        print(f"Skipping upload as file has already been uploaded: {ws_file_path}")
+                        continue
                     # generate json args with binary data for notebook to upload to the workspace path
                     nb_input_args = self.get_user_import_args(local_file_path, ws_file_path)
                     # call import to the workspace
@@ -610,4 +606,4 @@ class WorkspaceClient(CheckpointDbClient):
                         print(f'Error uploading file: {ws_file_path}')
                         failed_fp.write(json.dumps(resp_upload) + '\n')
                     else:
-                        success_fp.write(ws_file_path + '\n')
+                        checkpoint_notebook_set.write(ws_file_path)

@@ -384,14 +384,6 @@ def build_client_config(url, token, args):
     else:
         config['export_dir'] = 'azure_logs/'
 
-    if args.set_checkpoint_dir:
-        if args.set_checkpoint_dir.rstrip()[-1] != '/':
-            config['checkpoint_dir'] = args.set_checkpoint_dir + '/'
-        else:
-            config['checkpoint_dir'] = args.set_checkpoint_dir
-    else:
-        config['checkpoint_dir'] = 'checkpoint/'
-
     config['use_checkpoint'] = args.use_checkpoint
     return config
 
