@@ -120,7 +120,7 @@ def main():
         hive_c = HiveClient(client_config)
         # log job configs
         hive_c.import_hive_metastore(cluster_name=args.cluster_name, has_unicode=args.metastore_unicode,
-                                    should_repair_table=args.repair_table)
+                                     should_repair_table=args.repair_metastore_tables)
         end = timer()
         print("Complete Metastore Import Time: " + str(timedelta(seconds=end - start)))
 
