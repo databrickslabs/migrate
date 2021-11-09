@@ -34,6 +34,19 @@ One can run this from locally or inside the jumpbox (as long as the aws configur
 
 ## Script Usage
 
+### How to create an instance off of the AMI and use?
+Go to the AWS console and the corresponding region.
+Click EC2 page and click on the AMIs under Images tab on the left panel.
+Choose the "Private images" and look for the latest AMI (e.g. wm-jumpbox-v1.02)
+Click the image and "launch"
+Follow the usual process of launching an EC2 instance (make sure to use your own private-key/public-key for SSh purpose)
+
+Once the instance is launched, go to the EC2 instance and note the public IPv4 DNS (it's under Networking tab)
+Using the public DNS and the keys you used to launch the EC2 instance, SSH into the instance:
+
+ssh -i $YOUR_PRIVATE_KEY ec2-user@$EC@_PUBLIC_DNS
+e.g. ssh -i kevin-kim-wm-builder-in-field-eng.pem ec2-user@ec2-54-202-97-209.us-west-2.compute.amazonaws.com
+
 ### ./setup_env_for_shard.sh $SRC_SHARD_NAME
 e.g. `./setup_env_for_shard.sh shard-qa`
 Sets up a new working directory for the SRC_SHARD_NAME. The new directory will have Workspace Migration script the user can use to migrate the workspace.
