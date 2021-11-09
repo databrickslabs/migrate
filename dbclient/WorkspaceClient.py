@@ -537,13 +537,11 @@ class WorkspaceClient(dbclient):
         """
         import all notebooks into a new workspace
         :param artifact_dir: notebook download directory
-        :param success_log: success log to allow recovery from last successful upload
         :param failed_log: failed import log
         :param archive_missing: whether to put missing users into a /Archive/ top level directory
         """
         src_dir = self.get_export_dir() + artifact_dir
         failed_logfile = self.get_export_dir() + failed_log
-        overwrite_or_append = 'w'
         checkpoint_notebook_set = self._checkpoint_service.get_checkpoint_object_set(WM_IMPORT, WORKSPACE_NOTEBOOK_OBJECT)
         num_exported_users = self.get_num_of_saved_users(src_dir)
         num_current_users = self.get_current_users()

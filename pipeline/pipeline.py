@@ -28,12 +28,14 @@ class Pipeline:
         task: AbstractTask = None
         children = []
 
-    def __init__(self, working_dir: str, dry_run: bool = False):
+    def __init__(self, working_dir: str, completed_pipeline_steps, dry_run: bool = False):
         """
         :param working_dir: the dir where the pipeline reads / writes checkpoints and outputs logs.
+        :param completed_pipeline_steps: CheckpointKeySet of completed pipeline tasks
         """
         self._source = self.Node()
         self._working_dir = working_dir
+        self._completed_steps = completed_pipeline_steps
         self._tasks = []
         self._dry_run = dry_run
 
@@ -58,7 +60,11 @@ class Pipeline:
                 future.result()
 
     def _run_task(self, task: AbstractTask):
-        logging.info(f'Start `{task.name}`')
+        if self._completed_steps.contains(f'{task.name}'):
+            logging.info(f'Task {task.name} already completed, found in checkpoint')
+            return
+        logging.info(f'Start {task.name}')
         if not self._dry_run:
             task.run()
-        logging.info(f'Complete `{task.name}`')
+        logging.info(f'Complete {task.name}')
+        self._completed_steps.write(f'{task.name}')
