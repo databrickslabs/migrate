@@ -40,16 +40,8 @@ def build_pipeline() -> Pipeline:
     completed_pipeline_steps = checkpoint_service.get_checkpoint_key_set(
         MIGRATION_PIPELINE_ACTION_TYPE, MIGRATION_PIPELINE_OBJECT_TYPE)
     pipeline = Pipeline(client_config['export_dir'], completed_pipeline_steps, args.dry_run)
-    # All export jobs
     export_user = pipeline.add_task(UserExportTask(client_config))
-    log_workspace_items = pipeline.add_task(WorkspaceItemLogTask(client_config, checkpoint_service), [export_user])
-    export_workspace_acls = pipeline.add_task(WorkspaceACLExportTask(client_config, checkpoint_service), [log_workspace_items])
-    export_notebooks = pipeline.add_task(NotebookExportTask(client_config, checkpoint_service), [log_workspace_items])
-
-    # All import jobs
-    import_user = pipeline.add_task(UserImportTask(client_config), [export_workspace_acls, export_notebooks])
-    import_notebooks = pipeline.add_task(NotebookImportTask(client_config, checkpoint_service, args), [import_user])
-    import_workspace_acls = pipeline.add_task(WorkspaceACLImportTask(client_config, checkpoint_service), [import_notebooks])
+    pipeline.add_task(UserImportTask(client_config), [export_user])
     return pipeline
 
 
