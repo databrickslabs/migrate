@@ -23,57 +23,40 @@ class PipelineTest(unittest.TestCase):
 
     def test_run(self):
         result = []
-        task_1 = AppendTask("task1", 1, result)
-        task_2 = AppendTask("task2", 2, result)
-        task_3 = AppendTask("task3", 3, result)
-        task_4 = AppendTask("task4", 4, result)
-
-        test_pipeline_steps_key_set = CheckpointKeySet(False, TEST_CHECKPOINT_FILE)
-        pipeline = Pipeline('test_data', test_pipeline_steps_key_set)
-        node_1 = pipeline.add_task(task_1)
-        node_2 = pipeline.add_task(task_2, [node_1])
-        node_3 = pipeline.add_task(task_3, [node_1])
-        pipeline.add_task(task_4, [node_2, node_3])
-
+        test_pipeline_steps_key_set = DisabledCheckpointKeySet()
+        pipeline = self._create_test_pipeline(test_pipeline_steps_key_set, ["task1", "task2", "task3", "task4"], result)
         pipeline.run()
 
         self.assertEqual(result, [1, 2, 3, 4])
 
     def test_run_with_checkpoint(self):
-        result = []
-        task_1 = AppendTask("task1", 1, result)
-        task_2 = AppendTask("task2", 2, result)
-        task_3 = AppendTask("task3", 3, result)
-        task_4 = AppendTask("task4", 4, result)
-
         with open(TEST_CHECKPOINT_FILE, 'w+') as wp:
-            wp.write(task_1.name + "\n")
+            wp.write("task1\n")
 
-        test_pipeline_steps_key_set = CheckpointKeySet(True, TEST_CHECKPOINT_FILE)
-        pipeline = Pipeline('test_data', test_pipeline_steps_key_set)
-        node_1 = pipeline.add_task(task_1)
-        node_2 = pipeline.add_task(task_2, [node_1])
-        node_3 = pipeline.add_task(task_3, [node_1])
-        pipeline.add_task(task_4, [node_2, node_3])
-
+        result = []
+        test_pipeline_steps_key_set = CheckpointKeySet(TEST_CHECKPOINT_FILE)
+        pipeline = self._create_test_pipeline(test_pipeline_steps_key_set, ["task1", "task2", "task3", "task4"], result)
         pipeline.run()
         self.assertEqual(result, [2, 3, 4])
 
         # run again after all steps are checkpointed
         result = []
-        task_1 = AppendTask("task1", 1, result)
-        task_2 = AppendTask("task2", 2, result)
-        task_3 = AppendTask("task3", 3, result)
-        task_4 = AppendTask("task4", 4, result)
-        test_pipeline_steps_key_set = CheckpointKeySet(True, TEST_CHECKPOINT_FILE)
-        pipeline = Pipeline('test_data', test_pipeline_steps_key_set)
-        node_1 = pipeline.add_task(task_1)
-        node_2 = pipeline.add_task(task_2, [node_1])
-        node_3 = pipeline.add_task(task_3, [node_1])
-        pipeline.add_task(task_4, [node_2, node_3])
-
+        test_pipeline_steps_key_set = CheckpointKeySet(TEST_CHECKPOINT_FILE)
+        pipeline = self._create_test_pipeline(test_pipeline_steps_key_set, ["task1", "task2", "task3", "task4"], result)
         pipeline.run()
         self.assertEqual(result, [])
+
+    def _create_test_pipeline(self, pipeline_steps_key_set, task_names, result):
+        pipeline = Pipeline('test_data', pipeline_steps_key_set)
+        parents = []
+        for idx, task_name in enumerate(task_names):
+            task = AppendTask(task_name, idx+1, result)
+            node = pipeline.add_task(task, parents)
+            parents = [node]
+
+        return pipeline
+
+
 
 if __name__ == '__main__':
     unittest.main()

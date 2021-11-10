@@ -1,5 +1,6 @@
 import os
 import logging
+from abc import ABC, abstractmethod
 
 # List of all objectTypes that we export / import in WM
 USER_OBJECT = "users"
@@ -10,42 +11,71 @@ WORKSPACE_NOTEBOOK_ACL_OBJECT = "acl_notebooks"
 WORKSPACE_DIRECTORY_ACL_OBJECT = "acl_directories"
 METASTORE_TABLES = "metastore"
 
+# Migration pipeline placeholder constants
+MIGRATION_PIPELINE_ACTION_TYPE = "pipeline"
+MIGRATION_PIPELINE_OBJECT_TYPE = "tasks"
+
 # Actions
 WM_EXPORT = "export"
 WM_IMPORT = "import"
 
-class CheckpointKeySet():
-    """Class that deals with checkpoint read and write of a particular object type"""
+class AbstractCheckpointKeySet(ABC):
+    """Abstract base class for checkpoint read and write."""
 
-    """
-    :param checkpoint_enabled: checkpoint enabled / disabled flag
-    :param checkpoint_file: file to read / write object keys for checkpointing
-    """
-    def __init__(self, checkpoint_enabled, checkpoint_file):
-        self._checkpoint_enabled = checkpoint_enabled
+    @abstractmethod
+    def write(self, key):
+        """Writes key into checkpoint file."""
+        pass
+
+    @abstractmethod
+    def contains(self, key):
+        """Checks if key exists in checkpoint"""
+        pass
+
+class CheckpointKeySet(AbstractCheckpointKeySet):
+    """Deals with checkpoint read and write."""
+
+    def __init__(self, checkpoint_file):
+        """
+        :param checkpoint_file: file to read / write object keys for checkpointing
+        """
         self._checkpoint_file = checkpoint_file
+        self._checkpoint_file_append_fp = open(checkpoint_file, 'a+')
         self._checkpoint_key_set = set()
         self._restore_from_checkpoint_file()
 
-    # writes key to the checkpoint file
     def write(self, key):
-        if self._checkpoint_enabled and key not in self._checkpoint_key_set:
-            with open(self._checkpoint_file, 'a+') as append_fp:
-                append_fp.write(key + "\n")
+        """Writes key into checkpoint file. Flushing data after write to prevent data loss on system crash."""
+        if key not in self._checkpoint_key_set:
+            self._checkpoint_file_append_fp.write(key + "\n")
+            self._checkpoint_file_append_fp.flush()
 
-    # returns True if key is already checkpointed
     def contains(self, key):
+        """Checks if key exists in the checkpoint set"""
         exists = key in self._checkpoint_key_set
         if exists:
             logging.info(f"key: {key} found in checkpoint")
         return exists
 
-    # read keys from checkpoint file into a set
     def _restore_from_checkpoint_file(self):
-        if self._checkpoint_enabled and os.path.exists(self._checkpoint_file):
+        """Reads all checkpoint keys from checkpoint_file into a set at initialization."""
+        if os.path.exists(self._checkpoint_file):
             with open(self._checkpoint_file, 'r') as read_fp:
                 for key in read_fp:
                     self._checkpoint_key_set.add(key.rstrip())
+
+    def __del__(self):
+        self._checkpoint_file_append_fp.close()
+
+class DisabledCheckpointKeySet(AbstractCheckpointKeySet):
+    """Class used to denote disabled checkpointing."""
+
+    def write(self, key):
+        pass
+
+    def contains(self, key):
+        return False
+
 
 class CheckpointService():
     """
@@ -55,17 +85,16 @@ class CheckpointService():
     def __init__(self, configs):
         self._use_checkpoint = configs['use_checkpoint']
         self._checkpoint_dir = configs['export_dir'] + "checkpoint/"
-        self._completed_pipeline_steps = set()
         os.makedirs(self._checkpoint_dir, exist_ok=True)
 
+    @property
     def get_checkpoint_enabled(self):
         return self._use_checkpoint
 
-    def get_checkpoint_object_set(self, action_type, object_type):
-        checkpoint_file = f"{self._checkpoint_dir}/{action_type}_{object_type}.log"
-        return CheckpointKeySet(self.get_checkpoint_enabled(), checkpoint_file)
-
-    def get_checkpoint_pipeline_steps(self):
-        checkpoint_file = f"{self._checkpoint_dir}/pipeline_steps.log"
-        return CheckpointKeySet(self.get_checkpoint_enabled(), checkpoint_file)
+    def get_checkpoint_key_set(self, action_type, object_type):
+        if self.get_checkpoint_enabled:
+            checkpoint_file = f"{self._checkpoint_dir}/{action_type}_{object_type}.log"
+            return CheckpointKeySet(checkpoint_file)
+        else:
+            return DisabledCheckpointKeySet()
 

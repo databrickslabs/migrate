@@ -37,7 +37,8 @@ def build_pipeline() -> Pipeline:
         os.makedirs(client_config['export_dir'], exist_ok=True)
 
     checkpoint_service = CheckpointService(client_config)
-    completed_pipeline_steps = checkpoint_service.get_checkpoint_pipeline_steps()
+    completed_pipeline_steps = checkpoint_service.get_checkpoint_key_set(
+        MIGRATION_PIPELINE_ACTION_TYPE, MIGRATION_PIPELINE_OBJECT_TYPE)
     pipeline = Pipeline(client_config['export_dir'], completed_pipeline_steps, args.dry_run)
     # All export jobs
     export_user = pipeline.add_task(UserExportTask(client_config))

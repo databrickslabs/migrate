@@ -242,7 +242,7 @@ class WorkspaceClient(dbclient):
         :param ws_dir: export directory to store all notebooks
         :return: None
         """
-        checkpoint_notebook_set = self._checkpoint_service.get_checkpoint_object_set(WM_EXPORT, WORKSPACE_NOTEBOOK_OBJECT)
+        checkpoint_notebook_set = self._checkpoint_service.get_checkpoint_key_set(WM_EXPORT, WORKSPACE_NOTEBOOK_OBJECT)
         ws_log = self.get_export_dir() + ws_log_file
         num_notebooks = 0
         if not os.path.exists(ws_log):
@@ -421,11 +421,11 @@ class WorkspaceClient(dbclient):
         # define log file names for notebooks, folders, and libraries
         print("Exporting the notebook permissions")
         start = timer()
-        acl_notebook_checkpoint_set = self._checkpoint_service.get_checkpoint_object_set(WM_EXPORT, WORKSPACE_NOTEBOOK_ACL_OBJECT)
+        acl_notebook_checkpoint_set = self._checkpoint_service.get_checkpoint_key_set(WM_EXPORT, WORKSPACE_NOTEBOOK_ACL_OBJECT)
         self.log_acl_to_file('notebooks', workspace_log_file, 'acl_notebooks.log', 'failed_acl_notebooks.log', acl_notebook_checkpoint_set)
         end = timer()
         print("Complete Notebook ACLs Export Time: " + str(timedelta(seconds=end - start)))
-        acl_dir_checkpoint_set = self._checkpoint_service.get_checkpoint_object_set(WM_EXPORT, WORKSPACE_DIRECTORY_ACL_OBJECT)
+        acl_dir_checkpoint_set = self._checkpoint_service.get_checkpoint_key_set(WM_EXPORT, WORKSPACE_DIRECTORY_ACL_OBJECT)
         print("Exporting the directories permissions")
         start = timer()
         self.log_acl_to_file('directories', dir_log_file, 'acl_directories.log', 'failed_acl_directories.log', acl_dir_checkpoint_set)
@@ -542,7 +542,7 @@ class WorkspaceClient(dbclient):
         """
         src_dir = self.get_export_dir() + artifact_dir
         failed_logfile = self.get_export_dir() + failed_log
-        checkpoint_notebook_set = self._checkpoint_service.get_checkpoint_object_set(WM_IMPORT, WORKSPACE_NOTEBOOK_OBJECT)
+        checkpoint_notebook_set = self._checkpoint_service.get_checkpoint_key_set(WM_IMPORT, WORKSPACE_NOTEBOOK_OBJECT)
         num_exported_users = self.get_num_of_saved_users(src_dir)
         num_current_users = self.get_current_users()
         if num_current_users == 0:
