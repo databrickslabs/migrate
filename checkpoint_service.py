@@ -48,7 +48,7 @@ class CheckpointKeySet(AbstractCheckpointKeySet):
         """Writes key into checkpoint file. This also flushes data after write to prevent loss of checkpoint data on
         system crash.
 
-        Note: Make sure to persist your data before calling write. There is risk of data loss if your data is not persisted
+        CAUTION: Make sure to persist your data before calling write. There is risk of data loss if your data is not persisted
         and checkpointed on system crash.
         """
         if key not in self._checkpoint_key_set:
