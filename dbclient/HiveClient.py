@@ -382,6 +382,7 @@ class HiveClient(ClustersClient):
                         if not self.move_table_view(db_name, tbl_name, local_table_ddl):
                             # we hit a table ddl here, so we apply the ddl
                             resp = self.apply_table_ddl(local_table_ddl, ec_id, cid, db_path, has_unicode)
+                            # TODO: Add error handling and retry logic for failed imports
                             if resp['resultType'] != 'error':
                                 checkpoint_metastore_set.write(full_table_name)
                             print(resp)
@@ -404,9 +405,11 @@ class HiveClient(ClustersClient):
                         print(f"View {full_view_name} found in checkpoint file, already imported")
                     else:
                         local_view_ddl = metastore_view_dir + db_name + '/' + view_name
-                        is_successful = self.apply_table_ddl(local_view_ddl, ec_id, cid, db_path, has_unicode)
-                        checkpoint_metastore_set.write(full_view_name)
-                        print(is_successful)
+                        resp = self.apply_table_ddl(local_view_ddl, ec_id, cid, db_path, has_unicode)
+                        # TODO: Add error handling and retry logic for failed imports
+                        if resp['resultType'] != 'error':
+                            checkpoint_metastore_set.write(full_view_name)
+                        print(resp)
 
         # repair legacy tables
         if should_repair_table:
