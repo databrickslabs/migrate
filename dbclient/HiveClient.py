@@ -397,11 +397,15 @@ class HiveClient(ClustersClient):
             if os.path.isdir(local_view_db_path):
                 views = self.listdir(local_view_db_path)
                 for view_name in views:
-                    print("Importing view {0}.{1}".format(db_name, view_name))
-                    local_view_ddl = metastore_view_dir + db_name + '/' + view_name
-                    is_successful = self.apply_table_ddl(local_view_ddl, ec_id, cid, db_path, has_unicode)
-                    checkpoint_metastore_set.write(full_table_name)
-                    print(is_successful)
+                    full_view_name = f'{db_name}.{view_name}'
+                    print(f"Importing view {full_view_name}")
+                    if checkpoint_metastore_set.contains(full_view_name):
+                        print(f"View {full_view_name} found in checkpoint file, already imported")
+                    else:
+                        local_view_ddl = metastore_view_dir + db_name + '/' + view_name
+                        is_successful = self.apply_table_ddl(local_view_ddl, ec_id, cid, db_path, has_unicode)
+                        checkpoint_metastore_set.write(full_view_name)
+                        print(is_successful)
 
         # repair legacy tables
         if should_repair_table:
@@ -456,6 +460,8 @@ class HiveClient(ClustersClient):
                     if is_successful:
                         print(f"Exported {full_table_name}")
                         success_item = {'table': full_table_name, 'iam': iam}
+                        # Flush data to persist on disk before checkpoint write. There is risk of data loss if the data
+                        # is not persisted and checkpointed on system crash.
                         sfp.write(json.dumps(success_item))
                         sfp.write('\n')
                         sfp.flush()
@@ -474,7 +480,7 @@ class HiveClient(ClustersClient):
         :param metastore_dir: metastore export directory name
         :param err_log_path: log for errors
         :param has_unicode: export to a file if this flag is true
-        :return: 0 for success, -1 for error
+        :return: True for success, False for error
         """
         set_ddl_str_cmd = f'ddl_str = spark.sql("show create table {db_name}.{table_name}").collect()[0][0]'
         ddl_str_resp = self.submit_command(cid, ec_id, set_ddl_str_cmd)
@@ -542,6 +548,8 @@ class HiveClient(ClustersClient):
                             err_log_list.remove(table)
                             print(f"Exported {db_name}.{table_name}")
                             success_item = {'table': f'{db_name}.{table_name}', 'iam': iam_role}
+                            # Flush data to persist on disk before checkpoint write. There is risk of data loss if the data
+                            # is not persisted and checkpointed on system crash.
                             sfp.write(json.dumps(success_item))
                             sfp.write('\n')
                             sfp.flush()

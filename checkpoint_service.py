@@ -45,7 +45,12 @@ class CheckpointKeySet(AbstractCheckpointKeySet):
         self._restore_from_checkpoint_file()
 
     def write(self, key):
-        """Writes key into checkpoint file. Flushing data after write to prevent data loss on system crash."""
+        """Writes key into checkpoint file. This also flushes data after write to prevent loss of checkpoint data on
+        system crash.
+
+        Note: Make sure to persist your data before calling write. There is risk of data loss if your data is not persisted
+        and checkpointed on system crash.
+        """
         if key not in self._checkpoint_key_set:
             self._checkpoint_file_append_fp.write(key + "\n")
             self._checkpoint_file_append_fp.flush()
@@ -79,7 +84,8 @@ class DisabledCheckpointKeySet(AbstractCheckpointKeySet):
 
 class CheckpointService():
     """
-    Class that provides checkpoint utils of different object types
+    Class that provides checkpoint utils of different object types. Checkpoint is used for fault tolerance so that we
+     can restart from where we left off.
     """
 
     def __init__(self, configs):
