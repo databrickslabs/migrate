@@ -381,9 +381,10 @@ class HiveClient(ClustersClient):
                         local_table_ddl = metastore_local_dir + db_name + '/' + tbl_name
                         if not self.move_table_view(db_name, tbl_name, local_table_ddl):
                             # we hit a table ddl here, so we apply the ddl
-                            is_successful = self.apply_table_ddl(local_table_ddl, ec_id, cid, db_path, has_unicode)
-                            checkpoint_metastore_set.write(full_table_name)
-                            print(is_successful)
+                            resp = self.apply_table_ddl(local_table_ddl, ec_id, cid, db_path, has_unicode)
+                            if resp['resultType'] != 'error':
+                                checkpoint_metastore_set.write(full_table_name)
+                            print(resp)
                         else:
                             print(f'Moving view ddl to re-apply later: {db_name}.{tbl_name}')
             else:
