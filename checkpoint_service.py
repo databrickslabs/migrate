@@ -89,16 +89,16 @@ class CheckpointService():
     """
 
     def __init__(self, configs):
-        self._use_checkpoint = configs['use_checkpoint']
+        self._checkpoint_enabled = configs['use_checkpoint']
         self._checkpoint_dir = configs['export_dir'] + "checkpoint/"
         os.makedirs(self._checkpoint_dir, exist_ok=True)
 
     @property
-    def get_checkpoint_enabled(self):
-        return self._use_checkpoint
+    def checkpoint_enabled(self):
+        return self._checkpoint_enabled
 
     def get_checkpoint_key_set(self, action_type, object_type):
-        if self.get_checkpoint_enabled:
+        if self._checkpoint_enabled:
             checkpoint_file = f"{self._checkpoint_dir}/{action_type}_{object_type}.log"
             return CheckpointKeySet(checkpoint_file)
         else:
