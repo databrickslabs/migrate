@@ -244,7 +244,7 @@ def main():
 
     if args.workspace_top_level_only:
         print("Export top level workspace objects at {0}".format(now))
-        ws_c = WorkspaceClient(client_config)
+        ws_c = WorkspaceClient(client_config, checkpoint_service)
         start = timer()
         # log notebooks and directory acls
         ws_c.export_top_level_folders()
@@ -254,7 +254,7 @@ def main():
     if args.export_home:
         username = args.export_home
         print("Exporting home directory: {0}".format(username))
-        ws_c = WorkspaceClient(client_config)
+        ws_c = WorkspaceClient(client_config, checkpoint_service)
         start = timer()
         # log notebooks and libraries
         ws_c.export_user_home(username, 'user_exports')

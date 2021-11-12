@@ -352,7 +352,7 @@ class HiveClient(ClustersClient):
         # get local databases
         db_list = self.listdir(metastore_local_dir)
         # make directory in DBFS root bucket path for tmp data
-        resp = self.post('/dbfs/mkdirs', {'path': '/tmp/migration/'})
+        self.post('/dbfs/mkdirs', {'path': '/tmp/migration/'})
         # iterate over the databases saved locally
         all_db_details_json = self.get_database_detail_dict()
         for db_name in db_list:

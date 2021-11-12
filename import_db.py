@@ -192,7 +192,7 @@ def main():
     if args.import_home:
         username = args.import_home
         print("Importing home directory: {0}".format(username))
-        ws_c = WorkspaceClient(client_config)
+        ws_c = WorkspaceClient(client_config, checkpoint_service)
         start = timer()
         # log notebooks and libraries
         if ws_c.is_overwrite_notebooks():
@@ -210,7 +210,7 @@ def main():
         scim_c.import_all_users_and_groups()
         user_names = scim_c.get_users_from_log()
         print('Export users notebooks:', user_names)
-        ws_c = WorkspaceClient(client_config)
+        ws_c = WorkspaceClient(client_config, WorkspaceClient)
         if ws_c.is_overwrite_notebooks():
             # if OVERWRITE is configured, check that the SOURCE format option is used. Otherwise fail
             if not ws_c.is_source_file_format():
@@ -233,7 +233,7 @@ def main():
     if args.get_repair_log:
         print("Finding partitioned tables to repair at {0}".format(now))
         start = timer()
-        hive_c = HiveClient(client_config)
+        hive_c = HiveClient(client_config, checkpoint_service)
         # log job configs
         hive_c.repair_legacy_tables()
         end = timer()
