@@ -2,7 +2,7 @@ from dbclient import *
 from timeit import default_timer as timer
 from datetime import timedelta, datetime
 from os import makedirs
-from checkpoint_service import *
+from checkpoint_service import CheckpointService
 
 # python 3.6
 def main():

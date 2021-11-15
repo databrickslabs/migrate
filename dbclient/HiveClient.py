@@ -2,7 +2,7 @@ import ast
 import os
 import re
 import base64
-from checkpoint_service import *
+import wmconstants
 import time
 from datetime import timedelta
 from timeit import default_timer as timer
@@ -237,7 +237,8 @@ class HiveClient(ClustersClient):
         print("Cluster creation time: " + str(timedelta(seconds=end - start)))
         time.sleep(5)
         ec_id = self.get_execution_context(cid)
-        checkpoint_metastore_set = self._checkpoint_service.get_checkpoint_key_set(WM_EXPORT, METASTORE_TABLES)
+        checkpoint_metastore_set = self._checkpoint_service.get_checkpoint_key_set(
+            wmconstants.WM_EXPORT, wmconstants.METASTORE_TABLES)
         # if metastore failed log path exists, cleanup before re-running
         failed_metastore_log_path = self.get_export_dir() + fail_log
         success_metastore_log_path = self.get_export_dir() + success_log
@@ -259,7 +260,8 @@ class HiveClient(ClustersClient):
     def export_hive_metastore(self, cluster_name=None, metastore_dir='metastore/', db_log='database_details.log',
                               success_log='success_metastore.log', fail_log='failed_metastore.log', has_unicode=False):
         start = timer()
-        checkpoint_metastore_set = self._checkpoint_service.get_checkpoint_key_set(WM_EXPORT, METASTORE_TABLES)
+        checkpoint_metastore_set = self._checkpoint_service.get_checkpoint_key_set(
+            wmconstants.WM_EXPORT, wmconstants.METASTORE_TABLES)
         instance_profiles = self.get_instance_profiles_list()
         if cluster_name:
             cid = self.start_cluster_by_name(cluster_name)
@@ -346,7 +348,8 @@ class HiveClient(ClustersClient):
                               has_unicode=False, should_repair_table=False):
         metastore_local_dir = self.get_export_dir() + metastore_dir
         metastore_view_dir = self.get_export_dir() + views_dir
-        checkpoint_metastore_set = self._checkpoint_service.get_checkpoint_key_set(WM_IMPORT, METASTORE_TABLES)
+        checkpoint_metastore_set = self._checkpoint_service.get_checkpoint_key_set(
+            wmconstants.WM_IMPORT, wmconstants.METASTORE_TABLES)
         os.makedirs(metastore_view_dir, exist_ok=True)
         (cid, ec_id) = self.get_or_launch_cluster(cluster_name)
         # get local databases
