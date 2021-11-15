@@ -2,7 +2,7 @@ import unittest
 
 from .pipeline import Pipeline
 from .task import AbstractTask
-from checkpoint_service import *
+from checkpoint_service import CheckpointKeySet, DisabledCheckpointKeySet
 
 TEST_CHECKPOINT_FILE = 'pipeline/test_data/pipeline_steps.log'
 

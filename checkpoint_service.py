@@ -1,7 +1,6 @@
 import os
 import logging
 from abc import ABC, abstractmethod
-import wmconstants
 
 class AbstractCheckpointKeySet(ABC):
     """Abstract base class for checkpoint read and write."""
