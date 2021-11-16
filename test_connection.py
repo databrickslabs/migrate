@@ -8,15 +8,15 @@ def main():
     parser = get_export_parser()
     # parse the args
     args = parser.parse_args()
-    p = args.profile
+    profile = args.profile
 
     # parse the path location of the Databricks CLI configuration
-    login_args = get_login_credentials(profile=p)
+    login_args = get_login_credentials(profile=profile)
 
     # parse the credentials
     url = login_args['host']
     token = login_args['token']
-    client_config = build_client_config(url, token, args)
+    client_config = build_client_config(profile, url, token, args)
 
     print("Test connection at {0} with profile {1}\n".format(url, args.profile))
     db_client = dbclient(client_config)

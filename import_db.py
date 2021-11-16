@@ -19,7 +19,7 @@ def main():
     # cant use netrc credentials because requests module tries to load the credentials into http basic auth headers
     url = login_args['host']
     token = login_args['token']
-    client_config = build_client_config(url, token, args)
+    client_config = build_client_config(args.profile, url, token, args)
 
     makedirs(client_config['export_dir'], exist_ok=True)
 
