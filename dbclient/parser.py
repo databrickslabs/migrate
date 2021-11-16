@@ -1,6 +1,5 @@
 import argparse
 import configparser
-import re
 from enum import Enum
 from os import path
 

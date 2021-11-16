@@ -2,6 +2,7 @@ import json
 import os
 import requests
 import fileinput
+import re
 from dbclient import parser
 import time
 import requests.packages.urllib3
