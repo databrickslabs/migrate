@@ -20,4 +20,4 @@ class TestCheckpointService(unittest.TestCase):
             wmconstants.WM_EXPORT, wmconstants.WORKSPACE_NOTEBOOK_OBJECT)
         with open("checkpoint/export_notebooks.log", 'r') as read_fp:
             for key in read_fp:
-                self.assertTrue(checkpoint_set.contains(key.rstrip()))
+                self.assertTrue(checkpoint_set.contains(key.rstrip('\n')))

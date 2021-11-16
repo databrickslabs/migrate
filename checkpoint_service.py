@@ -50,7 +50,7 @@ class CheckpointKeySet(AbstractCheckpointKeySet):
         if os.path.exists(self._checkpoint_file):
             with open(self._checkpoint_file, 'r') as read_fp:
                 for key in read_fp:
-                    self._checkpoint_key_set.add(key.rstrip())
+                    self._checkpoint_key_set.add(key.rstrip('\n'))
 
     def __del__(self):
         self._checkpoint_file_append_fp.close()
