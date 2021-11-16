@@ -8,6 +8,7 @@ test_export_dir = tempfile.TemporaryDirectory()
 
 def test_client_config():
     return {
+        'profile': 'test_profile',
         'url': 'https://test.url',
         'token': 'test_token',
         'is_aws': True,
