@@ -24,7 +24,7 @@ def main():
     # parse the credentials
     url = login_args['host']
     token = login_args['token']
-    client_config = build_client_config(url, token, args)
+    client_config = build_client_config(args.profile, url, token, args)
 
     os.makedirs(client_config['export_dir'], exist_ok=True)
 

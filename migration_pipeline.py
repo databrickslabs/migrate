@@ -23,7 +23,7 @@ def build_pipeline() -> Pipeline:
     # basic auth headers parse the credentials
     url = login_args['host']
     token = login_args['token']
-    client_config = parser.build_client_config(url, token, args)
+    client_config = parser.build_client_config(args.profile, url, token, args)
 
     # Resume session if specified, and create a new one otherwise. Different session will work in
     # different export_dir in order to be isolated.
