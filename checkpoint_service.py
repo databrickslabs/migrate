@@ -35,7 +35,7 @@ class CheckpointKeySet(AbstractCheckpointKeySet):
         and checkpointed on system crash.
         """
         if key not in self._checkpoint_key_set:
-            self._checkpoint_file_append_fp.write(key + "\n")
+            self._checkpoint_file_append_fp.write(str(key) + "\n")
             self._checkpoint_file_append_fp.flush()
 
     def contains(self, key):
