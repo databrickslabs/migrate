@@ -1,6 +1,5 @@
 import ast
 import os
-import re
 import base64
 import wmconstants
 import time
@@ -403,10 +402,10 @@ class HiveClient(ClustersClient):
                 views = self.listdir(local_view_db_path)
                 for view_name in views:
                     full_view_name = f'{db_name}.{view_name}'
-                    print(f"Importing view {full_view_name}")
                     if checkpoint_metastore_set.contains(full_view_name):
                         print(f"View {full_view_name} found in checkpoint file, already imported")
                     else:
+                        print(f"Importing view {full_view_name}")
                         local_view_ddl = metastore_view_dir + db_name + '/' + view_name
                         resp = self.apply_table_ddl(local_view_ddl, ec_id, cid, db_path, has_unicode)
                         # TODO: Add error handling and retry logic for failed imports
@@ -464,14 +463,13 @@ class HiveClient(ClustersClient):
                     else:
                         is_successful = self.log_table_ddl(cid, ec_id, db_name, table_name, metastore_dir,
                                                            err_log_path, has_unicode)
-                    if is_successful:
                         print(f"Exported {full_table_name}")
+
+                    if is_successful:
                         success_item = {'table': full_table_name, 'iam': iam}
-                        # Flush data to persist on disk before checkpoint write. There is risk of data loss if the data
-                        # is not persisted and checkpointed on system crash.
                         sfp.write(json.dumps(success_item))
                         sfp.write('\n')
-                        sfp.flush()
+                        self._persist_to_disk(sfp)
                         checkpoint_metastore_set.write(full_table_name)
                     else:
                         print("Logging failure")
@@ -555,11 +553,9 @@ class HiveClient(ClustersClient):
                             err_log_list.remove(table)
                             print(f"Exported {db_name}.{table_name}")
                             success_item = {'table': f'{db_name}.{table_name}', 'iam': iam_role}
-                            # Flush data to persist on disk before checkpoint write. There is risk of data loss if the data
-                            # is not persisted and checkpointed on system crash.
                             sfp.write(json.dumps(success_item))
                             sfp.write('\n')
-                            sfp.flush()
+                            self._persist_to_disk(sfp)
                             checkpoint_metastore_set.write(f'{db_name}.{table_name}')
                         else:
                             print('Failed to get ddl for {0}.{1} with iam role {2}'.format(db_name, table_name,
@@ -644,3 +640,9 @@ class HiveClient(ClustersClient):
         time.sleep(2)
         ec_id = self.get_execution_context(cid)
         return cid, ec_id
+
+    # Flush data to persist on disk before checkpoint write. There is risk of data loss if the data
+    # is not persisted and checkpointed on system crash.
+    def _persist_to_disk(self, fp):
+        fp.flush()
+        os.fsync(fp.fileno())

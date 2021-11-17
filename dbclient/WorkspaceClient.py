@@ -384,7 +384,7 @@ class WorkspaceClient(dbclient):
         obj_id = resp.get('object_id', None)
         return obj_id
 
-    def log_acl_to_file(self, artifact_type, read_log_filename, write_log_filename, failed_log_filename, checkpoint_object_set):
+    def log_acl_to_file(self, artifact_type, read_log_filename, write_log_filename, failed_log_filename):
         """
         generic function to log the notebook/directory ACLs to specific file names
         :param artifact_type: set('notebooks', 'directories') ACLs to be logged
@@ -403,8 +403,6 @@ class WorkspaceClient(dbclient):
             for x in read_fp:
                 data = json.loads(x)
                 obj_id = data.get('object_id', None)
-                if checkpoint_object_set.contains(obj_id):
-                    continue
                 api_endpoint = '/permissions/{0}/{1}'.format(artifact_type, obj_id)
                 acl_resp = self.get(api_endpoint)
                 acl_resp['path'] = data.get('path')
@@ -413,8 +411,6 @@ class WorkspaceClient(dbclient):
                     continue
                 acl_resp.pop('http_status_code')
                 write_fp.write(json.dumps(acl_resp) + '\n')
-                write_fp.flush()
-                checkpoint_object_set.write(obj_id)
 
     def log_all_workspace_acls(self, workspace_log_file='user_workspace.log',
                                dir_log_file='user_dirs.log'):
@@ -426,16 +422,12 @@ class WorkspaceClient(dbclient):
         # define log file names for notebooks, folders, and libraries
         print("Exporting the notebook permissions")
         start = timer()
-        acl_notebook_checkpoint_set = self._checkpoint_service.get_checkpoint_key_set(
-            wmconstants.WM_EXPORT, wmconstants.WORKSPACE_NOTEBOOK_ACL_OBJECT)
-        self.log_acl_to_file('notebooks', workspace_log_file, 'acl_notebooks.log', 'failed_acl_notebooks.log', acl_notebook_checkpoint_set)
+        self.log_acl_to_file('notebooks', workspace_log_file, 'acl_notebooks.log', 'failed_acl_notebooks.log')
         end = timer()
         print("Complete Notebook ACLs Export Time: " + str(timedelta(seconds=end - start)))
-        acl_dir_checkpoint_set = self._checkpoint_service.get_checkpoint_key_set(
-            wmconstants.WM_EXPORT, wmconstants.WORKSPACE_DIRECTORY_ACL_OBJECT)
         print("Exporting the directories permissions")
         start = timer()
-        self.log_acl_to_file('directories', dir_log_file, 'acl_directories.log', 'failed_acl_directories.log', acl_dir_checkpoint_set)
+        self.log_acl_to_file('directories', dir_log_file, 'acl_directories.log', 'failed_acl_directories.log')
         end = timer()
         print("Complete Directories ACLs Export Time: " + str(timedelta(seconds=end - start)))
 
