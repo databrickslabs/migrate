@@ -456,7 +456,6 @@ class HiveClient(ClustersClient):
                 results = self.submit_command(cid, ec_id, tables_slice)
                 table_names = ast.literal_eval(results['data'])
                 for table_name in table_names:
-                    print("Table: {0}".format(table_name))
                     full_table_name = f'{db_name}.{table_name}'
                     if checkpoint_metastore_set.contains(full_table_name):
                         is_successful = True

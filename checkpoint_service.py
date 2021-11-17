@@ -42,7 +42,7 @@ class CheckpointKeySet(AbstractCheckpointKeySet):
         """Checks if key exists in the checkpoint set"""
         exists = key in self._checkpoint_key_set
         if exists:
-            logging.info(f"key: {key} found in checkpoint")
+            print(f"key: {key} found in checkpoint")
         return exists
 
     def _restore_from_checkpoint_file(self):
