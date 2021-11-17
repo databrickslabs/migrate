@@ -173,13 +173,9 @@ class WorkspaceClient(dbclient):
         if num_of_nbs != num_of_nbs_dl:
             print(f"Notebooks logged != downloaded. Check the failed download file at: {user_export_dir}")
         print(f"Exporting the notebook permissions for {username}")
-        acl_notebook_checkpoint_set = self._checkpoint_service.get_checkpoint_key_set(
-            wmconstants.WM_EXPORT, wmconstants.WORKSPACE_NOTEBOOK_ACL_OBJECT)
-        self.log_acl_to_file('notebooks', 'user_workspace.log', 'acl_notebooks.log', 'failed_acl_notebooks.log', acl_notebook_checkpoint_set)
+        self.log_acl_to_file('notebooks', 'user_workspace.log', 'acl_notebooks.log', 'failed_acl_notebooks.log')
         print(f"Exporting the directories permissions for {username}")
-        acl_dir_checkpoint_set = self._checkpoint_service.get_checkpoint_key_set(
-            wmconstants.WM_EXPORT, wmconstants.WORKSPACE_DIRECTORY_ACL_OBJECT)
-        self.log_acl_to_file('directories', 'user_dirs.log', 'acl_directories.log', 'failed_acl_directories.log', acl_dir_checkpoint_set)
+        self.log_acl_to_file('directories', 'user_dirs.log', 'acl_directories.log', 'failed_acl_directories.log')
         # reset the original export dir for other calls to this method using the same client
         self.set_export_dir(original_export_dir)
 
