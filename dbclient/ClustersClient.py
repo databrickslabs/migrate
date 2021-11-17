@@ -262,6 +262,10 @@ class ClustersClient(dbclient):
                         pin_resp = self.post('/clusters/pin', {'cluster_id': cluster_resp['cluster_id']})
                 else:
                     print(cluster_resp)
+
+        # TODO: May be put it into a separate step to make it more rerunnable.
+        self._log_cluster_ids_and_original_creators(log_file)
+
         # add cluster ACLs
         # loop through and reapply cluster ACLs
         with open(acl_cluster_log, 'r') as acl_fp:
@@ -276,6 +280,59 @@ class ClustersClient(dbclient):
                 api = f'/preview/permissions/clusters/{cid}'
                 resp = self.put(api, acl_args)
                 print(resp)
+
+    def _log_cluster_ids_and_original_creators(
+            self,
+            cluster_log_file,
+            user_name_to_user_id_log_file='user_name_to_user_id.log',
+            creators_file='original_creator_user_ids.log',
+            cluster_ids_file='cluster_ids_to_change_creator.log'):
+        """
+        Log the cluster_ids_to_change_creator and original_creator_user_ids
+        These can be used to edit the clusters to be owned by the correct/original creator instead of the
+        PAT token owner. Fails if user_name_to_user_id.log does not exist.
+
+        :param cluster_log_file: file that contains the exported cluster objects.
+        :param creators_file: output file written with the list of original creators of clusters.
+                              The list should be in the same order as the cluster_ids_file.
+        :param cluster_ids_file: output file written with the list of cluster ids that need the creator tag to change.
+        """
+        cluster_ids_to_change_creator = []
+        original_creator_user_ids = []
+        with open(self.get_export_dir() + user_name_to_user_id_log_file, 'r') as fp:
+            user_name_to_user_id = json.loads(fp.read())
+
+        all_clusters = self.get_cluster_list(False)
+        # cluster_name -> (cluster_id, creator_user_name)
+        current_cluster_name_to_id_and_creator_name = {}
+        for cluster in all_clusters:
+            cluster_name = cluster['cluster_name']
+            if cluster_name in current_cluster_name_to_id_and_creator_name:
+                print(f"There are multiple clusters with name: {cluster_name}. Only the first cluster will have its "
+                      "creator changed.")
+            else:
+                current_cluster_name_to_id_and_creator_name[cluster_name] = \
+                    (cluster['cluster_id'], cluster['creator_user_name'])
+
+        with open(self.get_export_dir() + cluster_log_file, 'r') as fp:
+            for line in fp:
+                cluster_conf = json.loads(line)
+                cluster_name = cluster_conf['cluster_name']
+                original_cluster_creator = cluster_conf['creator_user_name']
+                current_cluster_id, current_cluster_creator = current_cluster_name_to_id_and_creator_name[cluster_name]
+
+                # Log only if the cluster's current creator is not the same as the original creator
+                if original_cluster_creator != current_cluster_creator:
+                    if cluster_name in current_cluster_name_to_id_and_creator_name and \
+                            original_cluster_creator in user_name_to_user_id:
+                        cluster_ids_to_change_creator.append(current_cluster_id)
+                        original_creator_user_ids.append(user_name_to_user_id[original_cluster_creator])
+
+        with open(self.get_export_dir() + cluster_ids_file, 'w') as fp:
+            fp.write(json.dumps(cluster_ids_to_change_creator, separators=(',', ':')))
+
+        with open(self.get_export_dir() + creators_file, 'w') as fp:
+            fp.write(json.dumps(original_creator_user_ids, separators=(',', ':')))
 
     def import_cluster_policies(self, log_file='cluster_policies.log', acl_log_file='acl_cluster_policies.log'):
         policies_log = self.get_export_dir() + log_file
