@@ -290,6 +290,7 @@ class HiveClient(ClustersClient):
             print(resp)
         with open(database_logfile, 'w') as fp:
             for db_name in all_dbs:
+                print(f"Fetching details from database: {db_name}")
                 os.makedirs(self.get_export_dir() + metastore_dir + db_name, exist_ok=True)
                 db_json = self.get_desc_database_details(db_name, cid, ec_id)
                 fp.write(json.dumps(db_json) + '\n')
@@ -442,6 +443,7 @@ class HiveClient(ClustersClient):
 
     def log_all_tables(self, db_name, cid, ec_id, metastore_dir, err_log_path, success_log_path, iam,
                        checkpoint_metastore_set, has_unicode=False):
+        print(f"Fetching tables from database: {db_name}")
         all_tables_cmd = 'all_tables = [x.tableName for x in spark.sql("show tables in {0}").collect()]'.format(db_name)
         results = self.submit_command(cid, ec_id, all_tables_cmd)
         results = self.submit_command(cid, ec_id, 'print(len(all_tables))')
