@@ -119,21 +119,26 @@ class dbclient:
             os.rmdir(local_dir)
 
     def _loop_until_token_renewed(self):
-        while True:
-            print("Migration paused due to expired token. Trying to renew...")
+        interval = 120
+        timeout = 86400
+
+        for x in range(0, int(timeout / interval)):
+            print(f"#{x} Migration paused due to expired token. Trying to renew...")
             login_args = parser.get_login_credentials(profile=self._profile)
             url = login_args['host']
             token = login_args['token']
             if token == self._raw_token:
                 print("No new token found. Please renew token by running:\n" +
                       f"$ databricks configure --token --profile {self._profile}\n" +
-                      "Will try again in 120 seconds.")
-                time.sleep(120)
+                      f"Will try again in {interval} seconds.")
+                time.sleep(interval)
                 continue
 
             print("New token found. Migration resumed.")
             self._update_url_and_token(url, token)
-            break
+            return
+
+        raise Exception(f"Failed to renew token after {timeout}s. Please rerun the pipeline.")
 
     def _should_retry_with_new_token(self, raw_results):
         if raw_results.status_code == 403 and "Error 403 Invalid access token." in raw_results.text:
