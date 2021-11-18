@@ -292,6 +292,8 @@ class ClustersClient(dbclient):
         These can be used to edit the clusters to be owned by the correct/original creator instead of the
         PAT token owner. Fails if user_name_to_user_id.log does not exist.
 
+        :param user_name_to_user_id_log_file: file that contains the userName to userId mapping of the SRC workspace.
+                                              This file is exported as part of the users-export step.
         :param cluster_log_file: file that contains the exported cluster objects.
         :param creators_file: output file written with the list of original creators of clusters.
                               The list should be in the same order as the cluster_ids_file.
@@ -313,6 +315,9 @@ class ClustersClient(dbclient):
                     current_cluster_id = old_to_new_cluster_mapping[original_cluster_id]
                     cluster_ids_to_change_creator.append(current_cluster_id)
                     original_creator_user_ids.append(user_name_to_user_id[original_cluster_creator])
+                else:
+                    print("The old cluster id " + original_cluster_id +
+                          " does not get logged for EditClusterOwner due to some problems.")
 
         with open(self.get_export_dir() + cluster_ids_file, 'w') as fp:
             fp.write(json.dumps(cluster_ids_to_change_creator, separators=(',', ':')))
