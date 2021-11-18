@@ -429,7 +429,6 @@ class ScimClient(dbclient):
         with open(self.get_export_dir() + "user_name_to_user_id.log", 'w') as fp:
             fp.write(json.dumps(self.get_user_id_mapping()))
 
-
     def log_failed_users(self, current_user_ids, user_log, failed_user_log):
         with open(user_log, 'r') as fp, open(failed_user_log, 'w') as failed_fp:
             # loop through each user in the file
