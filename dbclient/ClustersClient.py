@@ -320,10 +320,14 @@ class ClustersClient(dbclient):
                           " does not get logged for EditClusterOwner due to some problems.")
 
         with open(self.get_export_dir() + cluster_ids_file, 'w') as fp:
-            fp.write(json.dumps(cluster_ids_to_change_creator, separators=(',', ':')))
+            dumped_cluster_ids = json.dumps(cluster_ids_to_change_creator, separators=(',', ':'))
+            # Remove the initial '[' and ']' for easier copy-paste.
+            fp.write(dumped_cluster_ids.lstrip('[').rstrip(']'))
 
         with open(self.get_export_dir() + creators_file, 'w') as fp:
-            fp.write(json.dumps(original_creator_user_ids, separators=(',', ':')))
+            dumped_user_ids = json.dumps(original_creator_user_ids, separators=(',', ':'))
+            # Remove the initial '[' and ']' for easier copy-paste.
+            fp.write(dumped_user_ids.lstrip('[').rstrip(']'))
 
     def get_cluster_id_mapping(self, log_file='clusters.log'):
         """
