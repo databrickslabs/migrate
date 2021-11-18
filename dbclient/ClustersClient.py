@@ -302,37 +302,47 @@ class ClustersClient(dbclient):
         with open(self.get_export_dir() + user_name_to_user_id_log_file, 'r') as fp:
             user_name_to_user_id = json.loads(fp.read())
 
-        all_clusters = self.get_cluster_list(False)
-        # cluster_name -> (cluster_id, creator_user_name)
-        current_cluster_name_to_id_and_creator_name = {}
-        for cluster in all_clusters:
-            cluster_name = cluster['cluster_name']
-            if cluster_name in current_cluster_name_to_id_and_creator_name:
-                print(f"There are multiple clusters with name: {cluster_name}. Only the first cluster will have its "
-                      "creator changed.")
-            else:
-                current_cluster_name_to_id_and_creator_name[cluster_name] = \
-                    (cluster['cluster_id'], cluster['creator_user_name'])
+        old_to_new_cluster_mapping = self.get_cluster_id_mapping(cluster_log_file)
 
         with open(self.get_export_dir() + cluster_log_file, 'r') as fp:
             for line in fp:
                 cluster_conf = json.loads(line)
-                cluster_name = cluster_conf['cluster_name']
                 original_cluster_creator = cluster_conf['creator_user_name']
-                current_cluster_id, current_cluster_creator = current_cluster_name_to_id_and_creator_name[cluster_name]
-
-                # Log only if the cluster's current creator is not the same as the original creator
-                if original_cluster_creator != current_cluster_creator:
-                    if cluster_name in current_cluster_name_to_id_and_creator_name and \
-                            original_cluster_creator in user_name_to_user_id:
-                        cluster_ids_to_change_creator.append(current_cluster_id)
-                        original_creator_user_ids.append(user_name_to_user_id[original_cluster_creator])
+                original_cluster_id = cluster_conf['cluster_id']
+                if original_cluster_id in old_to_new_cluster_mapping and original_cluster_creator in user_name_to_user_id:
+                    current_cluster_id = old_to_new_cluster_mapping[original_cluster_id]
+                    cluster_ids_to_change_creator.append(current_cluster_id)
+                    original_creator_user_ids.append(user_name_to_user_id[original_cluster_creator])
 
         with open(self.get_export_dir() + cluster_ids_file, 'w') as fp:
             fp.write(json.dumps(cluster_ids_to_change_creator, separators=(',', ':')))
 
         with open(self.get_export_dir() + creators_file, 'w') as fp:
             fp.write(json.dumps(original_creator_user_ids, separators=(',', ':')))
+
+    def get_cluster_id_mapping(self, log_file='clusters.log'):
+        """
+        Get a dict mapping of old cluster ids to new cluster ids.
+        :param log_file:
+        :return:
+        """
+        cluster_logfile = self.get_export_dir() + log_file
+        current_cl = self.get_cluster_list(False)
+        # current_cl = self.get('/clusters/list').get('clusters', [])
+        old_clusters = {}
+        # build dict with old cluster name to cluster id mapping
+        if not os.path.exists(cluster_logfile):
+            raise ValueError('Clusters log must exist to map clusters to previous existing cluster ids')
+        with open(cluster_logfile, 'r') as fp:
+            for line in fp:
+                conf = json.loads(line)
+                old_clusters[conf['cluster_name']] = conf['cluster_id']
+        old_to_new_mapping = {}
+        for new_cluster in current_cl:
+            old_cluster_id = old_clusters.get(new_cluster['cluster_name'], None)
+            if old_cluster_id:
+                old_to_new_mapping[old_cluster_id] = new_cluster['cluster_id']
+        return old_to_new_mapping
 
     def import_cluster_policies(self, log_file='cluster_policies.log', acl_log_file='acl_cluster_policies.log'):
         policies_log = self.get_export_dir() + log_file
