@@ -292,8 +292,8 @@ class ClustersClient(dbclient):
         These can be used to edit the clusters to be owned by the correct/original creator instead of the
         PAT token owner. Fails if user_name_to_user_id.log does not exist.
 
-        :param user_name_to_user_id_log_file: file that contains the userName to userId mapping of the SRC workspace.
-                                              This file is exported as part of the users-export step.
+        :param user_name_to_user_id_log_file: file that contains the userName to userId mapping of the DST workspace.
+                                              This file is exported as part of the users-import step.
         :param cluster_log_file: file that contains the exported cluster objects.
         :param creators_file: output file written with the list of original creators of clusters.
                               The list should be in the same order as the cluster_ids_file.
