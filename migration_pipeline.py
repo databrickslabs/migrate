@@ -4,7 +4,8 @@ from datetime import datetime
 from pipeline import Pipeline
 from dbclient import parser
 from tasks import *
-
+import wmconstants
+from checkpoint_service import CheckpointService
 
 def generate_session() -> str:
     return datetime.now().strftime('%Y%m%d%H%M%S')
@@ -36,7 +37,10 @@ def build_pipeline() -> Pipeline:
     if not args.dry_run:
         os.makedirs(client_config['export_dir'], exist_ok=True)
 
-    pipeline = Pipeline(client_config['export_dir'], args.dry_run)
+    checkpoint_service = CheckpointService(client_config)
+    completed_pipeline_steps = checkpoint_service.get_checkpoint_key_set(
+        wmconstants.MIGRATION_PIPELINE_ACTION_TYPE, wmconstants.MIGRATION_PIPELINE_OBJECT_TYPE)
+    pipeline = Pipeline(client_config['export_dir'], completed_pipeline_steps, args.dry_run)
     export_user = pipeline.add_task(UserExportTask(client_config))
     pipeline.add_task(UserImportTask(client_config), [export_user])
     return pipeline
