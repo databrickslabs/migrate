@@ -54,6 +54,30 @@ class DBClientTest(unittest.TestCase):
         result = client.get("/endpoint")
         assert(result == {'user': 'foo', 'http_status_code': 200})
 
+    @mock.patch('time.sleep')
+    @mock.patch('dbclient.parser.get_login_credentials')
+    @mock.patch('requests.get')
+    def test_renew_token_timeout(self, mock_get, mock_get_login_credentials, mock_sleep):
+        config = test_client_config()
+        client = dbclient(config)
+
+        # Failure response due to expired token.
+        expired_response = mock.MagicMock()
+        expired_response.status_code = 403
+        expired_response.text = "<title>Error 403 Invalid access token.</title>"
+
+        mock_get.side_effect = [expired_response]
+
+        # Always get the the old token.
+        old_token = {
+            'host': 'http://test.url',
+            'token': 'test_token'
+        }
+        mock_get_login_credentials.return_value = old_token
+
+        with self.assertRaises(Exception):
+            client.get("/endpoint")
+
 
 if __name__ == '__main__':
     unittest.main()
