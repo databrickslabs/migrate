@@ -328,12 +328,11 @@ class ClustersClient(dbclient):
     def get_cluster_id_mapping(self, log_file='clusters.log'):
         """
         Get a dict mapping of old cluster ids to new cluster ids.
-        :param log_file:
-        :return:
+        :param log_file: file that contains clusters info from the source workspace.
+        :return: old_cluster_id -> new_cluster_id dictionary.
         """
         cluster_logfile = self.get_export_dir() + log_file
         current_cl = self.get_cluster_list(False)
-        # current_cl = self.get('/clusters/list').get('clusters', [])
         old_clusters = {}
         # build dict with old cluster name to cluster id mapping
         if not os.path.exists(cluster_logfile):
