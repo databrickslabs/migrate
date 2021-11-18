@@ -2,35 +2,60 @@ import unittest
 
 from .pipeline import Pipeline
 from .task import AbstractTask
+from checkpoint_service import CheckpointKeySet, DisabledCheckpointKeySet
 
+TEST_CHECKPOINT_FILE = 'pipeline/test_data/pipeline_steps.log'
 
 class AppendTask(AbstractTask):
-    result = []
-
-    def __init__(self, name, number: int):
+    def __init__(self, name, number: int, result):
         super().__init__(name)
         self.number = number
+        self._result = result
 
     def run(self):
-        AppendTask.result.append(self.number)
-
+        self._result.append(self.number)
 
 class PipelineTest(unittest.TestCase):
+
+    def setUp(self):
+        if os.path.exists(TEST_CHECKPOINT_FILE):
+            os.remove(TEST_CHECKPOINT_FILE)
+
     def test_run(self):
-        task_1 = AppendTask("task1", 1)
-        task_2 = AppendTask("task2", 2)
-        task_3 = AppendTask("task3", 3)
-        task_4 = AppendTask("task4", 4)
-
-        pipeline = Pipeline('test_working_dir')
-        node_1 = pipeline.add_task(task_1)
-        node_2 = pipeline.add_task(task_2, [node_1])
-        node_3 = pipeline.add_task(task_3, [node_1])
-        pipeline.add_task(task_4, [node_2, node_3])
-
+        result = []
+        test_pipeline_steps_key_set = DisabledCheckpointKeySet()
+        pipeline = self._create_test_pipeline(test_pipeline_steps_key_set, ["task1", "task2", "task3", "task4"], result)
         pipeline.run()
 
-        self.assertEqual(AppendTask.result, [1, 2, 3, 4])
+        self.assertEqual(result, [1, 2, 3, 4])
+
+    def test_run_with_checkpoint(self):
+        with open(TEST_CHECKPOINT_FILE, 'w+') as wp:
+            wp.write("task1\n")
+
+        result = []
+        test_pipeline_steps_key_set = CheckpointKeySet(TEST_CHECKPOINT_FILE)
+        pipeline = self._create_test_pipeline(test_pipeline_steps_key_set, ["task1", "task2", "task3", "task4"], result)
+        pipeline.run()
+        self.assertEqual(result, [2, 3, 4])
+
+        # run again after all steps are checkpointed
+        result = []
+        test_pipeline_steps_key_set = CheckpointKeySet(TEST_CHECKPOINT_FILE)
+        pipeline = self._create_test_pipeline(test_pipeline_steps_key_set, ["task1", "task2", "task3", "task4"], result)
+        pipeline.run()
+        self.assertEqual(result, [])
+
+    def _create_test_pipeline(self, pipeline_steps_key_set, task_names, result):
+        pipeline = Pipeline('test_data', pipeline_steps_key_set)
+        parents = []
+        for idx, task_name in enumerate(task_names):
+            task = AppendTask(task_name, idx+1, result)
+            node = pipeline.add_task(task, parents)
+            parents = [node]
+
+        return pipeline
+
 
 
 if __name__ == '__main__':
