@@ -196,25 +196,25 @@ class JobsClient(ClustersClient):
         for job in job_list:
             self.post('/jobs/delete', {'job_id': job['job_id']})
 
-    def get_cluster_id_mapping(self, log_file='clusters.log'):
-        """
-        Get a dict mapping of old cluster ids to new cluster ids for jobs connecting to existing clusters
-        :param log_file:
-        :return:
-        """
-        cluster_logfile = self.get_export_dir() + log_file
-        current_cl = self.get('/clusters/list').get('clusters', [])
-        old_clusters = {}
-        # build dict with old cluster name to cluster id mapping
-        if not os.path.exists(cluster_logfile):
-            raise ValueError('Clusters log must exist to map clusters to previous existing cluster ids')
-        with open(cluster_logfile, 'r') as fp:
-            for line in fp:
-                conf = json.loads(line)
-                old_clusters[conf['cluster_name']] = conf['cluster_id']
-        new_to_old_mapping = {}
-        for new_cluster in current_cl:
-            old_cluster_id = old_clusters.get(new_cluster['cluster_name'], None)
-            if old_cluster_id:
-                new_to_old_mapping[old_cluster_id] = new_cluster['cluster_id']
-        return new_to_old_mapping
+    # def get_cluster_id_mapping(self, log_file='clusters.log'):
+    #     """
+    #     Get a dict mapping of old cluster ids to new cluster ids for jobs connecting to existing clusters
+    #     :param log_file:
+    #     :return:
+    #     """
+    #     cluster_logfile = self.get_export_dir() + log_file
+    #     current_cl = self.get('/clusters/list').get('clusters', [])
+    #     old_clusters = {}
+    #     # build dict with old cluster name to cluster id mapping
+    #     if not os.path.exists(cluster_logfile):
+    #         raise ValueError('Clusters log must exist to map clusters to previous existing cluster ids')
+    #     with open(cluster_logfile, 'r') as fp:
+    #         for line in fp:
+    #             conf = json.loads(line)
+    #             old_clusters[conf['cluster_name']] = conf['cluster_id']
+    #     old_to_new_mapping = {}
+    #     for new_cluster in current_cl:
+    #         old_cluster_id = old_clusters.get(new_cluster['cluster_name'], None)
+    #         if old_cluster_id:
+    #             old_to_new_mapping[old_cluster_id] = new_cluster['cluster_id']
+    #     return old_to_new_mapping
