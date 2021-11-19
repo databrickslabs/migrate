@@ -36,10 +36,10 @@ class dbclient:
 
     def __init__(self, configs):
         self._profile = configs['profile']
-        self._url = ''
         self._token = ''
         self._raw_token = ''
-        self._update_url_and_token(configs['url'], configs['token'])
+        self._url = url_validation(configs['url'])
+        self._update_token(configs['token'])
         self._export_dir = configs['export_dir']
         self._is_aws = configs['is_aws']
         self._skip_failed = configs['skip_failed']
@@ -53,8 +53,7 @@ class dbclient:
             os.environ['CURL_CA_BUNDLE'] = ""
         os.makedirs(self._export_dir, exist_ok=True)
 
-    def _update_url_and_token(self, url, token):
-        self._url = url_validation(url)
+    def _update_token(self, token):
         self._raw_token = token
         self._token = {
             'Authorization': 'Bearer {0}'.format(token),
@@ -122,9 +121,8 @@ class dbclient:
         timeout = 86400
 
         for x in range(0, int(timeout / interval)):
-            print(f"#{x} Migration paused due to expired token. Trying to renew...")
+            print(f"#{x} Migration paused due to invalid or expired token. Trying to renew...")
             login_args = parser.get_login_credentials(profile=self._profile)
-            url = login_args['host']
             token = login_args['token']
             if token == self._raw_token:
                 print("No new token found. Please renew token by running:\n" +
@@ -134,7 +132,7 @@ class dbclient:
                 continue
 
             print("New token found. Migration resumed.")
-            self._update_url_and_token(url, token)
+            self._update_token(token)
             return
 
         raise Exception(f"Failed to renew token after {timeout}s. Please rerun the pipeline.")
