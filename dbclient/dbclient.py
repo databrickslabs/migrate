@@ -119,7 +119,7 @@ class dbclient:
             os.rmdir(local_dir)
 
     def _loop_until_token_renewed(self):
-        interval = 120
+        interval = 20
         timeout = 86400
 
         for x in range(0, int(timeout / interval)):
