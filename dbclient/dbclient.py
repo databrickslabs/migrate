@@ -2,6 +2,9 @@ import json
 import os
 import requests
 import fileinput
+import re
+from dbclient import parser
+import time
 import requests.packages.urllib3
 
 global pprint_j
@@ -13,19 +16,30 @@ def pprint_j(i):
     print(json.dumps(i, indent=4, sort_keys=True))
 
 
+def url_validation(url):
+    if '/?o=' in url:
+        # if the workspace_id exists, lets remove it from the URL
+        url = re.sub("\/\?o=.*", '', url)
+    elif 'net/' == url[-4:]:
+        url = url[:-1]
+    elif 'com/' == url[-4:]:
+        url = url[:-1]
+    return url.rstrip("/")
+
+
 class dbclient:
     """
     Rest API Wrapper for Databricks APIs
     """
     # set of http error codes to throw an exception if hit. Handles client and auth errors
-    http_error_codes = (401, 403)
+    http_error_codes = [401]
 
     def __init__(self, configs):
-        self._token = {
-            'Authorization': 'Bearer {0}'.format(configs['token']), 
-            'User-Agent': 'databrickslabs-migrate/0.1.0'
-        }
-        self._url = configs['url'].rstrip("/")
+        self._profile = configs['profile']
+        self._token = ''
+        self._raw_token = ''
+        self._url = url_validation(configs['url'])
+        self._update_token(configs['token'])
         self._export_dir = configs['export_dir']
         self._is_aws = configs['is_aws']
         self._skip_failed = configs['skip_failed']
@@ -38,6 +52,13 @@ class dbclient:
             os.environ['REQUESTS_CA_BUNDLE'] = ""
             os.environ['CURL_CA_BUNDLE'] = ""
         os.makedirs(self._export_dir, exist_ok=True)
+
+    def _update_token(self, token):
+        self._raw_token = token
+        self._token = {
+            'Authorization': 'Bearer {0}'.format(token),
+            'User-Agent': 'databrickslabs-migrate/0.1.0'
+        }
 
     def is_aws(self):
         return self._is_aws
@@ -95,68 +116,103 @@ class dbclient:
         if len(os.listdir(local_dir)) == 0:
             os.rmdir(local_dir)
 
+    def _loop_until_token_renewed(self):
+        interval = 20
+        timeout = 86400
+
+        for x in range(0, int(timeout / interval)):
+            print(f"#{x} Migration paused due to invalid or expired token. Trying to renew...")
+            login_args = parser.get_login_credentials(profile=self._profile)
+            token = login_args['token']
+            if token == self._raw_token:
+                print("No new token found. Please renew token by running:\n" +
+                      f"$ databricks configure --token --profile {self._profile}\n" +
+                      f"Will try again in {interval} seconds.")
+                time.sleep(interval)
+                continue
+
+            print("New token found. Migration resumed.")
+            self._update_token(token)
+            return
+
+        raise Exception(f"Failed to renew token after {timeout}s. Please rerun the pipeline.")
+
+    def _should_retry_with_new_token(self, raw_results):
+        if raw_results.status_code == 403 and "Error 403 Invalid access token." in raw_results.text:
+            self._loop_until_token_renewed()
+            return True
+        else:
+            return False
+
     def get(self, endpoint, json_params=None, version='2.0', print_json=False):
         if version:
             ver = version
-        full_endpoint = self._url + '/api/{0}'.format(ver) + endpoint
-        if self.is_verbose():
-            print("Get: {0}".format(full_endpoint))
-        if json_params:
-            raw_results = requests.get(full_endpoint, headers=self._token, params=json_params, verify=self._verify_ssl)
+
+        while True:
+            full_endpoint = self._url + '/api/{0}'.format(ver) + endpoint
+            if self.is_verbose():
+                print("Get: {0}".format(full_endpoint))
+            if json_params:
+                raw_results = requests.get(full_endpoint, headers=self._token, params=json_params, verify=self._verify_ssl)
+            else:
+                raw_results = requests.get(full_endpoint, headers=self._token, verify=self._verify_ssl)
+
+            if self._should_retry_with_new_token(raw_results):
+                continue
+
             http_status_code = raw_results.status_code
             if http_status_code in dbclient.http_error_codes:
                 raise Exception("Error: GET request failed with code {}\n{}".format(http_status_code, raw_results.text))
             results = raw_results.json()
-        else:
-            raw_results = requests.get(full_endpoint, headers=self._token, verify=self._verify_ssl)
-            http_status_code = raw_results.status_code
-            if http_status_code in dbclient.http_error_codes:
-                raise Exception("Error: GET request failed with code {}\n{}".format(http_status_code, raw_results.text))
-            results = raw_results.json()
-        if print_json:
-            print(json.dumps(results, indent=4, sort_keys=True))
-        if type(results) == list:
-            results = {'elements': results}
-        results['http_status_code'] = raw_results.status_code
-        return results
+            if print_json:
+                print(json.dumps(results, indent=4, sort_keys=True))
+            if type(results) == list:
+                results = {'elements': results}
+            results['http_status_code'] = http_status_code
+            return results
 
     def http_req(self, http_type, endpoint, json_params, version='2.0', print_json=False, files_json=None):
         if version:
             ver = version
-        full_endpoint = self._url + '/api/{0}'.format(ver) + endpoint
-        if self.is_verbose():
-            print("{0}: {1}".format(http_type, full_endpoint))
-        if json_params:
-            if http_type == 'post':
-                if files_json:
-                    raw_results = requests.post(full_endpoint, headers=self._token,
-                                                data=json_params, files=files_json, verify=self._verify_ssl)
-                else:
-                    raw_results = requests.post(full_endpoint, headers=self._token,
-                                                json=json_params, verify=self._verify_ssl)
-            if http_type == 'put':
-                raw_results = requests.put(full_endpoint, headers=self._token,
-                                           json=json_params, verify=self._verify_ssl)
-            if http_type == 'patch':
-                raw_results = requests.patch(full_endpoint, headers=self._token,
-                                             json=json_params, verify=self._verify_ssl)
+        while True:
+            full_endpoint = self._url + '/api/{0}'.format(ver) + endpoint
+            if self.is_verbose():
+                print("{0}: {1}".format(http_type, full_endpoint))
+            if json_params:
+                if http_type == 'post':
+                    if files_json:
+                        raw_results = requests.post(full_endpoint, headers=self._token,
+                                                    data=json_params, files=files_json, verify=self._verify_ssl)
+                    else:
+                        raw_results = requests.post(full_endpoint, headers=self._token,
+                                                    json=json_params, verify=self._verify_ssl)
+                if http_type == 'put':
+                    raw_results = requests.put(full_endpoint, headers=self._token,
+                                               json=json_params, verify=self._verify_ssl)
+                if http_type == 'patch':
+                    raw_results = requests.patch(full_endpoint, headers=self._token,
+                                                 json=json_params, verify=self._verify_ssl)
+            else:
+                print("Must have a payload in json_args param.")
+                return {}
+
+            if self._should_retry_with_new_token(raw_results):
+                continue
+
             http_status_code = raw_results.status_code
             if http_status_code in dbclient.http_error_codes:
                 raise Exception("Error: {0} request failed with code {1}\n{2}".format(http_type,
                                                                                       http_status_code,
                                                                                       raw_results.text))
             results = raw_results.json()
-        else:
-            print("Must have a payload in json_args param.")
-            return {}
-        if print_json:
-            print(json.dumps(results, indent=4, sort_keys=True))
-        # if results are empty, let's return the return status
-        if results:
-            results['http_status_code'] = raw_results.status_code
-            return results
-        else:
-            return {'http_status_code': raw_results.status_code}
+            if print_json:
+                print(json.dumps(results, indent=4, sort_keys=True))
+            # if results are empty, let's return the return status
+            if results:
+                results['http_status_code'] = raw_results.status_code
+                return results
+            else:
+                return {'http_status_code': raw_results.status_code}
 
     def post(self, endpoint, json_params, version='2.0', print_json=False, files_json=None):
         return self.http_req('post', endpoint, json_params, version, print_json, files_json)

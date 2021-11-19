@@ -1,6 +1,5 @@
 import argparse
 import configparser
-import re
 from enum import Enum
 from os import path
 
@@ -339,22 +338,11 @@ def prompt_for_input(message):
         sys.stdout.write("Please respond with 'yes' or 'no'")
 
 
-def url_validation(url):
-    if '/?o=' in url:
-        # if the workspace_id exists, lets remove it from the URL
-        new_url = re.sub("\/\?o=.*", '', url)
-        return new_url
-    elif 'net/' == url[-4:]:
-        return url[:-1]
-    elif 'com/' == url[-4:]:
-        return url[:-1]
-    return url
-
-
-def build_client_config(url, token, args):
+def build_client_config(profile, url, token, args):
     # cant use netrc credentials because requests module tries to load the credentials into http basic auth headers
     # aws is the default
-    config = {'url': url_validation(url),
+    config = {'profile': profile,
+              'url': url,
               'token': token,
               'is_aws': (not args.azure),
               'verbose': (not args.silent),
