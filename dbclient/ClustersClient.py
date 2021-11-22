@@ -309,15 +309,17 @@ class ClustersClient(dbclient):
         with open(self.get_export_dir() + cluster_log_file, 'r') as fp:
             for line in fp:
                 cluster_conf = json.loads(line)
-                original_cluster_creator = cluster_conf['creator_user_name']
-                original_cluster_id = cluster_conf['cluster_id']
-                if original_cluster_id in old_to_new_cluster_mapping and original_cluster_creator in user_name_to_user_id:
-                    current_cluster_id = old_to_new_cluster_mapping[original_cluster_id]
-                    cluster_ids_to_change_creator.append(current_cluster_id)
-                    original_creator_user_ids.append(user_name_to_user_id[original_cluster_creator])
-                else:
-                    print("The old cluster id " + original_cluster_id +
-                          " does not get logged for EditClusterOwner due to some problems.")
+                if 'creator_user_name' in cluster_conf and 'cluster_id' in cluster_conf:
+                    original_cluster_creator = cluster_conf['creator_user_name']
+                    original_cluster_id = cluster_conf['cluster_id']
+                    if original_cluster_id in old_to_new_cluster_mapping and original_cluster_creator in user_name_to_user_id:
+                        current_cluster_id = old_to_new_cluster_mapping[original_cluster_id]
+                        cluster_ids_to_change_creator.append(current_cluster_id)
+                        original_creator_user_ids.append(user_name_to_user_id[original_cluster_creator])
+                    else:
+                        print("The old cluster id " + original_cluster_id + " with the original_creator of " +
+                              original_cluster_creator +
+                              " does not get logged for EditClusterOwner due to some problems.")
 
         with open(self.get_export_dir() + cluster_ids_file, 'w') as fp:
             dumped_cluster_ids = json.dumps(cluster_ids_to_change_creator, separators=(',', ':'))
