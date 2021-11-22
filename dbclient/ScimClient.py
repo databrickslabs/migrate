@@ -426,6 +426,9 @@ class ScimClient(dbclient):
                 user_create = {k: user[k] for k in create_keys if k in user}
                 create_resp = self.post('/preview/scim/v2/Users', user_create)
 
+        with open(self.get_export_dir() + "user_name_to_user_id.log", 'w') as fp:
+            fp.write(json.dumps(self.get_user_id_mapping()))
+
     def log_failed_users(self, current_user_ids, user_log, failed_user_log):
         with open(user_log, 'r') as fp, open(failed_user_log, 'w') as failed_fp:
             # loop through each user in the file

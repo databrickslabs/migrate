@@ -262,6 +262,10 @@ class ClustersClient(dbclient):
                         pin_resp = self.post('/clusters/pin', {'cluster_id': cluster_resp['cluster_id']})
                 else:
                     print(cluster_resp)
+
+        # TODO: May be put it into a separate step to make it more rerunnable.
+        self._log_cluster_ids_and_original_creators(log_file)
+
         # add cluster ACLs
         # loop through and reapply cluster ACLs
         with open(acl_cluster_log, 'r') as acl_fp:
@@ -276,6 +280,79 @@ class ClustersClient(dbclient):
                 api = f'/preview/permissions/clusters/{cid}'
                 resp = self.put(api, acl_args)
                 print(resp)
+
+    def _log_cluster_ids_and_original_creators(
+            self,
+            cluster_log_file,
+            user_name_to_user_id_log_file='user_name_to_user_id.log',
+            creators_file='original_creator_user_ids.log',
+            cluster_ids_file='cluster_ids_to_change_creator.log'):
+        """
+        Log the cluster_ids_to_change_creator and original_creator_user_ids
+        These can be used to edit the clusters to be owned by the correct/original creator instead of the
+        PAT token owner. Fails if user_name_to_user_id.log does not exist.
+
+        :param user_name_to_user_id_log_file: file that contains the userName to userId mapping of the DST workspace.
+                                              This file is exported as part of the users-import step.
+        :param cluster_log_file: file that contains the exported cluster objects.
+        :param creators_file: output file written with the list of original creators of clusters.
+                              The list should be in the same order as the cluster_ids_file.
+        :param cluster_ids_file: output file written with the list of cluster ids that need the creator tag to change.
+        """
+        cluster_ids_to_change_creator = []
+        original_creator_user_ids = []
+        with open(self.get_export_dir() + user_name_to_user_id_log_file, 'r') as fp:
+            user_name_to_user_id = json.loads(fp.read())
+
+        old_to_new_cluster_mapping = self.get_cluster_id_mapping(cluster_log_file)
+
+        with open(self.get_export_dir() + cluster_log_file, 'r') as fp:
+            for line in fp:
+                cluster_conf = json.loads(line)
+                if 'creator_user_name' in cluster_conf and 'cluster_id' in cluster_conf:
+                    original_cluster_creator = cluster_conf['creator_user_name']
+                    original_cluster_id = cluster_conf['cluster_id']
+                    if original_cluster_id in old_to_new_cluster_mapping and original_cluster_creator in user_name_to_user_id:
+                        current_cluster_id = old_to_new_cluster_mapping[original_cluster_id]
+                        cluster_ids_to_change_creator.append(current_cluster_id)
+                        original_creator_user_ids.append(user_name_to_user_id[original_cluster_creator])
+                    else:
+                        print("The old cluster id " + original_cluster_id + " with the original_creator of " +
+                              original_cluster_creator +
+                              " does not get logged for EditClusterOwner due to some problems.")
+
+        with open(self.get_export_dir() + cluster_ids_file, 'w') as fp:
+            dumped_cluster_ids = json.dumps(cluster_ids_to_change_creator, separators=(',', ':'))
+            # Remove the initial '[' and ']' for easier copy-paste.
+            fp.write(dumped_cluster_ids.lstrip('[').rstrip(']'))
+
+        with open(self.get_export_dir() + creators_file, 'w') as fp:
+            dumped_user_ids = json.dumps(original_creator_user_ids, separators=(',', ':'))
+            # Remove the initial '[' and ']' for easier copy-paste.
+            fp.write(dumped_user_ids.lstrip('[').rstrip(']'))
+
+    def get_cluster_id_mapping(self, log_file='clusters.log'):
+        """
+        Get a dict mapping of old cluster ids to new cluster ids.
+        :param log_file: file that contains clusters info from the source workspace.
+        :return: old_cluster_id -> new_cluster_id dictionary.
+        """
+        cluster_logfile = self.get_export_dir() + log_file
+        current_cl = self.get_cluster_list(False)
+        old_clusters = {}
+        # build dict with old cluster name to cluster id mapping
+        if not os.path.exists(cluster_logfile):
+            raise ValueError('Clusters log must exist to map clusters to previous existing cluster ids')
+        with open(cluster_logfile, 'r') as fp:
+            for line in fp:
+                conf = json.loads(line)
+                old_clusters[conf['cluster_name']] = conf['cluster_id']
+        old_to_new_mapping = {}
+        for new_cluster in current_cl:
+            old_cluster_id = old_clusters.get(new_cluster['cluster_name'], None)
+            if old_cluster_id:
+                old_to_new_mapping[old_cluster_id] = new_cluster['cluster_id']
+        return old_to_new_mapping
 
     def import_cluster_policies(self, log_file='cluster_policies.log', acl_log_file='acl_cluster_policies.log'):
         policies_log = self.get_export_dir() + log_file
