@@ -47,7 +47,7 @@ def build_pipeline(args) -> Pipeline:
 
 def build_export_pipeline(client_config, checkpoint_service, args) -> Pipeline:
     # All export jobs
-    #                                                           -> export_clusters -> export_instance_pools -> export_jobs
+    #                                                           -> export_secrets -> export_clusters -> export_instance_pools -> export_jobs
     # export_instance_profiles -> export_users -> export_groups -> log_workspace_items -> export_workspace_acls
     #                                                           -> export_notebooks
     #                                                           -> export_metastore -> export_metastore_table_acls
@@ -60,7 +60,8 @@ def build_export_pipeline(client_config, checkpoint_service, args) -> Pipeline:
     log_workspace_items = pipeline.add_task(WorkspaceItemLogTask(client_config, checkpoint_service), [export_groups])
     export_workspace_acls = pipeline.add_task(WorkspaceACLExportTask(client_config, checkpoint_service), [log_workspace_items])
     export_notebooks = pipeline.add_task(NotebookExportTask(client_config, checkpoint_service), [log_workspace_items])
-    export_clusters = pipeline.add_task(ClustersExportTask(client_config, args), [export_groups])
+    export_secrets = pipeline.add_task(SecretExportTask(client_config), [export_groups])
+    export_clusters = pipeline.add_task(ClustersExportTask(client_config, args), [export_secrets])
     export_instance_pools = pipeline.add_task(InstancePoolsExportTask(client_config, args), [export_clusters])
     export_jobs = pipeline.add_task(JobsExportTask(client_config, args), [export_instance_pools])
     export_metastore = pipeline.add_task(MetastoreExportTask(client_config, checkpoint_service, args), [export_groups])
@@ -70,7 +71,7 @@ def build_export_pipeline(client_config, checkpoint_service, args) -> Pipeline:
 
 def build_import_pipeline(client_config, checkpoint_service, args) -> Pipeline:
     # All import jobs
-    #                                                           -> import_clusters -> import_instance_pools -> import_jobs
+    #                                                           -> import_secrets -> import_clusters -> import_instance_pools -> import_jobs
     # import_instance_profiles -> import_users -> import_groups -> log_workspace_items -> import_notebooks -> import_workspace_acls
     #                                                           -> import_metastore -> import_metastore_table_acls
     completed_pipeline_steps = checkpoint_service.get_checkpoint_key_set(
@@ -81,7 +82,8 @@ def build_import_pipeline(client_config, checkpoint_service, args) -> Pipeline:
     import_groups = pipeline.add_task(UserImportTask(client_config), [import_users])
     import_notebooks = pipeline.add_task(NotebookImportTask(client_config, checkpoint_service, args), [import_groups])
     import_workspace_acls = pipeline.add_task(WorkspaceACLImportTask(client_config, checkpoint_service), [import_notebooks])
-    import_clusters = pipeline.add_task(ClustersImportTask(client_config, args), [import_groups])
+    import_secrets = pipeline.add_task(SecretImportTask(client_config), [import_groups])
+    import_clusters = pipeline.add_task(ClustersImportTask(client_config, args), [import_secrets])
     import_instance_pools = pipeline.add_task(InstancePoolsImportTask(client_config, args), [import_clusters])
     import_jobs = pipeline.add_task(JobsImportTask(client_config, args), [import_instance_pools])
     import_metastore = pipeline.add_task(MetastoreImportTask(client_config, checkpoint_service, args), [import_groups])

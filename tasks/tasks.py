@@ -306,3 +306,32 @@ class MetastoreTableACLImportTask(AbstractTask):
         table_acls_c = TableACLsClient(self.client_config)
         table_acls_c.import_table_acls()
 
+class SecretExportTask(AbstractTask):
+    """Task that exports secrets and scopes.
+
+    The behavior is equivalent to `$ python export_db.py --secrets --cluster-name $clusterName
+    """
+    def __init__(self, client_config, args):
+        super().__init__(name="export_secrets")
+        self.client_config = client_config
+        self.args = args
+
+    def run(self):
+        start = timer()
+        # log job configs
+        secrets_c = SecretsClient(self.client_config)
+        secrets_c.log_all_secrets(cluster_name=self.args.cluster_name)
+        secrets_c.log_all_secrets_acls()
+
+class SecretImportTask(AbstractTask):
+    """Task that imports secrets and scopes.
+
+    The behavior is equivalent to `$ python import_db.py --secrets`
+    """
+    def __init__(self, client_config):
+        super().__init__(name="import_secrets")
+        self.client_config = client_config
+
+    def run(self):
+        secrets_c = SecretsClient(self.client_config)
+        secrets_c.import_all_secrets()
