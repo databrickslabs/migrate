@@ -26,6 +26,7 @@ def build_pipeline(args) -> Pipeline:
     # Resume session if specified, and create a new one otherwise. Different session will work in
     # different export_dir in order to be isolated.
     session = args.session if args.session else generate_session()
+    client_config['session'] = session
     client_config['export_dir'] = os.path.join(client_config['export_dir'], session) + '/'
 
     if client_config['debug']:
@@ -69,6 +70,8 @@ def build_export_pipeline(client_config, checkpoint_service, args) -> Pipeline:
     export_jobs = pipeline.add_task(JobsExportTask(client_config, args), [export_instance_pools])
     export_metastore = pipeline.add_task(MetastoreExportTask(client_config, checkpoint_service, args), [export_groups])
     export_metastore_table_acls = pipeline.add_task(MetastoreTableACLExportTask(client_config, args), [export_metastore])
+    finish_export = pipeline.add_task(FinishExportTask(client_config),
+                                      [export_workspace_acls, export_notebooks, export_jobs, export_metastore_table_acls])
 
     return pipeline
 

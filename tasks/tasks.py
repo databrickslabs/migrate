@@ -333,3 +333,15 @@ class SecretImportTask(AbstractTask):
     def run(self):
         secrets_c = SecretsClient(self.client_config)
         secrets_c.import_all_secrets()
+
+class FinishExportTask(AbstractTask):
+    """
+    Final tasks to finish export. This task will print out necessary information to be used for import pipeline.
+    Todo: Add some validation logic to ensure export finished successfully.
+    """
+    def __init__(self, client_config):
+        super().__init__(name="finish_export")
+        self.client_config = client_config
+
+    def run(self):
+        print(f"Export finished successfully. Session Id: {self.client_config['session']}")
