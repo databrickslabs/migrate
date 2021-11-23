@@ -82,7 +82,7 @@ def build_import_pipeline(client_config, checkpoint_service, args) -> Pipeline:
     import_groups = pipeline.add_task(UserImportTask(client_config), [import_users])
     import_notebooks = pipeline.add_task(NotebookImportTask(client_config, checkpoint_service, args), [import_groups])
     import_workspace_acls = pipeline.add_task(WorkspaceACLImportTask(client_config, checkpoint_service), [import_notebooks])
-    import_secrets = pipeline.add_task(SecretImportTask(client_config, args), [import_groups])
+    import_secrets = pipeline.add_task(SecretImportTask(client_config), [import_groups])
     import_clusters = pipeline.add_task(ClustersImportTask(client_config, args), [import_secrets])
     import_instance_pools = pipeline.add_task(InstancePoolsImportTask(client_config, args), [import_clusters])
     import_jobs = pipeline.add_task(JobsImportTask(client_config, args), [import_instance_pools])
