@@ -317,8 +317,6 @@ class SecretExportTask(AbstractTask):
         self.args = args
 
     def run(self):
-        start = timer()
-        # log job configs
         secrets_c = SecretsClient(self.client_config)
         secrets_c.log_all_secrets(cluster_name=self.args.cluster_name)
         secrets_c.log_all_secrets_acls()
