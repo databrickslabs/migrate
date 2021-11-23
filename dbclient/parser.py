@@ -403,6 +403,9 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
     parser.add_argument('--set-export-dir', action='store',
                         help='Set the base directory to export artifacts')
 
+    parser.add_argument('--cluster-name', action='store',
+                        help='Cluster name to export the metastore to a specific cluster. Cluster will be started.')
+
     # Workspace arguments
     parser.add_argument('--notebook-format', type=NotebookFormat,
                         choices=list(NotebookFormat), default=NotebookFormat.dbc,
@@ -411,10 +414,12 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
     parser.add_argument('--overwrite-notebooks', action='store_true', default=False,
                         help='Flag to overwrite notebooks to forcefully overwrite during notebook imports')
 
+    parser.add_argument('--archive-missing', action='store_true',
+                        help='Import all missing users into the top level /Archive/ directory.')
+
     # Metastore arguments
-    # cluster name used to export the metastore
-    parser.add_argument('--cluster-name', action='store',
-                        help='Cluster name to export the metastore to a specific cluster. Cluster will be started.')
+    parser.add_argument('--repair-metastore-tables', action='store_true', default=False,
+                        help='Repair legacy metastore tables')
 
     parser.add_argument('--metastore-unicode', action='store_true',
                         help='log all the metastore table definitions including unicode characters')

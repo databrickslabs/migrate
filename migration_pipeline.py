@@ -46,11 +46,14 @@ def build_pipeline(args) -> Pipeline:
 
 
 def build_export_pipeline(client_config, checkpoint_service, args) -> Pipeline:
-    # All export jobs
-    #                                                           -> export_secrets -> export_clusters -> export_instance_pools -> export_jobs
-    # export_instance_profiles -> export_users -> export_groups -> log_workspace_items -> export_workspace_acls
-    #                                                           -> export_notebooks
-    #                                                           -> export_metastore -> export_metastore_table_acls
+    """
+    All export jobs
+    export_instance_profiles -> export_users -> export_groups -> export_secrets -> export_clusters -> export_instance_pools -> export_jobs
+                                                              -> log_workspace_items -> export_workspace_acls
+                                                              -> export_notebooks
+                                                              -> export_metastore -> export_metastore_table_acls
+    """
+
     completed_pipeline_steps = checkpoint_service.get_checkpoint_key_set(
         wmconstants.WM_EXPORT, wmconstants.MIGRATION_PIPELINE_OBJECT_TYPE)
     pipeline = Pipeline(client_config['export_dir'], completed_pipeline_steps, args.dry_run)
@@ -70,16 +73,18 @@ def build_export_pipeline(client_config, checkpoint_service, args) -> Pipeline:
     return pipeline
 
 def build_import_pipeline(client_config, checkpoint_service, args) -> Pipeline:
-    # All import jobs
-    #                                                           -> import_secrets -> import_clusters -> import_instance_pools -> import_jobs
-    # import_instance_profiles -> import_users -> import_groups -> log_workspace_items -> import_notebooks -> import_workspace_acls
-    #                                                           -> import_metastore -> import_metastore_table_acls
+    """
+    All import jobs
+    import_instance_profiles -> import_users -> import_groups -> import_secrets -> import_clusters -> import_instance_pools -> import_jobs
+                                                              -> log_workspace_items -> import_notebooks -> import_workspace_acls
+                                                              -> import_metastore -> import_metastore_table_acls
+    """
     completed_pipeline_steps = checkpoint_service.get_checkpoint_key_set(
         wmconstants.WM_IMPORT, wmconstants.MIGRATION_PIPELINE_OBJECT_TYPE)
     pipeline = Pipeline(client_config['export_dir'], completed_pipeline_steps, args.dry_run)
     import_instance_profiles = pipeline.add_task(InstanceProfileImportTask(client_config))
     import_users = pipeline.add_task(UserImportTask(client_config), [import_instance_profiles])
-    import_groups = pipeline.add_task(UserImportTask(client_config), [import_users])
+    import_groups = pipeline.add_task(GroupImportTask(client_config), [import_users])
     import_notebooks = pipeline.add_task(NotebookImportTask(client_config, checkpoint_service, args), [import_groups])
     import_workspace_acls = pipeline.add_task(WorkspaceACLImportTask(client_config, checkpoint_service), [import_notebooks])
     import_secrets = pipeline.add_task(SecretImportTask(client_config), [import_groups])
