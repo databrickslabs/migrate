@@ -439,23 +439,34 @@ class ScimClient(dbclient):
                     failed_fp.write(f"Failed to create {user} in destination workspace \n")
 
     def import_all_users_and_groups(self, user_log_file='users.log', group_log_dir='groups/', failed_user_log_file='failed_users.log'):
+        self.import_all_users(user_log_file, failed_user_log_file)
+        self.import_all_groups(group_log_dir)
+
+    def import_all_users(self, user_log_file='users.log', failed_user_log_file='failed_users.log'):
         user_log = self.get_export_dir() + user_log_file
         failed_user_log = self.get_export_dir() + failed_user_log_file
-        group_dir = self.get_export_dir() + group_log_dir
 
         self.import_users(user_log)
         current_user_ids = self.get_user_id_mapping()
         self.log_failed_users(current_user_ids, user_log, failed_user_log)
+        # assign the users to IAM roles if on AWS
+        if self.is_aws():
+            print("Update user role assignments")
+            self.assign_user_roles(current_user_ids, user_log_file)
+
+        # need to separate role assignment and entitlements to support Azure
+        print("Updating users entitlements")
+        self.assign_user_entitlements(current_user_ids, user_log_file)
+
+    def import_all_groups(self, group_log_dir='groups/'):
+        group_dir = self.get_export_dir() + group_log_dir
+        current_user_ids = self.get_user_id_mapping()
         self.import_groups(group_dir, current_user_ids)
         # assign the users to IAM roles if on AWS
         if self.is_aws():
             print("Update group role assignments")
             self.assign_group_roles(group_dir)
-            print("Update user role assignments")
-            self.assign_user_roles(current_user_ids, user_log_file)
-            print("Done")
+
         # need to separate role assignment and entitlements to support Azure
         print("Updating groups entitlements")
         self.assign_group_entitlements(group_dir)
-        print("Updating users entitlements")
-        self.assign_user_entitlements(current_user_ids, user_log_file)

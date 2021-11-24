@@ -1,6 +1,8 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from timeit import default_timer as timer
+from datetime import timedelta
 import functools
 from typing import List, Optional
 
@@ -63,8 +65,10 @@ class Pipeline:
         if self._completed_steps.contains(f'{task.name}'):
             logging.info(f'Task {task.name} already completed, found in checkpoint')
             return
+        start = timer()
         logging.info(f'Start {task.name}')
         if not self._dry_run:
             task.run()
-        logging.info(f'Complete {task.name}')
+        end = timer()
+        logging.info(f'{task.name} Completed. Total time taken: {str(timedelta(seconds=end - start))}')
         self._completed_steps.write(f'{task.name}')
