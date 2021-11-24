@@ -201,7 +201,7 @@ def get_export_parser():
                         help='By-pass windows os checker')
 
     parser.add_argument('--use-checkpoint', action='store_true',
-                        help='use checkpointing to speed up export')
+                        help='use checkpointing to restart from previous state')
     return parser
 
 
@@ -319,7 +319,7 @@ def get_import_parser():
                         help='Delete all jobs')
 
     parser.add_argument('--use-checkpoint', action='store_true',
-                        help='use checkpointing to speed up import')
+                        help='use checkpointing to restart from previous state')
     return parser
 
 
@@ -391,12 +391,26 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
     parser.add_argument('--set-export-dir', action='store',
                         help='Set the base directory to export artifacts')
 
+    parser.add_argument('--cluster-name', action='store', required=True,
+                        help='Cluster name to export the metastore to a specific cluster. Cluster will be started.')
+
+    # Workspace arguments
     parser.add_argument('--notebook-format', type=NotebookFormat,
                         choices=list(NotebookFormat), default=NotebookFormat.dbc,
                         help='Choose the file format to download the notebooks (default: DBC)')
 
     parser.add_argument('--overwrite-notebooks', action='store_true', default=False,
                         help='Flag to overwrite notebooks to forcefully overwrite during notebook imports')
+
+    parser.add_argument('--archive-missing', action='store_true',
+                        help='Import all missing users into the top level /Archive/ directory.')
+
+    # Metastore arguments
+    parser.add_argument('--repair-metastore-tables', action='store_true', default=False,
+                        help='Repair legacy metastore tables')
+
+    parser.add_argument('--metastore-unicode', action='store_true',
+                        help='log all the metastore table definitions including unicode characters')
 
     parser.add_argument('--skip-failed', action='store_true', default=False,
                         help='Skip retries for any failed hive metastore exports.')
@@ -407,5 +421,14 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
 
     parser.add_argument('--dry-run', action='store_true', default=False,
                         help='Dry run the pipeline i.e. will not execute tasks if true.')
+
+    parser.add_argument('--export-pipeline', action='store_true',
+                        help='Execute all export tasks.')
+
+    parser.add_argument('--import-pipeline', action='store_true',
+                        help='Execute all import tasks.')
+
+    parser.add_argument('--use-checkpoint', action='store_true',
+                        help='use checkpointing to restart from previous state')
 
     return parser

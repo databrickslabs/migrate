@@ -34,6 +34,7 @@ class TableACLsClient(ClustersClient):
     CLUSTER_LAUNCH_POLLING_INTERVAL_SECONDS = 5
     NOTEBOOK_RUN_POLLING_INTERVAL_SECONDS = 2
     BUFFER_SIZE_BYTES = 1024 * 1024  # 1MB limit for dbfs blocks in API
+    DB_ADMIN_SUFFIX = "+dbadmin@databricks.com"
 
     def import_file_to_workspace(self, source_local_path, workspace_path):
         workspace_mkdirs_params = {
@@ -138,7 +139,8 @@ class TableACLsClient(ClustersClient):
                 res = self.get('/jobs/runs/get', {'run_id': run_id}, print_json=False)
                 if self.is_verbose():
                     print(f"polling for job to finish: {res['run_page_url']}")
-                if res["http_status_code"] != 200 or res["state"]['life_cycle_state'] == 'TERMINATED':
+                if res["http_status_code"] != 200 or res["state"]['life_cycle_state'] == 'TERMINATED' or \
+                        res["state"]['life_cycle_state'] == "INTERNAL_ERROR":
                     break
                 time.sleep(self.NOTEBOOK_RUN_POLLING_INTERVAL_SECONDS)
             except Exception as e:
@@ -228,6 +230,8 @@ class TableACLsClient(ClustersClient):
         self.wait_for_cluster(cid)
 
         user_name = self.get_current_username(must_be_admin=True)
+        if self.DB_ADMIN_SUFFIX in user_name:
+            user_name = "admin"
         export_table_acls_workspace_path = f"/Users/{user_name}/tmp/migrate/Export_Table_ACLs.py"
 
         self.import_file_to_workspace(self.EXPORT_TABLE_ACLS_LOCAL_PATH, export_table_acls_workspace_path)
@@ -268,6 +272,8 @@ class TableACLsClient(ClustersClient):
         self.wait_for_cluster(cid)
 
         user_name = self.get_current_username(must_be_admin=True)
+        if self.DB_ADMIN_SUFFIX in user_name:
+            user_name = "admin"
         import_table_acls_workspace_path = f"/Users/{user_name}/tmp/migrate/Import_Table_ACLs.py"
         self.import_file_to_workspace(self.IMPORT_TABLE_ACLS_LOCAL_PATH, import_table_acls_workspace_path)
 
