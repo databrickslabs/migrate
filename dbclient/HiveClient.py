@@ -417,7 +417,7 @@ class HiveClient(ClustersClient):
         # repair legacy tables
         if should_repair_table:
             self.report_legacy_tables_to_fix()
-            self.repair_legacy_tables(cid, ec_id)
+            self.repair_legacy_tables(cluster_name)
 
     def get_all_databases(self, cid, ec_id):
         # submit first command to find number of databases
@@ -576,7 +576,7 @@ class HiveClient(ClustersClient):
         fix_log = self.get_export_dir() + fix_table_log
         db_list = self.listdir(metastore_local_dir)
         num_of_tables = 0
-        with open(fix_log, 'w') as fp:
+        with open(fix_log, 'w+') as fp:
             for db_name in db_list:
                 local_db_path = metastore_local_dir + db_name
                 if os.path.isdir(local_db_path):
@@ -610,6 +610,9 @@ class HiveClient(ClustersClient):
         repair_table_list = self.get_export_dir() + fix_table_log
         failed_repair_table_log = self.get_export_dir() + failed_fix_table_log
         failed_repairs = 0
+        if not os.path.exists(repair_table_list):
+            print("No tables to repair")
+            return
         with open(repair_table_list, 'r') as fp, open(failed_repair_table_log, 'w') as failed_log_p:
             for line in fp:
                 fqdn_table = line.strip()

@@ -8,7 +8,6 @@ WORKSPACE_DIRECTORY_ACL_OBJECT = "acl_directories"
 METASTORE_TABLES = "metastore"
 
 # Migration pipeline placeholder constants
-MIGRATION_PIPELINE_ACTION_TYPE = "pipeline"
 MIGRATION_PIPELINE_OBJECT_TYPE = "tasks"
 
 # Actions
