@@ -11,3 +11,4 @@ dist/
 .coverage
 .tox/
 databricks_migration_tool.egg-info
+migrate.iml
