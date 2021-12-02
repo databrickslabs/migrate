@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from enum import Enum
 
 
 class AbstractDiff(ABC):
@@ -23,7 +22,7 @@ class Diff(AbstractDiff):
 
 
 def _diff_message(hint, left, right):
-    return f"{hint}:\n- {left}\n+ {right}"
+    return f"{hint}: -'{left}' +'{right}'"
 
 
 class TypeDiff(Diff):
@@ -75,13 +74,21 @@ class Miss(AbstractDiff):
         self.value = value
 
     def __str__(self):
-        return f"MISS_{self.side}: {self.value}"
+        return f"MISS_{self.side}: '{self.value}'"
 
     def __eq__(self, other):
         return str(self) == str(other)
 
 
 def diff_json(left, right):
+    """diff_json compares two dict and return the diff.
+
+    It is required that input dicts only contains dict and prime data types. List is not supported
+    intentionally to reduce the complexity.
+
+    :param left - left hand side of the comparison.
+    :param right - right hand side of the comparison.
+    """
     if type(left) != type(right):
         return TypeDiff(left, right)
 
