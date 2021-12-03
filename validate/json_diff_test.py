@@ -31,6 +31,13 @@ class JsonDiffTest(unittest.TestCase):
         self.assertEqual(expected, diff_json({'i': 1, 'f': 2.0, 's': 'hello', 'l': 'left'},
                                              {'f': 3, 's': 'world', 'i': 2, 'r': 'right'}))
 
+    def test_set_diff(self):
+        expected = DictDiff()
+        expected.add_child('left', Miss('RIGHT', 'left'))
+        expected.add_child('right', Miss('LEFT', 'right'))
+        self.assertEqual(expected, diff_json({'left', 'common'},
+                                             {'right', 'common'}))
+
     def test_nested_dict_diff(self):
         expected1 = DictDiff()
         expected1.add_child('i', ValueDiff(1, 2))
@@ -44,6 +51,87 @@ class JsonDiffTest(unittest.TestCase):
         self.assertEqual(expected1, diff_json(
             {'i': 1, 'f': 2.0, 'e': 'equal', 'n': {'s': 'hello', 'l': 'left'}},
             {'f': 3, 'i': 2, 'e': 'equal', 'n': {'s': 'world', 'r': 'right'}}))
+
+
+class PrepareDiffInputTest(unittest.TestCase):
+    def test_no_change(self):
+        self.assertEqual(1, prepare_diff_input(1))
+        self.assertEqual(2.0, prepare_diff_input(2.0))
+        self.assertEqual('hello', prepare_diff_input('hello'))
+        self.assertEqual({}, prepare_diff_input({}))
+
+    def test_prime_list(self):
+        self.assertEqual({}, prepare_diff_input([]))
+        self.assertEqual({1, 2, 3}, prepare_diff_input([1, 2, 3]))
+        self.assertEqual({1.0, 2.0, 3.0}, prepare_diff_input([1.0, 2.0, 3.0]))
+        self.assertEqual({'1', '3', '2'}, prepare_diff_input(['1', '2', '3']))
+
+    def test_list_of_dict(self):
+        self.assertEqual(
+            {'b': {'key': 'b', 'value': 'y'},
+             'a': {'key': 'a', 'value': 'q'},
+             'c': {'key': 'c', 'value': 'n'}},
+            prepare_diff_input(
+                [{'key': 'b', 'value': 'y'},
+                 {'key': 'c', 'value': 'n'},
+                 {'key': 'a', 'value': 'q'}],
+                PrimaryKeyConfig(
+                    key='key'
+                )))
+
+    def test_simple_nested(self):
+        self.assertEqual(
+            {
+                'foo': {
+                    'b': {'key': 'b', 'value': 'y'},
+                    'a': {'key': 'a', 'value': 'q'},
+                    'c': {'key': 'c', 'value': 'n'}
+                },
+                'bar': 'baz'
+            },
+            prepare_diff_input(
+                {
+                    'foo': [{'key': 'b', 'value': 'y'},
+                            {'key': 'c', 'value': 'n'},
+                            {'key': 'a', 'value': 'q'}],
+                    'bar': 'baz'
+                },
+                {
+                    'foo':
+                        PrimaryKeyConfig(
+                            key='key'
+                        )
+                }))
+
+    def test_deep_nested(self):
+        self.assertEqual(
+            {
+                'foo': {
+                    'b': {'key': 'b', 'value': 'y', 'info': {100: {'id': 100, 'v': '111'}}},
+                    'a': {'key': 'a', 'value': 'q', 'info': {200: {'id': 200, 'v': '222'}}},
+                    'c': {'key': 'c', 'value': 'n', 'info': {300: {'id': 300, 'v': '333'}}}
+                },
+                'bar': 'baz'
+            },
+            prepare_diff_input(
+                {
+                    'foo': [
+                        {'key': 'b', 'value': 'y', 'info': [{'id': 100, 'v': '111'}]},
+                        {'key': 'c', 'value': 'n', 'info': [{'id': 300, 'v': '333'}]},
+                        {'key': 'a', 'value': 'q', 'info': [{'id': 200, 'v': '222'}]},
+                    ],
+                    'bar': 'baz',
+                },
+                {
+                    'foo':
+                        PrimaryKeyConfig(
+                            key='key',
+                            children={
+                                'info': PrimaryKeyConfig(key='id')
+                            }
+                        )
+                })
+        )
 
 
 if __name__ == '__main__':
