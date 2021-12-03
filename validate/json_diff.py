@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 
 
 class AbstractDiff(ABC):
@@ -108,7 +109,61 @@ def diff_json(left, right):
                     diff.add_child(key, child_diff)
         if diff.has_diff():
             return diff
+    elif isinstance(left, set):
+        diff = DictDiff()
+        for key in left.union(right):
+            if key not in left:
+                diff.add_child(key, Miss('LEFT', key))
+            elif key not in right:
+                diff.add_child(key, Miss('RIGHT', key))
+        if diff.has_diff():
+            return diff
     else:
         raise NotImplementedError(f"Type {type(left)} is not supported.")
 
     return None
+
+
+@dataclass
+class PrimaryKeyConfig:
+    key: str = ''
+    children: dict = field(default_factory=dict)
+
+
+def prepare_diff_input(data, config=None):
+    """
+    1) List of primary types to sets.
+    2) List of dict to dict of dicts keyed by primary key.
+
+    :param data:
+    :param config:
+    :return:
+    """
+    if isinstance(data, list):
+        if len(data) == 0:
+            return {}
+        elif isinstance(data[0], (int, float, str)):
+            return set(data)
+        elif isinstance(data[0], dict):
+            assert isinstance(config, PrimaryKeyConfig)
+            result = {}
+            for inner in data:
+                converted = prepare_diff_input(inner, config.children)
+                result[converted[config.key]] = converted
+            return result
+        else:
+            raise NotImplementedError(f"Type {type(data[0])} is not supported.")
+    elif isinstance(data, dict):
+        if len(data) == 0:
+            return {}
+
+        assert isinstance(config, dict)
+        result = {}
+        for key, value in data.items():
+            child_config = config[key] if config and key in config else None
+            result[key] = prepare_diff_input(value, child_config)
+        return result
+    elif isinstance(data, (int, float, str)):
+        return data
+    else:
+        raise NotImplementedError(f"Type {type(data)} is not supported.")
