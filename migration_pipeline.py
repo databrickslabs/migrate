@@ -26,6 +26,9 @@ def build_pipeline(args) -> Pipeline:
     # Resume session if specified, and create a new one otherwise. Different session will work in
     # different export_dir in order to be isolated.
     session = args.session if args.session else generate_session()
+
+    print(f"Using the session id: {session}")
+
     client_config['session'] = session
     client_config['export_dir'] = os.path.join(client_config['export_dir'], session) + '/'
 
