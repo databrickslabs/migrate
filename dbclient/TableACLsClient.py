@@ -231,8 +231,10 @@ class TableACLsClient(ClustersClient):
 
         user_name = self.get_current_username(must_be_admin=True)
         if self.DB_ADMIN_SUFFIX in user_name:
-            user_name = "admin"
-        export_table_acls_workspace_path = f"/Users/{user_name}/tmp/migrate/Export_Table_ACLs.py"
+            notebook_parent_path = ""
+        else:
+            notebook_parent_path = f"/Users/{user_name}"
+        export_table_acls_workspace_path = f"{notebook_parent_path}/tmp/migrate/Export_Table_ACLs.py"
 
         self.import_file_to_workspace(self.EXPORT_TABLE_ACLS_LOCAL_PATH, export_table_acls_workspace_path)
 
@@ -273,8 +275,10 @@ class TableACLsClient(ClustersClient):
 
         user_name = self.get_current_username(must_be_admin=True)
         if self.DB_ADMIN_SUFFIX in user_name:
-            user_name = "admin"
-        import_table_acls_workspace_path = f"/Users/{user_name}/tmp/migrate/Import_Table_ACLs.py"
+            notebook_parent_path = ""
+        else:
+            notebook_parent_path = f"/Users/{user_name}"
+        import_table_acls_workspace_path = f"{notebook_parent_path}/tmp/migrate/Import_Table_ACLs.py"
         self.import_file_to_workspace(self.IMPORT_TABLE_ACLS_LOCAL_PATH, import_table_acls_workspace_path)
 
         dbfs_acls_input_path = "dbfs:/tmp/migrate/table_acl_perms.json.gz"
