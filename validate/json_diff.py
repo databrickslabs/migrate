@@ -131,13 +131,15 @@ class PrimaryKeyConfig:
 
 
 def prepare_diff_input(data, config=None):
-    """
+    """ This function converts input data with the two rules below:
     1) List of primary types to sets.
     2) List of dict to dict of dicts keyed by primary key.
 
-    :param data:
-    :param config:
-    :return:
+    :param data: on side of input for diffing.
+    :param config: an instance of PrimaryKeyConfig in order to specify the primary key of dicts
+    within a list. It should follow the same dict structure of data. See `test_deep_nested` in
+    json_diff_test.py for example.
+    :return: the converted data which should be ready to be fed into diff_json.
     """
     if isinstance(data, list):
         if len(data) == 0:
