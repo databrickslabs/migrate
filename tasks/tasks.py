@@ -10,6 +10,7 @@ class InstanceProfileExportTask(AbstractTask):
     def __init__(self, client_config):
         super().__init__(name="export_instance_profiles")
         self.client_config = client_config
+        self.task_object_name = wmconstants.INSTANCE_PROFILES
 
     def run(self):
         scim_c = ScimClient(self.client_config)
@@ -23,6 +24,7 @@ class UserExportTask(AbstractTask):
     def __init__(self, client_config):
         super().__init__(name="export_users")
         self.client_config = client_config
+        self.task_object_name = wmconstants.USERS
 
     def run(self):
         scim_c = ScimClient(self.client_config)
@@ -33,6 +35,7 @@ class GroupExportTask(AbstractTask):
     def __init__(self, client_config):
         super().__init__(name="export_groups")
         self.client_config = client_config
+        self.task_object_name = wmconstants.GROUPS
 
     def run(self):
         scim_c = ScimClient(self.client_config)
@@ -43,6 +46,7 @@ class InstanceProfileImportTask(AbstractTask):
     def __init__(self, client_config):
         super().__init__(name="import_instance_profiles")
         self.client_config = client_config
+        self.task_object_name = wmconstants.INSTANCE_PROFILES
 
     def run(self):
         if self.client_config['is_aws']:
@@ -55,6 +59,7 @@ class UserImportTask(AbstractTask):
     def __init__(self, client_config):
         super().__init__(name="import_users")
         self.client_config = client_config
+        self.task_object_name = wmconstants.USERS
 
     def run(self):
         scim_c = ScimClient(self.client_config)
@@ -66,12 +71,13 @@ class GroupImportTask(AbstractTask):
     def __init__(self, client_config):
         super().__init__(name="import_groups")
         self.client_config = client_config
+        self.task_object_name = wmconstants.GROUPS
 
     def run(self):
         scim_c = ScimClient(self.client_config)
         scim_c.import_all_groups()
 
-class WorkspaceItemLogTask(AbstractTask):
+class WorkspaceItemLogExportTask(AbstractTask):
     """Task that log all workspace items to download them at a later time.
 
     The behavior is equivalent to `$ python export_db.py --workspace`, which lives in main function of
@@ -80,6 +86,7 @@ class WorkspaceItemLogTask(AbstractTask):
     def __init__(self, client_config, checkpoint_service):
         super().__init__(name="export_workspace_items_log")
         self.client_config = client_config
+        self.task_object_name = wmconstants.WORKSPACE_ITEM_LOG
         self.checkpoint_service = checkpoint_service
 
     def run(self):
@@ -98,6 +105,7 @@ class WorkspaceACLExportTask(AbstractTask):
     def __init__(self, client_config, checkpoint_service):
         super().__init__(name="export_workspace_acls")
         self.client_config = client_config
+        self.task_object_name = wmconstants.WORKSPACE_ACLS
         self.checkpoint_service = checkpoint_service
 
     def run(self):
@@ -114,6 +122,7 @@ class NotebookExportTask(AbstractTask):
     def __init__(self, client_config, checkpoint_service):
         super().__init__(name="export_notebooks")
         self.client_config = client_config
+        self.task_object_name = wmconstants.NOTEBOOKS
         self.checkpoint_service = checkpoint_service
 
     def run(self):
@@ -130,6 +139,7 @@ class WorkspaceACLImportTask(AbstractTask):
     def __init__(self, client_config, checkpoint_service):
         super().__init__(name="import_workspace_acls")
         self.client_config = client_config
+        self.task_object_name = wmconstants.WORKSPACE_ACLS
         self.checkpoint_service = checkpoint_service
 
     def run(self):
@@ -145,6 +155,7 @@ class NotebookImportTask(AbstractTask):
     def __init__(self, client_config, checkpoint_service, args):
         super().__init__(name="import_notebooks")
         self.client_config = client_config
+        self.task_object_name = wmconstants.NOTEBOOKS
         self.checkpoint_service = checkpoint_service
         self.args = args
 
@@ -161,6 +172,7 @@ class ClustersExportTask(AbstractTask):
     def __init__(self, client_config, args):
         super().__init__(name="export_clusters")
         self.client_config = client_config
+        self.task_object_name = wmconstants.CLUSTERS
         self.args = args
 
     def run(self):
@@ -175,6 +187,7 @@ class InstancePoolsExportTask(AbstractTask):
     def __init__(self, client_config, args):
         super().__init__(name="export_instance_pools")
         self.client_config = client_config
+        self.task_object_name = wmconstants.INSTANCE_POOLS
         self.args = args
 
     def run(self):
@@ -186,6 +199,7 @@ class ClustersImportTask(AbstractTask):
     def __init__(self, client_config, args):
         super().__init__(name="import_clusters")
         self.client_config = client_config
+        self.task_object_name = wmconstants.CLUSTERS
         self.args = args
 
     def run(self):
@@ -198,6 +212,7 @@ class InstancePoolsImportTask(AbstractTask):
     def __init__(self, client_config, args):
         super().__init__(name="import_instance_pools")
         self.client_config = client_config
+        self.task_object_name = wmconstants.INSTANCE_POOLS
         self.args = args
 
     def run(self):
@@ -213,6 +228,7 @@ class JobsExportTask(AbstractTask):
     def __init__(self, client_config, args):
         super().__init__(name="export_jobs")
         self.client_config = client_config
+        self.task_object_name = wmconstants.JOBS
         self.args = args
 
     def run(self):
@@ -228,6 +244,7 @@ class JobsImportTask(AbstractTask):
     def __init__(self, client_config, args):
         super().__init__(name="import_jobs")
         self.client_config = client_config
+        self.task_object_name = wmconstants.JOBS
         self.args = args
 
     def run(self):
@@ -243,6 +260,7 @@ class MetastoreExportTask(AbstractTask):
     def __init__(self, client_config, checkpoint_service, args):
         super().__init__(name="export_metastore")
         self.client_config = client_config
+        self.task_object_name = wmconstants.METASTORE
         self.checkpoint_service = checkpoint_service
         self.args = args
 
@@ -259,6 +277,7 @@ class MetastoreImportTask(AbstractTask):
     def __init__(self, client_config, checkpoint_service, args):
         super().__init__(name="import_metastore")
         self.client_config = client_config
+        self.task_object_name = wmconstants.METASTORE
         self.checkpoint_service = checkpoint_service
         self.args = args
 
@@ -277,6 +296,7 @@ class MetastoreTableACLExportTask(AbstractTask):
     def __init__(self, client_config, args):
         super().__init__(name="export_metastore_table_acls")
         self.client_config = client_config
+        self.task_object_name = wmconstants.METASTORE_TABLE_ACLS
         self.args = args
 
     def run(self):
@@ -300,6 +320,7 @@ class MetastoreTableACLImportTask(AbstractTask):
     def __init__(self, client_config, args):
         super().__init__(name="import_metastore_table_acls")
         self.client_config = client_config
+        self.task_object_name = wmconstants.METASTORE_TABLE_ACLS
         self.args = args
 
     def run(self):
@@ -314,6 +335,7 @@ class SecretExportTask(AbstractTask):
     def __init__(self, client_config, args):
         super().__init__(name="export_secrets")
         self.client_config = client_config
+        self.task_object_name = wmconstants.SECRETS
         self.args = args
 
     def run(self):
@@ -329,6 +351,7 @@ class SecretImportTask(AbstractTask):
     def __init__(self, client_config):
         super().__init__(name="import_secrets")
         self.client_config = client_config
+        self.task_object_name = wmconstants.SECRETS
 
     def run(self):
         secrets_c = SecretsClient(self.client_config)
@@ -342,6 +365,7 @@ class FinishExportTask(AbstractTask):
     def __init__(self, client_config):
         super().__init__(name="finish_export")
         self.client_config = client_config
+        self.task_object_name = wmconstants.FINISH
 
     def run(self):
         print(f"Export finished successfully. Session Id: {self.client_config['session']}")

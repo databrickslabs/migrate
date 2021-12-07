@@ -1,5 +1,6 @@
 import argparse
 import configparser
+import wmconstants
 from enum import Enum
 from os import path
 
@@ -17,6 +18,15 @@ class NotebookFormat(Enum):
 
     def __str__(self):
         return self.value
+
+
+class ValidateSkipTasks(argparse.Action):
+    def __call__(self, parser, args, values, option_string=None):
+        valid_tasks = wmconstants.TASK_OBJECTS
+        for task in values:
+            if task not in valid_tasks:
+                raise ValueError(f"invalid task {task}. Skipped tasks must come from {valid_tasks}.")
+        setattr(args, self.dest, values)
 
 
 def is_azure_creds(creds):
@@ -430,5 +440,8 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
 
     parser.add_argument('--use-checkpoint', action='store_true',
                         help='use checkpointing to restart from previous state')
+
+    parser.add_argument('--skip-tasks', nargs='+', type=str, action=ValidateSkipTasks, default=[],
+                        help='List of tasks to skip from the pipeline.')
 
     return parser
