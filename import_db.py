@@ -3,6 +3,7 @@ from timeit import default_timer as timer
 from datetime import timedelta, datetime
 from os import makedirs
 from checkpoint_service import CheckpointService
+import logging_utils
 
 # python 3.6
 def main():
@@ -22,6 +23,7 @@ def main():
     client_config = build_client_config(args.profile, url, token, args)
 
     makedirs(client_config['export_dir'], exist_ok=True)
+    logging_utils.set_default_logging(client_config['export_dir'])
 
     checkpoint_service = CheckpointService(client_config)
     if client_config['debug']:

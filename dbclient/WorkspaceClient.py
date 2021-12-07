@@ -3,6 +3,8 @@ from dbclient import *
 import wmconstants
 from timeit import default_timer as timer
 from datetime import timedelta
+import logging_utils
+import logging
 import os
 
 WS_LIST = "/workspace/list"
@@ -245,6 +247,8 @@ class WorkspaceClient(dbclient):
         checkpoint_notebook_set = self._checkpoint_service.get_checkpoint_key_set(
             wmconstants.WM_EXPORT, wmconstants.WORKSPACE_NOTEBOOK_OBJECT)
         ws_log = self.get_export_dir() + ws_log_file
+        notebook_error_logger = logging_utils.get_error_logger(
+            wmconstants.WM_EXPORT, wmconstants.WORKSPACE_NOTEBOOK_OBJECT, self.get_export_dir())
         num_notebooks = 0
         if not os.path.exists(ws_log):
             raise Exception("Run --workspace first to download full log of all notebooks.")
@@ -253,12 +257,13 @@ class WorkspaceClient(dbclient):
             # pull the path from the data to download the individual notebook contents
             for notebook_data in fp:
                 notebook_path = json.loads(notebook_data).get('path', None).rstrip('\n')
-                dl_resp = self.download_notebook_helper(notebook_path, checkpoint_notebook_set, export_dir=self.get_export_dir() + ws_dir)
+                dl_resp = self.download_notebook_helper(notebook_path, checkpoint_notebook_set, notebook_error_logger,
+                                                        export_dir=self.get_export_dir() + ws_dir)
                 if 'error' not in dl_resp:
                     num_notebooks += 1
         return num_notebooks
 
-    def download_notebook_helper(self, notebook_path, checkpoint_notebook_set, export_dir='artifacts/'):
+    def download_notebook_helper(self, notebook_path, checkpoint_notebook_set, error_logger, export_dir='artifacts/'):
         """
         Helper function to download an individual notebook, or log the failure in the failure logfile
         :param notebook_path: an individual notebook path
@@ -269,13 +274,12 @@ class WorkspaceClient(dbclient):
             return {'path': notebook_path}
         get_args = {'path': notebook_path, 'format': self.get_file_format()}
         if self.is_verbose():
-            print("Downloading: {0}".format(get_args['path']))
+            logging.info("Downloading: {0}".format(get_args['path']))
         resp = self.get(WS_EXPORT, get_args)
-        with open(self.get_export_dir() + 'failed_notebooks.log', 'a') as err_log:
-            if resp.get('error', None):
-                err_msg = {'error': resp.get('error'), 'path': notebook_path}
-                err_log.write(json.dumps(err_msg) + '\n')
-                return err_msg
+        if resp.get('error', None):
+            err_msg = {'error': resp.get('error'), 'path': notebook_path}
+            error_logger.error(json.dumps(err_msg) + '\n')
+            return err_msg
         nb_path = os.path.dirname(notebook_path)
         if nb_path != '/':
             # path is NOT empty, remove the trailing slash from export_dir
@@ -347,7 +351,7 @@ class WorkspaceClient(dbclient):
         items = self.get(WS_LIST, get_args).get('objects', None)
         num_nbs = 0
         if self.is_verbose():
-            print("Listing: {0}".format(get_args['path']))
+            logging.info("Listing: {0}".format(get_args['path']))
         if items is not None:
             # list all the users folders only
             folders = self.filter_workspace_items(items, 'DIRECTORY')
@@ -358,7 +362,7 @@ class WorkspaceClient(dbclient):
                 for x in notebooks:
                     # notebook objects has path and object_id
                     if self.is_verbose():
-                        print("Saving path: {0}".format(x.get('path')))
+                        logging.info("Saving path: {0}".format(x.get('path')))
                     ws_fp.write(json.dumps(x) + '\n')
                     num_nbs += 1
                 for y in libraries:
@@ -380,22 +384,20 @@ class WorkspaceClient(dbclient):
         obj_id = resp.get('object_id', None)
         return obj_id
 
-    def log_acl_to_file(self, artifact_type, read_log_filename, write_log_filename, failed_log_filename):
+    def log_acl_to_file(self, artifact_type, read_log_filename, write_log_filename, error_logger):
         """
         generic function to log the notebook/directory ACLs to specific file names
         :param artifact_type: set('notebooks', 'directories') ACLs to be logged
         :param read_log_filename: the list of the notebook paths / object ids
         :param write_log_filename: output file to store object_id acls
-        :param failed_log_filename: failed acl logs for resources, should be empty
+        :param error_logger: logger to log errors
         """
         read_log_path = self.get_export_dir() + read_log_filename
         if not os.path.exists(read_log_path):
-            print(f"No log exists for {read_log_path}. Skipping ACL export ...")
+            logging.info(f"No log exists for {read_log_path}. Skipping ACL export ...")
             return
         write_log_path = self.get_export_dir() + write_log_filename
-        failed_log_path = self.get_export_dir() + failed_log_filename
-        with open(read_log_path, 'r') as read_fp, open(write_log_path, 'w') as write_fp, \
-                open(failed_log_path, 'w') as failed_fp:
+        with open(read_log_path, 'r') as read_fp, open(write_log_path, 'w') as write_fp:
             for x in read_fp:
                 data = json.loads(x)
                 obj_id = data.get('object_id', None)
@@ -403,7 +405,7 @@ class WorkspaceClient(dbclient):
                 acl_resp = self.get(api_endpoint)
                 acl_resp['path'] = data.get('path')
                 if 'error_code' in acl_resp:
-                    failed_fp.write(json.dumps(acl_resp) + '\n')
+                    error_logger.error(json.dumps(acl_resp) + '\n')
                     continue
                 acl_resp.pop('http_status_code')
                 write_fp.write(json.dumps(acl_resp) + '\n')
@@ -416,18 +418,23 @@ class WorkspaceClient(dbclient):
         :param dir_log_file: input file for user directory listing
         """
         # define log file names for notebooks, folders, and libraries
-        print("Exporting the notebook permissions")
+        logging.info("Exporting the notebook permissions")
         start = timer()
-        self.log_acl_to_file('notebooks', workspace_log_file, 'acl_notebooks.log', 'failed_acl_notebooks.log')
+        acl_notebooks_error_logger = logging_utils.get_error_logger(
+            wmconstants.WM_EXPORT, wmconstants.WORKSPACE_NOTEBOOK_ACL_OBJECT, self.get_export_dir())
+        self.log_acl_to_file('notebooks', workspace_log_file, 'acl_notebooks.log', acl_notebooks_error_logger)
         end = timer()
-        print("Complete Notebook ACLs Export Time: " + str(timedelta(seconds=end - start)))
-        print("Exporting the directories permissions")
-        start = timer()
-        self.log_acl_to_file('directories', dir_log_file, 'acl_directories.log', 'failed_acl_directories.log')
-        end = timer()
-        print("Complete Directories ACLs Export Time: " + str(timedelta(seconds=end - start)))
+        logging.info("Complete Notebook ACLs Export Time: " + str(timedelta(seconds=end - start)))
 
-    def apply_acl_on_object(self, acl_str):
+        logging.info("Exporting the directories permissions")
+        start = timer()
+        acl_directory_error_logger = logging_utils.get_error_logger(
+            wmconstants.WM_EXPORT, wmconstants.WORKSPACE_DIRECTORY_ACL_OBJECT, self.get_export_dir())
+        self.log_acl_to_file('directories', dir_log_file, 'acl_directories.log', acl_directory_error_logger)
+        end = timer()
+        logging.info("Complete Directories ACLs Export Time: " + str(timedelta(seconds=end - start)))
+
+    def apply_acl_on_object(self, acl_str, error_logger):
         """
         apply the acl definition to the workspace object
         object_id comes from the export data which contains '/type/id' format for this key
@@ -439,24 +446,33 @@ class WorkspaceClient(dbclient):
         # the object_type
         object_type = object_acl.get('object_type', None)
         obj_path = object_acl['path']
+        if self.is_user_ws_item(obj_path):
+            ws_user = self.get_user(obj_path)
+            if not self.does_user_exist(ws_user):
+                logging.info(f"User workspace does not exist: {obj_path}, skipping ACL")
+                return
         obj_status = self.get(WS_STATUS, {'path': obj_path})
+        if 'error_code' in obj_status:
+            error_logger.error(json.dumps(obj_status) + '\n')
+            return
         print("ws-stat: ", obj_status)
         current_obj_id = obj_status.get('object_id', None)
         if not current_obj_id:
-            print('Object id missing from destination workspace', obj_path)
+            error_logger.error(f'Object id missing from destination workspace: {obj_status}')
             return
         if object_type == 'directory':
             object_id_with_type = f'/directories/{current_obj_id}'
         elif object_type == 'notebook':
             object_id_with_type = f'/notebooks/{current_obj_id}'
         else:
-            raise ValueError('Object for Workspace ACLs is Undefined')
+            error_logger.error(f'Object for Workspace ACLs is Undefined: {obj_status}')
+            return
         api_path = '/permissions' + object_id_with_type
         acl_list = object_acl.get('access_control_list', None)
         api_args = {'access_control_list': self.build_acl_args(acl_list)}
         resp = self.patch(api_path, api_args)
-        print(resp)
-        return resp
+        if 'error_code' in resp:
+            error_logger.error(json.dumps(resp) + '\n')
 
     def import_workspace_acls(self, workspace_log_file='acl_notebooks.log',
                               dir_log_file='acl_directories.log'):
@@ -465,12 +481,16 @@ class WorkspaceClient(dbclient):
         """
         dir_acl_logs = self.get_export_dir() + dir_log_file
         notebook_acl_logs = self.get_export_dir() + workspace_log_file
+        acl_notebooks_error_logger = logging_utils.get_error_logger(
+            wmconstants.WM_IMPORT, wmconstants.WORKSPACE_NOTEBOOK_ACL_OBJECT, self.get_export_dir())
         with open(notebook_acl_logs) as nb_acls_fp:
             for nb_acl_str in nb_acls_fp:
-                self.apply_acl_on_object(nb_acl_str)
+                self.apply_acl_on_object(nb_acl_str, acl_notebooks_error_logger)
+        acl_dir_error_logger = logging_utils.get_error_logger(
+            wmconstants.WM_IMPORT, wmconstants.WORKSPACE_DIRECTORY_ACL_OBJECT, self.get_export_dir())
         with open(dir_acl_logs) as dir_acls_fp:
             for dir_acl_str in dir_acls_fp:
-                self.apply_acl_on_object(dir_acl_str)
+                self.apply_acl_on_object(dir_acl_str, acl_dir_error_logger)
         print("Completed import ACLs of Notebooks and Directories")
 
     def get_current_users(self):
@@ -506,6 +526,8 @@ class WorkspaceClient(dbclient):
 
     def import_current_workspace_items(self,artifact_dir='artifacts/'):
         src_dir = self.get_export_dir() + artifact_dir
+        error_logger = logging_utils.get_error_logger(wmconstants.WM_IMPORT, wmconstants.WORKSPACE_NOTEBOOK_OBJECT,
+                                                      self.get_export_dir())
         for root, subdirs, files in self.walk(src_dir):
             # replace the local directory with empty string to get the notebook workspace directory
             nb_dir = '/' + root.replace(src_dir, '')
@@ -514,8 +536,10 @@ class WorkspaceClient(dbclient):
                 upload_dir = nb_dir + '/'
             if not self.does_path_exist(upload_dir):
                 resp_mkdirs = self.post(WS_MKDIRS, {'path': upload_dir})
+                if 'error_code' in resp_mkdirs:
+                    error_logger.write(json.dumps(resp_mkdirs) + '\n')
             for f in files:
-                print("Uploading: {0}".format(f))
+                logging.info("Uploading: {0}".format(f))
                 # create the local file path to load the DBC file
                 local_file_path = os.path.join(root, f)
                 # create the ws full file path including filename
@@ -524,10 +548,12 @@ class WorkspaceClient(dbclient):
                 nb_input_args = self.get_user_import_args(local_file_path, ws_file_path)
                 # call import to the workspace
                 if self.is_verbose():
-                    print("Path: {0}".format(nb_input_args['path']))
+                    logging.info("Path: {0}".format(nb_input_args['path']))
                 resp_upload = self.post(WS_IMPORT, nb_input_args)
+                if 'error_code' in resp_upload:
+                    error_logger.write(json.dumps(resp_upload) + '\n')
 
-    def import_all_workspace_items(self, artifact_dir='artifacts/', failed_log='failed_ws_import.log',
+    def import_all_workspace_items(self, artifact_dir='artifacts/',
                                    archive_missing=False):
         """
         import all notebooks into a new workspace
@@ -536,69 +562,69 @@ class WorkspaceClient(dbclient):
         :param archive_missing: whether to put missing users into a /Archive/ top level directory
         """
         src_dir = self.get_export_dir() + artifact_dir
-        failed_logfile = self.get_export_dir() + failed_log
+        error_logger = logging_utils.get_error_logger(wmconstants.WM_IMPORT, wmconstants.WORKSPACE_NOTEBOOK_OBJECT,
+                                                      self.get_export_dir())
         checkpoint_notebook_set = self._checkpoint_service.get_checkpoint_key_set(
             wmconstants.WM_IMPORT, wmconstants.WORKSPACE_NOTEBOOK_OBJECT)
         num_exported_users = self.get_num_of_saved_users(src_dir)
         num_current_users = self.get_current_users()
         if num_current_users == 0:
-            print("No registered users in existing environment. Please import users / groups first.")
+            logging.info("No registered users in existing environment. Please import users / groups first.")
             raise ValueError("No registered users in the current environment")
         if (num_current_users < num_exported_users) and (not archive_missing):
-            print("Exported number of user workspaces: {0}".format(num_exported_users))
-            print("Current number of user workspaces: {0}".format(num_current_users))
-            print("Re-run with the `--archive-missing` flag to load missing users into a separate directory")
+            logging.info("Exported number of user workspaces: {0}".format(num_exported_users))
+            logging.info("Current number of user workspaces: {0}".format(num_current_users))
+            logging.info("Re-run with the `--archive-missing` flag to load missing users into a separate directory")
             raise ValueError("Current number of users is less than number of user workspaces to import.")
         archive_users = set()
-        with open(failed_logfile, 'w') as failed_fp:
-            for root, subdirs, files in self.walk(src_dir):
-                # replace the local directory with empty string to get the notebook workspace directory
-                nb_dir = '/' + root.replace(src_dir, '')
-                upload_dir = nb_dir
-                if not nb_dir == '/':
-                    upload_dir = nb_dir + '/'
-                if self.is_user_ws_item(upload_dir):
-                    ws_user = self.get_user(upload_dir)
-                    if archive_missing:
-                        if ws_user in archive_users:
-                            upload_dir = upload_dir.replace('Users', 'Archive', 1)
-                        elif not self.does_user_exist(ws_user):
-                            # add the user to the cache / set of missing users
-                            print("User workspace does not exist, adding to archive cache: {0}".format(ws_user))
-                            archive_users.add(ws_user)
-                            # append the archive path to the upload directory
-                            upload_dir = upload_dir.replace('Users', 'Archive', 1)
-                        else:
-                            print("User workspace exists: {0}".format(ws_user))
+        for root, subdirs, files in self.walk(src_dir):
+            # replace the local directory with empty string to get the notebook workspace directory
+            nb_dir = '/' + root.replace(src_dir, '')
+            upload_dir = nb_dir
+            if not nb_dir == '/':
+                upload_dir = nb_dir + '/'
+            if self.is_user_ws_item(upload_dir):
+                ws_user = self.get_user(upload_dir)
+                if archive_missing:
+                    if ws_user in archive_users:
+                        upload_dir = upload_dir.replace('Users', 'Archive', 1)
                     elif not self.does_user_exist(ws_user):
-                        print("User {0} is missing. "
-                              "Please re-run with --archive-missing flag "
-                              "or first verify all users exist in the new workspace".format(ws_user))
-                        return
+                        # add the user to the cache / set of missing users
+                        logging.info("User workspace does not exist, adding to archive cache: {0}".format(ws_user))
+                        archive_users.add(ws_user)
+                        # append the archive path to the upload directory
+                        upload_dir = upload_dir.replace('Users', 'Archive', 1)
                     else:
-                        print("Uploading for user: {0}".format(ws_user))
-                # make the top level folder before uploading files within the loop
-                if not self.is_user_ws_root(upload_dir):
-                    # if it is not the /Users/example@example.com/ root path, don't create the folder
-                    resp_mkdirs = self.post(WS_MKDIRS, {'path': upload_dir})
-                for f in files:
-                    print("Uploading: {0}".format(f))
-                    # create the local file path to load the DBC file
-                    local_file_path = os.path.join(root, f)
-                    # create the ws full file path including filename
-                    ws_file_path = upload_dir + f
-                    if checkpoint_notebook_set.contains(ws_file_path):
-                        print(f"Skipping upload as file has already been uploaded: {ws_file_path}")
-                        continue
-                    # generate json args with binary data for notebook to upload to the workspace path
-                    nb_input_args = self.get_user_import_args(local_file_path, ws_file_path)
-                    # call import to the workspace
-                    if self.is_verbose():
-                        print("Path: {0}".format(nb_input_args['path']))
-                    resp_upload = self.post(WS_IMPORT, nb_input_args)
-                    if 'error_code' in resp_upload:
-                        # log this path to a success logfile
-                        print(f'Error uploading file: {ws_file_path}')
-                        failed_fp.write(json.dumps(resp_upload) + '\n')
-                    else:
-                        checkpoint_notebook_set.write(ws_file_path)
+                        logging.info("User workspace exists: {0}".format(ws_user))
+                elif not self.does_user_exist(ws_user):
+                    logging.info("User {0} is missing. "
+                          "Please re-run with --archive-missing flag "
+                          "or first verify all users exist in the new workspace".format(ws_user))
+                    return
+                else:
+                    logging.info("Uploading for user: {0}".format(ws_user))
+            # make the top level folder before uploading files within the loop
+            if not self.is_user_ws_root(upload_dir):
+                # if it is not the /Users/example@example.com/ root path, don't create the folder
+                resp_mkdirs = self.post(WS_MKDIRS, {'path': upload_dir})
+                if 'error_code' in resp_mkdirs:
+                    error_logger.write(json.dumps(resp_mkdirs) + '\n')
+            for f in files:
+                logging.info("Uploading: {0}".format(f))
+                # create the local file path to load the DBC file
+                local_file_path = os.path.join(root, f)
+                # create the ws full file path including filename
+                ws_file_path = upload_dir + f
+                if checkpoint_notebook_set.contains(ws_file_path):
+                    continue
+                # generate json args with binary data for notebook to upload to the workspace path
+                nb_input_args = self.get_user_import_args(local_file_path, ws_file_path)
+                # call import to the workspace
+                if self.is_verbose():
+                    logging.info("Path: {0}".format(nb_input_args['path']))
+                resp_upload = self.post(WS_IMPORT, nb_input_args)
+                if 'error_code' in resp_upload:
+                    logging.info(f'Error uploading file: {ws_file_path}')
+                    error_logger.write(json.dumps(resp_upload) + '\n')
+                else:
+                    checkpoint_notebook_set.write(ws_file_path)

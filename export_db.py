@@ -4,7 +4,7 @@ from datetime import timedelta, datetime
 import os
 import shutil
 from checkpoint_service import CheckpointService
-
+import logging_utils
 
 # python 3.6
 def main():
@@ -28,6 +28,7 @@ def main():
     client_config = build_client_config(args.profile, url, token, args)
 
     os.makedirs(client_config['export_dir'], exist_ok=True)
+    logging_utils.set_default_logging(client_config['export_dir'])
 
     checkpoint_service = CheckpointService(client_config)
 

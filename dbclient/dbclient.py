@@ -6,6 +6,7 @@ import re
 from dbclient import parser
 import time
 import requests.packages.urllib3
+import logging
 
 global pprint_j
 
@@ -147,7 +148,6 @@ class dbclient:
     def get(self, endpoint, json_params=None, version='2.0', print_json=False):
         if version:
             ver = version
-
         while True:
             full_endpoint = self._url + '/api/{0}'.format(ver) + endpoint
             if self.is_verbose():
