@@ -23,7 +23,7 @@ class Diff(AbstractDiff):
 
 
 def _diff_message(hint, left, right):
-    return f"{hint}: -'{left}' +'{right}'"
+    return f"{hint}:\n< {left}\n---\n> {right}"
 
 
 class TypeDiff(Diff):
@@ -75,7 +75,9 @@ class Miss(AbstractDiff):
         self.value = value
 
     def __str__(self):
-        return f"MISS_{self.side}: '{self.value}'"
+        hint = f"MISS_{self.side}:\n"
+        value = f"< {self.value}" if self.side == "RIGHT" else f"> {self.value}"
+        return f"{hint}{value}"
 
     def __eq__(self, other):
         return str(self) == str(other)
@@ -169,3 +171,22 @@ def prepare_diff_input(data, config=None):
         return data
     else:
         raise NotImplementedError(f"Type {type(data)} is not supported.")
+
+
+@dataclass
+class IgnoreKeyConfig:
+    keys: set = field(default_factory=set)
+    children: dict = field(default_factory=dict)
+
+
+def print_diff(diff, config=None, prefix="$"):
+    if isinstance(diff, (TypeDiff, ValueDiff, Miss)):
+        print(prefix + ":" + str(diff) + "\n")
+    elif isinstance(diff, DictDiff):
+        assert config is None or isinstance(config, IgnoreKeyConfig)
+        for key, value in diff.children.items():
+            if not config or key not in config.keys:
+                child_config = config.children.get(key, None) if config else None
+                print_diff(value, child_config, prefix + "|" + key)
+    else:
+        raise NotImplementedError(f"Type {type(diff)} is not supported.")
