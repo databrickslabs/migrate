@@ -190,7 +190,7 @@ def prepare_diff_input(data, config=None):
         raise NotImplementedError(f"Type {type(data)} is not supported.")
 
 
-def print_diff(diff, prefix="$"):
+def print_diff(diff, prefix=""):
     if not diff:
         print("No diff found.")
     elif isinstance(diff, (TypeDiff, ValueDiff, Miss)):
