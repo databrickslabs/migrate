@@ -41,7 +41,7 @@ class Pipeline:
         self._tasks = []
         self._dry_run = dry_run
 
-    def add_task(self, task: AbstractTask, parents: Optional[List[Node]] = None) -> Node:
+    def add_task(self, task: AbstractTask, parents: Optional[List[Node]] = None, skip=False) -> Node:
         node = self.Node(task)
         if not parents:
             parents = [self._source]
@@ -67,7 +67,7 @@ class Pipeline:
             return
         start = timer()
         logging.info(f'Start {task.name}')
-        if not self._dry_run:
+        if not self._dry_run and not task.skip:
             task.run()
         end = timer()
         logging.info(f'{task.name} Completed. Total time taken: {str(timedelta(seconds=end - start))}')
