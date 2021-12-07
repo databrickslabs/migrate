@@ -276,7 +276,9 @@ class ClustersClient(dbclient):
                 acl_args = {'access_control_list' : self.build_acl_args(data['access_control_list'])}
                 cid = self.get_cluster_id_by_name(cluster_name)
                 if cid is None:
-                    raise ValueError('Cluster id must exist in new env. Re-import cluster configs.')
+                    error_message = f'Cluster id must exist in new env for cluster_name: {cluster_name}. ' \
+                                    f'Re-import cluster configs.'
+                    raise ValueError(error_message)
                 api = f'/preview/permissions/clusters/{cid}'
                 resp = self.put(api, acl_args)
                 print(resp)
