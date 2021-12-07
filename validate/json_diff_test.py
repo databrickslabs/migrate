@@ -126,9 +126,9 @@ class PrepareDiffInputTest(unittest.TestCase):
                     'foo':
                         DiffConfig(
                             primary_key='key',
-                            children=DiffConfig(children={
+                            children={
                                 'info': DiffConfig(primary_key='id')
-                            })
+                            }
                         )
                 }))
         )
@@ -156,16 +156,13 @@ class PrepareDiffInputTest(unittest.TestCase):
                     'foo':
                         DiffConfig(
                             primary_key='key',
-                            children=DiffConfig(
-                                ignored_keys={'value'},
-                                children={
-                                    'info': DiffConfig(
-                                        primary_key='id',
-                                        children=DiffConfig(
-                                            ignored_keys={'v'}
-                                        )
-                                    )
-                                })
+                            ignored_keys={'value'},
+                            children={
+                                'info': DiffConfig(
+                                    primary_key='id',
+                                    ignored_keys={'v'}
+                                )
+                            }
                         )
                 }))
         )
