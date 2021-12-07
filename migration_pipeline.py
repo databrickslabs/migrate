@@ -118,19 +118,18 @@ def build_validate_pipeline(checkpoint_service, args):
     pipeline = Pipeline('/tmp', completed_pipeline_steps, args.dry_run)
     prepare_config = DiffConfig(
         primary_key='userName',
-        children=DiffConfig(
-            ignored_keys={'id'},
-            children={
-                "emails": DiffConfig(
-                    primary_key="value",
-                ),
-                "roles": DiffConfig(
-                    primary_key="value",
-                ),
-                "groups": DiffConfig(
-                    primary_key="display"
-                )
-            }))
+        ignored_keys={'id'},
+        children={
+            "emails": DiffConfig(
+                primary_key="value",
+            ),
+            "roles": DiffConfig(
+                primary_key="value",
+            ),
+            "groups": DiffConfig(
+                primary_key="display"
+            )
+        })
     pipeline.add_task(DiffTask("test_diff", args.source, args.destination, prepare_config))
     return pipeline
 
