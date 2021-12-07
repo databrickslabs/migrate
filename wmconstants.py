@@ -27,7 +27,6 @@ INSTANCE_POOLS = "instance_pools"
 JOBS = "jobs"
 METASTORE = "metastore"
 METASTORE_TABLE_ACLS = "metastore_table_acls"
-FINISH = "finish"
 
 TASK_OBJECTS = [
     INSTANCE_PROFILES,
@@ -42,5 +41,4 @@ TASK_OBJECTS = [
     JOBS,
     METASTORE,
     METASTORE_TABLE_ACLS,
-    FINISH
 ]
