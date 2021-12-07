@@ -130,8 +130,8 @@ class DiffConfig:
     """
     DiffConfig configures how to diff two Python dicts. It should have the same structure as `data`,
     and follow the the rules below:
-    1) If `data` is a list of dicts, primary key is required and the children should be another
-    DiffConfig object which holds config for inner dict.
+    1) If `data` is a list of dicts, primary key is required. And config object itself also holds
+     config for inner dict.
     2) If `data` is a dict, ignore_keys can be set to ignore certain fields. And the children should
     be a dict which holds config for children.
 
@@ -164,7 +164,7 @@ def prepare_diff_input(data, config=None):
                 f"Config missing for {str(data)}"
             result = {}
             for inner in data:
-                converted = prepare_diff_input(inner, config.children)
+                converted = prepare_diff_input(inner, config)
                 result[converted[config.primary_key]] = converted
             return result
         else:
