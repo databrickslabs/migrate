@@ -5,6 +5,7 @@ from tasks import *
 import wmconstants
 from checkpoint_service import CheckpointService
 
+
 def generate_session() -> str:
     return datetime.now().strftime('%Y%m%d%H%M%S')
 
@@ -45,6 +46,10 @@ def build_pipeline(args) -> Pipeline:
     if args.import_pipeline:
         return build_import_pipeline(client_config, checkpoint_service, args)
 
+    if args.validate_pipeline:
+        # TODO(Yubing): config inputs.
+        return build_validate_pipeline(checkpoint_service)
+
     # Verification job
     # TODO: Add verification job at the end
 
@@ -76,9 +81,11 @@ def build_export_pipeline(client_config, checkpoint_service, args) -> Pipeline:
     export_metastore_table_acls = pipeline.add_task(MetastoreTableACLExportTask(client_config, args, wmconstants.METASTORE_TABLE_ACLS in skip_tasks), [export_metastore])
     # FinishExport task is never skipped
     finish_export = pipeline.add_task(FinishExportTask(client_config),
-                                      [export_workspace_acls, export_notebooks, export_jobs, export_metastore_table_acls])
+                                      [export_workspace_acls, export_notebooks, export_jobs,
+                                       export_metastore_table_acls])
 
     return pipeline
+
 
 def build_import_pipeline(client_config, checkpoint_service, args) -> Pipeline:
     """
@@ -103,7 +110,12 @@ def build_import_pipeline(client_config, checkpoint_service, args) -> Pipeline:
     import_jobs = pipeline.add_task(JobsImportTask(client_config, args, wmconstants.JOBS in skip_tasks), [import_instance_pools])
     import_metastore = pipeline.add_task(MetastoreImportTask(client_config, checkpoint_service, args, wmconstants.METASTORE in skip_tasks), [import_groups])
     import_metastore_table_acls = pipeline.add_task(MetastoreTableACLImportTask(client_config, args, wmconstants.METASTORE_TABLE_ACLS in skip_tasks), [import_metastore])
+    return pipeline
 
+
+def build_validate_pipeline(checkpoint_service, args):
+    pipeline = Pipeline('/tmp', checkpoint_service, args.dry_run)
+    pipeline.add_task(DiffTask("test_diff", args.source, args.destination))
     return pipeline
 
 
