@@ -48,7 +48,7 @@ def build_pipeline(args) -> Pipeline:
 
     if args.validate_pipeline:
         # TODO(Yubing): config inputs.
-        return build_validate_pipeline(checkpoint_service)
+        return build_validate_pipeline(checkpoint_service, args)
 
     # Verification job
     # TODO: Add verification job at the end
@@ -114,8 +114,24 @@ def build_import_pipeline(client_config, checkpoint_service, args) -> Pipeline:
 
 
 def build_validate_pipeline(checkpoint_service, args):
-    pipeline = Pipeline('/tmp', checkpoint_service, args.dry_run)
-    pipeline.add_task(DiffTask("test_diff", args.source, args.destination))
+    completed_pipeline_steps = checkpoint_service.get_checkpoint_key_set("DUMMY", "DUMMY")
+    pipeline = Pipeline('/tmp', completed_pipeline_steps, args.dry_run)
+    prepare_config = DiffConfig(
+        primary_key='userName',
+        children=DiffConfig(
+            ignored_keys={'id'},
+            children={
+                "emails": DiffConfig(
+                    primary_key="value",
+                ),
+                "roles": DiffConfig(
+                    primary_key="value",
+                ),
+                "groups": DiffConfig(
+                    primary_key="display"
+                )
+            }))
+    pipeline.add_task(DiffTask("test_diff", args.source, args.destination, prepare_config))
     return pipeline
 
 

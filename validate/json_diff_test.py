@@ -75,8 +75,8 @@ class PrepareDiffInputTest(unittest.TestCase):
                 [{'key': 'b', 'value': 'y'},
                  {'key': 'c', 'value': 'n'},
                  {'key': 'a', 'value': 'q'}],
-                PrimaryKeyConfig(
-                    key='key'
+                DiffConfig(
+                    primary_key='key'
                 )))
 
     def test_simple_nested(self):
@@ -96,12 +96,12 @@ class PrepareDiffInputTest(unittest.TestCase):
                             {'key': 'a', 'value': 'q'}],
                     'bar': 'baz'
                 },
-                {
+                DiffConfig(children={
                     'foo':
-                        PrimaryKeyConfig(
-                            key='key'
+                        DiffConfig(
+                            primary_key='key'
                         )
-                }))
+                })))
 
     def test_deep_nested(self):
         self.assertEqual(
@@ -122,15 +122,52 @@ class PrepareDiffInputTest(unittest.TestCase):
                     ],
                     'bar': 'baz',
                 },
-                {
+                DiffConfig(children={
                     'foo':
-                        PrimaryKeyConfig(
-                            key='key',
-                            children={
-                                'info': PrimaryKeyConfig(key='id')
-                            }
+                        DiffConfig(
+                            primary_key='key',
+                            children=DiffConfig(children={
+                                'info': DiffConfig(primary_key='id')
+                            })
                         )
-                })
+                }))
+        )
+
+    def test_ignore(self):
+        self.assertEqual(
+            {
+                'foo': {
+                    'b': {'key': 'b', 'info': {100: {'id': 100}}},
+                    'a': {'key': 'a', 'info': {200: {'id': 200}}},
+                    'c': {'key': 'c', 'info': {300: {'id': 300}}}
+                },
+                'bar': 'baz'
+            },
+            prepare_diff_input(
+                {
+                    'foo': [
+                        {'key': 'b', 'value': 'y', 'info': [{'id': 100, 'v': '111'}]},
+                        {'key': 'c', 'value': 'n', 'info': [{'id': 300, 'v': '333'}]},
+                        {'key': 'a', 'value': 'q', 'info': [{'id': 200, 'v': '222'}]},
+                    ],
+                    'bar': 'baz',
+                },
+                DiffConfig(children={
+                    'foo':
+                        DiffConfig(
+                            primary_key='key',
+                            children=DiffConfig(
+                                ignored_keys={'value'},
+                                children={
+                                    'info': DiffConfig(
+                                        primary_key='id',
+                                        children=DiffConfig(
+                                            ignored_keys={'v'}
+                                        )
+                                    )
+                                })
+                        )
+                }))
         )
 
 
@@ -145,28 +182,6 @@ class PrintDiffTest(unittest.TestCase):
         expected2.add_child('r', Miss('LEFT', 'right'))
         expected1.add_child('n', expected2)
         print_diff(expected1, prefix="SIMPLE")
-        # TODO(Yubing): Check output.
-        self.assertTrue(True)
-
-    def test_ignore(self):
-        expected1 = DictDiff()
-        expected1.add_child('i', ValueDiff(1, 2))
-        expected1.add_child('f', TypeDiff(2.0, 3))
-        expected2 = DictDiff()
-        expected2.add_child('s', ValueDiff('hello', 'world'))
-        expected2.add_child('l', Miss('RIGHT', 'left'))
-        expected2.add_child('r', Miss('LEFT', 'right'))
-        expected1.add_child('n', expected2)
-
-        config = IgnoreKeyConfig(
-            keys={'i'},
-            children={
-                'n': IgnoreKeyConfig(
-                    keys={'s', 'l'}
-                )
-            }
-        )
-        print_diff(expected1, config=config, prefix="IGNORE")
         # TODO(Yubing): Check output.
         self.assertTrue(True)
 

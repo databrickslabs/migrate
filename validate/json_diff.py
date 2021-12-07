@@ -126,10 +126,21 @@ def diff_json(left, right):
     return None
 
 
-@dataclass
-class PrimaryKeyConfig:
-    key: str = ''
-    children: dict = field(default_factory=dict)
+class DiffConfig:
+    """
+    DiffConfig configures how to diff two Python dicts. It should have the same structure as `data`,
+    and follow the the rules below:
+    1) If `data` is a list of dicts, primary key is required and the children should be another
+    DiffConfig object which holds config for inner dict.
+    2) If `data` is a dict, ignore_keys can be set to ignore certain fields. And the children should
+    be a dict which holds config for children.
+
+    """
+
+    def __init__(self, primary_key=None, ignored_keys=None, children=None):
+        self.primary_key = primary_key
+        self.ignore_keys = ignored_keys
+        self.children = children
 
 
 def prepare_diff_input(data, config=None):
@@ -138,7 +149,7 @@ def prepare_diff_input(data, config=None):
     2) List of dict to dict of dicts keyed by primary key.
 
     :param data: on side of input for diffing.
-    :param config: an instance of PrimaryKeyConfig in order to specify the primary key of dicts
+    :param config: an instance of DiffConfig in order to specify the primary key of dicts
     within a list. It should follow the same dict structure of data. See `test_deep_nested` in
     json_diff_test.py for example.
     :return: the converted data which should be ready to be fed into diff_json.
@@ -149,23 +160,29 @@ def prepare_diff_input(data, config=None):
         elif isinstance(data[0], (int, float, str)):
             return set(data)
         elif isinstance(data[0], dict):
-            assert isinstance(config, PrimaryKeyConfig)
+            assert isinstance(config, DiffConfig) and config.primary_key, \
+                f"Config missing for {str(data)}"
             result = {}
             for inner in data:
                 converted = prepare_diff_input(inner, config.children)
-                result[converted[config.key]] = converted
+                result[converted[config.primary_key]] = converted
             return result
         else:
             raise NotImplementedError(f"Type {type(data[0])} is not supported.")
     elif isinstance(data, dict):
         if len(data) == 0:
             return {}
-
-        assert isinstance(config, dict)
+        assert not config or isinstance(config, DiffConfig)
         result = {}
         for key, value in data.items():
-            child_config = config[key] if config and key in config else None
-            result[key] = prepare_diff_input(value, child_config)
+            if config and config.ignore_keys and key in config.ignore_keys:
+                continue
+            else:
+                child_config = None
+                if config and config.children:
+                    child_config = config.children.get(key, None)
+                result[key] = prepare_diff_input(value, child_config)
+
         return result
     elif isinstance(data, (int, float, str)):
         return data
@@ -173,20 +190,13 @@ def prepare_diff_input(data, config=None):
         raise NotImplementedError(f"Type {type(data)} is not supported.")
 
 
-@dataclass
-class IgnoreKeyConfig:
-    keys: set = field(default_factory=set)
-    children: dict = field(default_factory=dict)
-
-
-def print_diff(diff, config=None, prefix="$"):
-    if isinstance(diff, (TypeDiff, ValueDiff, Miss)):
+def print_diff(diff, prefix="$"):
+    if not diff:
+        print("No diff found.")
+    elif isinstance(diff, (TypeDiff, ValueDiff, Miss)):
         print(prefix + ":" + str(diff) + "\n")
     elif isinstance(diff, DictDiff):
-        assert config is None or isinstance(config, IgnoreKeyConfig)
         for key, value in diff.children.items():
-            if not config or key not in config.keys:
-                child_config = config.children.get(key, None) if config else None
-                print_diff(value, child_config, prefix + "|" + key)
+            print_diff(value, prefix + "|" + key)
     else:
         raise NotImplementedError(f"Type {type(diff)} is not supported.")

@@ -384,16 +384,15 @@ def read_json_file(file):
 
 
 class DiffTask(AbstractTask):
-    def __init__(self, name, source, destination, prepare_config=None, print_config=None):
+    def __init__(self, name, source, destination, config=None):
         super().__init__(name)
         self.source = source
         self.destination = destination
-        self.prepare_config = prepare_config
-        self.print_config = print_config
+        self.config = config
 
     def run(self):
-        source_data = validate.prepare_diff_input(read_json_file(self.source), self.prepare_config)
+        source_data = validate.prepare_diff_input(read_json_file(self.source), self.config)
         destination_data = validate.prepare_diff_input(read_json_file(self.destination),
-                                                       self.prepare_config)
+                                                       self.config)
         diff = diff_json(source_data, destination_data)
-        print_diff(diff, self.print_config)
+        print_diff(diff)
