@@ -49,22 +49,22 @@ def build_pipeline(args) -> Pipeline:
     # TODO: Add verification job at the end
 
 
-def _add_task_or_skip(pipeline, skip_tasks, task, dependent_tasks):
+def _add_task(pipeline, skip_tasks, task, dependent_tasks):
     """
     :param skip_tasks: tasks to skip
     :param task: task to add to the pipeline
-    :param dependent_tasks: a list of tasks
+    :param dependent_tasks: None or a list of tasks
 
     If the task is in the skip_tasks, then just return the first item of dependent_tasks
     If not, we add the task to the pipeline with the dependent_tasks.
     """
     # filter out None tasks. If the list is empty, then treat the tasks as None
-    valid_dependent_tasks = list(filter(lambda x: x is not None, dependent_tasks))
-    dependent_tasks_or_none = valid_dependent_tasks if valid_dependent_tasks else None
+    valid_dependent_tasks = filter(lambda x: x is not None, dependent_tasks)
+    valid_dependent_tasks = valid_dependent_tasks if valid_dependent_tasks else None
     if task.task_object_name in skip_tasks:
-        return dependent_tasks_or_none[0] if dependent_tasks_or_none else None
+        return valid_dependent_tasks[0] if dependent_tasks else None
     else:
-        return pipeline.add_task(task, dependent_tasks_or_none)
+        return pipeline.add_task(task, dependent_tasks)
 
 
 def build_export_pipeline(client_config, checkpoint_service, args) -> Pipeline:
@@ -80,20 +80,20 @@ def build_export_pipeline(client_config, checkpoint_service, args) -> Pipeline:
     completed_pipeline_steps = checkpoint_service.get_checkpoint_key_set(
         wmconstants.WM_EXPORT, wmconstants.MIGRATION_PIPELINE_OBJECT_TYPE)
     pipeline = Pipeline(client_config['export_dir'], completed_pipeline_steps, args.dry_run)
-    export_instance_profiles = _add_task_or_skip(pipeline, skip_tasks, InstanceProfileExportTask(client_config), [])
-    export_users = _add_task_or_skip(pipeline, skip_tasks, UserExportTask(client_config), [export_instance_profiles])
-    export_groups = _add_task_or_skip(pipeline, skip_tasks, GroupExportTask(client_config), [export_users])
-    export_workspace_item_log = _add_task_or_skip(pipeline, skip_tasks, WorkspaceItemLogExportTask(client_config, checkpoint_service), [export_groups])
-    export_workspace_acls = _add_task_or_skip(pipeline, skip_tasks, WorkspaceACLExportTask(client_config, checkpoint_service), [export_workspace_item_log])
-    export_notebooks = _add_task_or_skip(pipeline, skip_tasks, NotebookExportTask(client_config, checkpoint_service), [export_workspace_item_log])
-    export_secrets = _add_task_or_skip(pipeline, skip_tasks, SecretExportTask(client_config, args), [export_groups])
-    export_clusters = _add_task_or_skip(pipeline, skip_tasks, ClustersExportTask(client_config, args), [export_secrets])
-    export_instance_pools = _add_task_or_skip(pipeline, skip_tasks, InstancePoolsExportTask(client_config, args), [export_clusters])
-    export_jobs = _add_task_or_skip(pipeline, skip_tasks, JobsExportTask(client_config, args), [export_instance_pools])
-    export_metastore = _add_task_or_skip(pipeline, skip_tasks, MetastoreExportTask(client_config, checkpoint_service, args), [export_groups])
-    export_metastore_table_acls = _add_task_or_skip(pipeline, skip_tasks, MetastoreTableACLExportTask(client_config, args), [export_metastore])
+    export_instance_profiles = _add_task(pipeline, skip_tasks, InstanceProfileExportTask(client_config), None)
+    export_users = _add_task(pipeline, skip_tasks, UserExportTask(client_config), [export_instance_profiles])
+    export_groups = _add_task(pipeline, skip_tasks, GroupExportTask(client_config), [export_users])
+    export_workspace_item_log = _add_task(pipeline, skip_tasks, WorkspaceItemLogExportTask(client_config, checkpoint_service), [export_groups])
+    export_workspace_acls = _add_task(pipeline, skip_tasks, WorkspaceACLExportTask(client_config, checkpoint_service), [export_workspace_item_log])
+    export_notebooks = _add_task(pipeline, skip_tasks, NotebookExportTask(client_config, checkpoint_service), [export_workspace_item_log])
+    export_secrets = _add_task(pipeline, skip_tasks, SecretExportTask(client_config, args), [export_groups])
+    export_clusters = _add_task(pipeline, skip_tasks, ClustersExportTask(client_config, args), [export_secrets])
+    export_instance_pools = _add_task(pipeline, skip_tasks, InstancePoolsExportTask(client_config, args), [export_clusters])
+    export_jobs = _add_task(pipeline, skip_tasks, JobsExportTask(client_config, args), [export_instance_pools])
+    export_metastore = _add_task(pipeline, skip_tasks, MetastoreExportTask(client_config, checkpoint_service, args), [export_groups])
+    export_metastore_table_acls = _add_task(pipeline, skip_tasks, MetastoreTableACLExportTask(client_config, args), [export_metastore])
     # Cannot skip finish_export task
-    finish_export = _add_task_or_skip(pipeline, skip_tasks, FinishExportTask(client_config),
+    finish_export = pipeline.add_task(FinishExportTask(client_config),
                                       [export_workspace_acls, export_notebooks, export_jobs, export_metastore_table_acls])
 
     return pipeline
@@ -111,17 +111,17 @@ def build_import_pipeline(client_config, checkpoint_service, args) -> Pipeline:
     completed_pipeline_steps = checkpoint_service.get_checkpoint_key_set(
         wmconstants.WM_IMPORT, wmconstants.MIGRATION_PIPELINE_OBJECT_TYPE)
     pipeline = Pipeline(client_config['export_dir'], completed_pipeline_steps, args.dry_run)
-    import_instance_profiles = _add_task_or_skip(pipeline, skip_tasks, InstanceProfileImportTask(client_config), [])
-    import_users = _add_task_or_skip(pipeline, skip_tasks, UserImportTask(client_config), [import_instance_profiles])
-    import_groups = _add_task_or_skip(pipeline, skip_tasks, GroupImportTask(client_config), [import_users])
-    import_notebooks = _add_task_or_skip(pipeline, skip_tasks, NotebookImportTask(client_config, checkpoint_service, args), [import_groups])
-    import_workspace_acls = _add_task_or_skip(pipeline, skip_tasks, WorkspaceACLImportTask(client_config, checkpoint_service), [import_notebooks])
-    import_secrets = _add_task_or_skip(pipeline, skip_tasks, SecretImportTask(client_config), [import_groups])
-    import_clusters = _add_task_or_skip(pipeline, skip_tasks, ClustersImportTask(client_config, args), [import_secrets])
-    import_instance_pools = _add_task_or_skip(pipeline, skip_tasks, InstancePoolsImportTask(client_config, args), [import_clusters])
-    import_jobs = _add_task_or_skip(pipeline, skip_tasks, JobsImportTask(client_config, args), [import_instance_pools])
-    import_metastore = _add_task_or_skip(pipeline, skip_tasks, MetastoreImportTask(client_config, checkpoint_service, args), [import_groups])
-    import_metastore_table_acls = _add_task_or_skip(pipeline, skip_tasks, MetastoreTableACLImportTask(client_config, args), [import_metastore])
+    import_instance_profiles = _add_task(pipeline, skip_tasks, InstanceProfileImportTask(client_config), None, None)
+    import_users = _add_task(pipeline, skip_tasks, UserImportTask(client_config), import_instance_profiles)
+    import_groups = _add_task(pipeline, skip_tasks, GroupImportTask(client_config), import_users)
+    import_notebooks = _add_task(pipeline, skip_tasks, NotebookImportTask(client_config, checkpoint_service, args), import_groups)
+    import_workspace_acls = _add_task(pipeline, skip_tasks, WorkspaceACLImportTask(client_config, checkpoint_service), import_notebooks)
+    import_secrets = _add_task(pipeline, skip_tasks, SecretImportTask(client_config), import_groups)
+    import_clusters = _add_task(pipeline, skip_tasks, ClustersImportTask(client_config, args), import_secrets)
+    import_instance_pools = _add_task(pipeline, skip_tasks, InstancePoolsImportTask(client_config, args), import_clusters)
+    import_jobs = _add_task(pipeline, skip_tasks, JobsImportTask(client_config, args), import_instance_pools)
+    import_metastore = _add_task(pipeline, skip_tasks, MetastoreImportTask(client_config, checkpoint_service, args), import_groups)
+    import_metastore_table_acls = _add_task(pipeline, skip_tasks, MetastoreTableACLImportTask(client_config, args), import_metastore)
 
     return pipeline
 
