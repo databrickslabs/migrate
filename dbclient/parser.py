@@ -391,7 +391,7 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
     parser.add_argument('--set-export-dir', action='store',
                         help='Set the base directory to export artifacts')
 
-    parser.add_argument('--cluster-name', action='store', required=True,
+    parser.add_argument('--cluster-name', action='store', required=False,
                         help='Cluster name to export the metastore to a specific cluster. Cluster will be started.')
 
     # Workspace arguments

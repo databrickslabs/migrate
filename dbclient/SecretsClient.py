@@ -31,12 +31,12 @@ class SecretsClient(ClustersClient):
         s_value = results_get.get('data')
         return s_value
 
-    def log_all_secrets(self, cluster_name, log_dir='secret_scopes/'):
+    def log_all_secrets(self, cluster_name=None, log_dir='secret_scopes/'):
         scopes_dir = self.get_export_dir() + log_dir
         scopes_list = self.get_secret_scopes_list()
         os.makedirs(scopes_dir, exist_ok=True)
         start = timer()
-        cid = self.start_cluster_by_name(cluster_name)
+        cid = self.start_cluster_by_name(cluster_name) if cluster_name else self.launch_cluster()
         time.sleep(5)
         ec_id = self.get_execution_context(cid)
         for scope_json in scopes_list:
