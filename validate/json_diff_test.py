@@ -134,5 +134,42 @@ class PrepareDiffInputTest(unittest.TestCase):
         )
 
 
+class PrintDiffTest(unittest.TestCase):
+    def test_simple(self):
+        expected1 = DictDiff()
+        expected1.add_child('i', ValueDiff(1, 2))
+        expected1.add_child('f', TypeDiff(2.0, 3))
+        expected2 = DictDiff()
+        expected2.add_child('s', ValueDiff('hello', 'world'))
+        expected2.add_child('l', Miss('RIGHT', 'left'))
+        expected2.add_child('r', Miss('LEFT', 'right'))
+        expected1.add_child('n', expected2)
+        print_diff(expected1, prefix="SIMPLE")
+        # TODO(Yubing): Check output.
+        self.assertTrue(True)
+
+    def test_ignore(self):
+        expected1 = DictDiff()
+        expected1.add_child('i', ValueDiff(1, 2))
+        expected1.add_child('f', TypeDiff(2.0, 3))
+        expected2 = DictDiff()
+        expected2.add_child('s', ValueDiff('hello', 'world'))
+        expected2.add_child('l', Miss('RIGHT', 'left'))
+        expected2.add_child('r', Miss('LEFT', 'right'))
+        expected1.add_child('n', expected2)
+
+        config = IgnoreKeyConfig(
+            keys={'i'},
+            children={
+                'n': IgnoreKeyConfig(
+                    keys={'s', 'l'}
+                )
+            }
+        )
+        print_diff(expected1, config=config, prefix="IGNORE")
+        # TODO(Yubing): Check output.
+        self.assertTrue(True)
+
+
 if __name__ == '__main__':
     unittest.main()
