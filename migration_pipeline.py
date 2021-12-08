@@ -32,6 +32,8 @@ def build_pipeline(args) -> Pipeline:
         client_config = parser.build_client_config(args.profile, url, token, args)
 
     client_config['session'] = session
+
+    # Need to keep the export_dir as base_dir to find exported data from source and destination.
     client_config['base_dir'] = client_config['export_dir']
     client_config['export_dir'] = os.path.join(client_config['base_dir'], session) + '/'
 
@@ -130,7 +132,7 @@ def build_validate_pipeline(client_config, checkpoint_service, args):
         "validate-users",
         DiffConfig(
             primary_key='userName',
-            ignored_keys={'id', 'entitlements'},
+            ignored_keys={'id'},
             children={
                 "emails": DiffConfig(
                     primary_key="value",

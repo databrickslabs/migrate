@@ -129,7 +129,7 @@ def diff_json(left, right):
 class DiffConfig:
     """
     DiffConfig configures how to diff two Python dicts. It should have the same structure as `data`,
-    and follow the the rules below:
+    and follow the rules below:
     1) If `data` is a list of dicts, primary key is required. And config object itself also holds
      config for inner dict.
     2) If `data` is a dict, ignore_keys can be set to ignore certain fields. And the children should
