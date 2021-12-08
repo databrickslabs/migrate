@@ -7,8 +7,8 @@ from datetime import timedelta
 
 class InstanceProfileExportTask(AbstractTask):
     """Task that exports instance profiles."""
-    def __init__(self, client_config):
-        super().__init__(name="export_instance_profiles")
+    def __init__(self, client_config, skip=False):
+        super().__init__(name="export_instance_profiles", skip=skip)
         self.client_config = client_config
 
     def run(self):
@@ -20,8 +20,8 @@ class InstanceProfileExportTask(AbstractTask):
 class UserExportTask(AbstractTask):
     """Task that exports users."""
 
-    def __init__(self, client_config):
-        super().__init__(name="export_users")
+    def __init__(self, client_config, skip=False):
+        super().__init__(name="export_users", skip=skip)
         self.client_config = client_config
 
     def run(self):
@@ -30,8 +30,8 @@ class UserExportTask(AbstractTask):
 
 class GroupExportTask(AbstractTask):
     """Task that exports groups."""
-    def __init__(self, client_config):
-        super().__init__(name="export_groups")
+    def __init__(self, client_config, skip=False):
+        super().__init__(name="export_groups", skip=skip)
         self.client_config = client_config
 
     def run(self):
@@ -40,8 +40,8 @@ class GroupExportTask(AbstractTask):
 
 class InstanceProfileImportTask(AbstractTask):
     """Task that imports instance profiles."""
-    def __init__(self, client_config):
-        super().__init__(name="import_instance_profiles")
+    def __init__(self, client_config, skip=False):
+        super().__init__(name="import_instance_profiles", skip=skip)
         self.client_config = client_config
 
     def run(self):
@@ -52,8 +52,8 @@ class InstanceProfileImportTask(AbstractTask):
 class UserImportTask(AbstractTask):
     """Task that imports users."""
 
-    def __init__(self, client_config):
-        super().__init__(name="import_users")
+    def __init__(self, client_config, skip=False):
+        super().__init__(name="import_users", skip=skip)
         self.client_config = client_config
 
     def run(self):
@@ -63,22 +63,22 @@ class UserImportTask(AbstractTask):
 class GroupImportTask(AbstractTask):
     """Task that imports groups."""
 
-    def __init__(self, client_config):
-        super().__init__(name="import_groups")
+    def __init__(self, client_config, skip=False):
+        super().__init__(name="import_groups", skip=skip)
         self.client_config = client_config
 
     def run(self):
         scim_c = ScimClient(self.client_config)
         scim_c.import_all_groups()
 
-class WorkspaceItemLogTask(AbstractTask):
+class WorkspaceItemLogExportTask(AbstractTask):
     """Task that log all workspace items to download them at a later time.
 
     The behavior is equivalent to `$ python export_db.py --workspace`, which lives in main function of
     export_db.py.
     """
-    def __init__(self, client_config, checkpoint_service):
-        super().__init__(name="export_workspace_items_log")
+    def __init__(self, client_config, checkpoint_service, skip=False):
+        super().__init__(name="export_workspace_items_log", skip=skip)
         self.client_config = client_config
         self.checkpoint_service = checkpoint_service
 
@@ -95,8 +95,8 @@ class WorkspaceACLExportTask(AbstractTask):
     The behavior is equivalent to `$ python export_db.py --workspace-acls`, which lives in main function of
     export_db.py.
     """
-    def __init__(self, client_config, checkpoint_service):
-        super().__init__(name="export_workspace_acls")
+    def __init__(self, client_config, checkpoint_service, skip=False):
+        super().__init__(name="export_workspace_acls", skip=skip)
         self.client_config = client_config
         self.checkpoint_service = checkpoint_service
 
@@ -111,8 +111,8 @@ class NotebookExportTask(AbstractTask):
     The behavior is equivalent to `$ python export_db.py --download`, which lives in main function of
     export_db.py.
     """
-    def __init__(self, client_config, checkpoint_service):
-        super().__init__(name="export_notebooks")
+    def __init__(self, client_config, checkpoint_service, skip=False):
+        super().__init__(name="export_notebooks", skip=skip)
         self.client_config = client_config
         self.checkpoint_service = checkpoint_service
 
@@ -127,8 +127,8 @@ class WorkspaceACLImportTask(AbstractTask):
     The behavior is equivalent to `$ python import_db.py --workspace-acls`, which lives in main function of
     import_db.py.
     """
-    def __init__(self, client_config, checkpoint_service):
-        super().__init__(name="import_workspace_acls")
+    def __init__(self, client_config, checkpoint_service, skip=False):
+        super().__init__(name="import_workspace_acls", skip=skip)
         self.client_config = client_config
         self.checkpoint_service = checkpoint_service
 
@@ -142,8 +142,8 @@ class NotebookImportTask(AbstractTask):
     The behavior is equivalent to `$ python import_db.py --workspace`, which lives in main function of
     import_db.py.
     """
-    def __init__(self, client_config, checkpoint_service, args):
-        super().__init__(name="import_notebooks")
+    def __init__(self, client_config, checkpoint_service, args, skip=False):
+        super().__init__(name="import_notebooks", skip=skip)
         self.client_config = client_config
         self.checkpoint_service = checkpoint_service
         self.args = args
@@ -158,8 +158,8 @@ class NotebookImportTask(AbstractTask):
 
 class ClustersExportTask(AbstractTask):
     """Task that exports all clusters."""
-    def __init__(self, client_config, args):
-        super().__init__(name="export_clusters")
+    def __init__(self, client_config, args, skip=False):
+        super().__init__(name="export_clusters", skip=skip)
         self.client_config = client_config
         self.args = args
 
@@ -172,8 +172,8 @@ class ClustersExportTask(AbstractTask):
 
 class InstancePoolsExportTask(AbstractTask):
     """Task that exports all instance pools."""
-    def __init__(self, client_config, args):
-        super().__init__(name="export_instance_pools")
+    def __init__(self, client_config, args, skip=False):
+        super().__init__(name="export_instance_pools", skip=skip)
         self.client_config = client_config
         self.args = args
 
@@ -183,8 +183,8 @@ class InstancePoolsExportTask(AbstractTask):
 
 class ClustersImportTask(AbstractTask):
     """Task that imports all clusters."""
-    def __init__(self, client_config, args):
-        super().__init__(name="import_clusters")
+    def __init__(self, client_config, args, skip=False):
+        super().__init__(name="import_clusters", skip=skip)
         self.client_config = client_config
         self.args = args
 
@@ -195,8 +195,8 @@ class ClustersImportTask(AbstractTask):
 
 class InstancePoolsImportTask(AbstractTask):
     """Task that imports all instance pools."""
-    def __init__(self, client_config, args):
-        super().__init__(name="import_instance_pools")
+    def __init__(self, client_config, args, skip=False):
+        super().__init__(name="import_instance_pools", skip=skip)
         self.client_config = client_config
         self.args = args
 
@@ -210,8 +210,8 @@ class JobsExportTask(AbstractTask):
     The behavior is equivalent to `$ python export_db.py --jobs`, which lives in main function of
     export_db.py.
     """
-    def __init__(self, client_config, args):
-        super().__init__(name="export_jobs")
+    def __init__(self, client_config, args, skip=False):
+        super().__init__(name="export_jobs", skip=skip)
         self.client_config = client_config
         self.args = args
 
@@ -225,8 +225,8 @@ class JobsImportTask(AbstractTask):
     The behavior is equivalent to `$ python import_db.py --jobs`, which lives in main function of
     import_db.py.
     """
-    def __init__(self, client_config, args):
-        super().__init__(name="import_jobs")
+    def __init__(self, client_config, args, skip=False):
+        super().__init__(name="import_jobs", skip=skip)
         self.client_config = client_config
         self.args = args
 
@@ -240,8 +240,8 @@ class MetastoreExportTask(AbstractTask):
     The behavior is equivalent to `$ python export_db.py --metastore`, which lives in main function of
     export_db.py.
     """
-    def __init__(self, client_config, checkpoint_service, args):
-        super().__init__(name="export_metastore")
+    def __init__(self, client_config, checkpoint_service, args, skip=False):
+        super().__init__(name="export_metastore", skip=skip)
         self.client_config = client_config
         self.checkpoint_service = checkpoint_service
         self.args = args
@@ -256,8 +256,8 @@ class MetastoreImportTask(AbstractTask):
     The behavior is equivalent to `$ python import_db.py --metastore`, which lives in main function of
     import_db.py.
     """
-    def __init__(self, client_config, checkpoint_service, args):
-        super().__init__(name="import_metastore")
+    def __init__(self, client_config, checkpoint_service, args, skip=False):
+        super().__init__(name="import_metastore", skip=skip)
         self.client_config = client_config
         self.checkpoint_service = checkpoint_service
         self.args = args
@@ -274,8 +274,8 @@ class MetastoreTableACLExportTask(AbstractTask):
     The behavior is equivalent to `$ python export_db.py --table-acls`, which lives in main function of
     export_db.py.
     """
-    def __init__(self, client_config, args):
-        super().__init__(name="export_metastore_table_acls")
+    def __init__(self, client_config, args, skip=False):
+        super().__init__(name="export_metastore_table_acls", skip=skip)
         self.client_config = client_config
         self.args = args
 
@@ -297,8 +297,8 @@ class MetastoreTableACLImportTask(AbstractTask):
     The behavior is equivalent to `$ python import_db.py --table-acls`, which lives in main function of
     import_db.py.
     """
-    def __init__(self, client_config, args):
-        super().__init__(name="import_metastore_table_acls")
+    def __init__(self, client_config, args, skip=False):
+        super().__init__(name="import_metastore_table_acls", skip=skip)
         self.client_config = client_config
         self.args = args
 
@@ -311,8 +311,8 @@ class SecretExportTask(AbstractTask):
 
     The behavior is equivalent to `$ python export_db.py --secrets --cluster-name $clusterName
     """
-    def __init__(self, client_config, args):
-        super().__init__(name="export_secrets")
+    def __init__(self, client_config, args, skip=False):
+        super().__init__(name="export_secrets", skip=skip)
         self.client_config = client_config
         self.args = args
 
@@ -326,8 +326,8 @@ class SecretImportTask(AbstractTask):
 
     The behavior is equivalent to `$ python import_db.py --secrets`
     """
-    def __init__(self, client_config):
-        super().__init__(name="import_secrets")
+    def __init__(self, client_config, skip=False):
+        super().__init__(name="import_secrets", skip=skip)
         self.client_config = client_config
 
     def run(self):
@@ -339,8 +339,8 @@ class FinishExportTask(AbstractTask):
     Final tasks to finish export. This task will print out necessary information to be used for import pipeline.
     Todo: Add some validation logic to ensure export finished successfully.
     """
-    def __init__(self, client_config):
-        super().__init__(name="finish_export")
+    def __init__(self, client_config, skip=False):
+        super().__init__(name="finish_export", skip=skip)
         self.client_config = client_config
 
     def run(self):
