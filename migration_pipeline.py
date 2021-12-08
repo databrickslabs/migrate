@@ -12,26 +12,28 @@ def generate_session() -> str:
 
 def build_pipeline(args) -> Pipeline:
     """Build the pipeline based on the command line arguments."""
-
-    login_args = parser.get_login_credentials(profile=args.profile)
-    if parser.is_azure_creds(login_args) and (not args.azure):
-        raise ValueError(
-            'Login credentials do not match args. Please provide --azure flag for azure envs.')
-
-    # Cant use netrc credentials because requests module tries to load the credentials into http
-    # basic auth headers parse the credentials
-    url = login_args['host']
-    token = login_args['token']
-    client_config = parser.build_client_config(args.profile, url, token, args)
-
     # Resume session if specified, and create a new one otherwise. Different session will work in
     # different export_dir in order to be isolated.
     session = args.session if args.session else generate_session()
-
     print(f"Using the session id: {session}")
 
+    if args.validate_pipeline:
+        client_config = parser.build_client_config_without_profile(args)
+    else:
+        login_args = parser.get_login_credentials(profile=args.profile)
+        if parser.is_azure_creds(login_args) and (not args.azure):
+            raise ValueError(
+                'Login credentials do not match args. Please provide --azure flag for azure envs.')
+
+        # Cant use netrc credentials because requests module tries to load the credentials into http
+        # basic auth headers parse the credentials
+        url = login_args['host']
+        token = login_args['token']
+        client_config = parser.build_client_config(args.profile, url, token, args)
+
     client_config['session'] = session
-    client_config['export_dir'] = os.path.join(client_config['export_dir'], session) + '/'
+    client_config['base_dir'] = client_config['export_dir']
+    client_config['export_dir'] = os.path.join(client_config['base_dir'], session) + '/'
 
     if client_config['debug']:
         logging.info(url, token)
@@ -47,11 +49,7 @@ def build_pipeline(args) -> Pipeline:
         return build_import_pipeline(client_config, checkpoint_service, args)
 
     if args.validate_pipeline:
-        # TODO(Yubing): config inputs.
-        return build_validate_pipeline(checkpoint_service, args)
-
-    # Verification job
-    # TODO: Add verification job at the end
+        return build_validate_pipeline(client_config, checkpoint_service, args)
 
 
 def build_export_pipeline(client_config, checkpoint_service, args) -> Pipeline:
@@ -113,24 +111,50 @@ def build_import_pipeline(client_config, checkpoint_service, args) -> Pipeline:
     return pipeline
 
 
-def build_validate_pipeline(checkpoint_service, args):
-    completed_pipeline_steps = checkpoint_service.get_checkpoint_key_set("DUMMY", "DUMMY")
-    pipeline = Pipeline('/tmp', completed_pipeline_steps, args.dry_run)
-    prepare_config = DiffConfig(
-        primary_key='userName',
-        ignored_keys={'id'},
-        children={
-            "emails": DiffConfig(
-                primary_key="value",
-            ),
-            "roles": DiffConfig(
-                primary_key="value",
-            ),
-            "groups": DiffConfig(
-                primary_key="display"
-            )
-        })
-    pipeline.add_task(DiffTask("test_diff", args.source, args.destination, prepare_config))
+def build_validate_pipeline(client_config, checkpoint_service, args):
+    completed_pipeline_steps = checkpoint_service.get_checkpoint_key_set(
+        wmconstants.WM_VALIDATE, wmconstants.MIGRATION_PIPELINE_OBJECT_TYPE)
+
+    base_dir = client_config['base_dir']
+    source_dir = os.path.join(base_dir, args.source_session) + '/'
+    destination_dir = os.path.join(base_dir, args.destination_session) + '/'
+
+    pipeline = Pipeline(client_config['export_dir'], completed_pipeline_steps, args.dry_run)
+
+    def add_diff_task(name, config, file_path, parents=None):
+        source_file = os.path.join(source_dir, file_path)
+        destination_file = os.path.join(destination_dir, file_path)
+        return pipeline.add_task(DiffTask(name, source_file, destination_file, config), parents)
+
+    add_diff_task(
+        "validate-users",
+        DiffConfig(
+            primary_key='userName',
+            ignored_keys={'id', 'entitlements'},
+            children={
+                "emails": DiffConfig(
+                    primary_key="value",
+                ),
+                "roles": DiffConfig(
+                    primary_key="value",
+                ),
+                "groups": DiffConfig(
+                    primary_key="display",
+                    ignored_keys={'value', '$ref'}
+                )
+            }),
+        "users.log"
+    )
+    add_diff_task(
+        "validate-instance_profile",
+        DiffConfig(primary_key='instance_profile_arn'),
+        "instance_profiles.log",
+    )
+    add_diff_task(
+        "validate-user_dirs",
+        DiffConfig(primary_key='path', ignored_keys={'object_id'}),
+        "user_dirs.log",
+    )
     return pipeline
 
 

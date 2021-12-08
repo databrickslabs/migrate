@@ -196,7 +196,8 @@ def print_diff(diff, prefix=""):
     elif isinstance(diff, (TypeDiff, ValueDiff, Miss)):
         print(prefix + ":" + str(diff) + "\n")
     elif isinstance(diff, DictDiff):
-        for key, value in diff.children.items():
+        for key in sorted(diff.children.keys()):
+            value = diff.children[key]
             print_diff(value, prefix + "|" + key)
     else:
         raise NotImplementedError(f"Type {type(diff)} is not supported.")
