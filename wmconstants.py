@@ -13,6 +13,7 @@ MIGRATION_PIPELINE_OBJECT_TYPE = "tasks"
 # Actions
 WM_EXPORT = "export"
 WM_IMPORT = "import"
+WM_VALIDATE = "validate"
 
 # List of task objects in a pipeline
 INSTANCE_PROFILES = "instance_profiles"

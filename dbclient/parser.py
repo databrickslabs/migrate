@@ -351,6 +351,10 @@ def prompt_for_input(message):
         sys.stdout.write("Please respond with 'yes' or 'no'")
 
 
+def build_client_config_without_profile(args):
+    return build_client_config('', '', '', args)
+
+
 def build_client_config(profile, url, token, args):
     # cant use netrc credentials because requests module tries to load the credentials into http basic auth headers
     # aws is the default
@@ -445,11 +449,11 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
     parser.add_argument('--validate-pipeline', action='store_true',
                         help='Validate exported data between source and destination.')
 
-    parser.add_argument('--source', action='store', default='',
-                        help='!!!TEMP!!! Data exported from source workspace.')
+    parser.add_argument('--source-session', action='store', default='',
+                        help='Session for exporting source workspace.')
 
-    parser.add_argument('--destination', action='store', default='',
-                        help='!!!TEMP!!! Data exported from destination workspace.')
+    parser.add_argument('--destination-session', action='store', default='',
+                        help='Session for exporting destination workspace.')
 
     parser.add_argument('--use-checkpoint', action='store_true',
                         help='use checkpointing to restart from previous state')
