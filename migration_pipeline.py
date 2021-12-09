@@ -118,8 +118,8 @@ def build_validate_pipeline(client_config, checkpoint_service, args):
         wmconstants.WM_VALIDATE, wmconstants.MIGRATION_PIPELINE_OBJECT_TYPE)
 
     base_dir = client_config['base_dir']
-    source_dir = os.path.join(base_dir, args.source_session) + '/'
-    destination_dir = os.path.join(base_dir, args.destination_session) + '/'
+    source_dir = os.path.join(base_dir, args.validate_source_session) + '/'
+    destination_dir = os.path.join(base_dir, args.validate_destination_session) + '/'
 
     pipeline = Pipeline(client_config['export_dir'], completed_pipeline_steps, args.dry_run)
 
@@ -143,7 +143,10 @@ def build_validate_pipeline(client_config, checkpoint_service, args):
                 "groups": DiffConfig(
                     primary_key="display",
                     ignored_keys={'value', '$ref'}
-                )
+                ),
+                "entitlements": DiffConfig(
+                    primary_key="value",
+                ),
             }),
         "users.log"
     )
