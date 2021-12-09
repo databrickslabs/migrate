@@ -74,7 +74,6 @@ class Pipeline:
         end = timer()
         logging.info(f'{task.name} Completed. Total time taken: {str(timedelta(seconds=end - start))}')
         failed_task_log = logging_utils.get_error_log_file(task.action_type, task.object_type, self._working_dir)
-        # TODO: Add logic to skip failure check
         if os.path.exists(failed_task_log) and os.path.getsize(failed_task_log) > 0:
             msg = f'{task.name} has failures. Refer to {failed_task_log} to see failures. Terminating pipeline.'
             logging.info(msg)

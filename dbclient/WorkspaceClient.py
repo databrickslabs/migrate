@@ -278,7 +278,7 @@ class WorkspaceClient(dbclient):
         resp = self.get(WS_EXPORT, get_args)
         if resp.get('error', None):
             err_msg = {'error': resp.get('error'), 'path': notebook_path}
-            error_logger.error(json.dumps(err_msg) + '\n')
+            logging_utils.log_reponse_error(error_logger, resp, err_msg)
             return err_msg
         nb_path = os.path.dirname(notebook_path)
         if nb_path != '/':
@@ -404,8 +404,7 @@ class WorkspaceClient(dbclient):
                 api_endpoint = '/permissions/{0}/{1}'.format(artifact_type, obj_id)
                 acl_resp = self.get(api_endpoint)
                 acl_resp['path'] = data.get('path')
-                if 'error_code' in acl_resp:
-                    error_logger.error(json.dumps(acl_resp) + '\n')
+                if logging_utils.log_reponse_error(error_logger, acl_resp):
                     continue
                 acl_resp.pop('http_status_code')
                 write_fp.write(json.dumps(acl_resp) + '\n')
@@ -452,10 +451,9 @@ class WorkspaceClient(dbclient):
                 logging.info(f"User workspace does not exist: {obj_path}, skipping ACL")
                 return
         obj_status = self.get(WS_STATUS, {'path': obj_path})
-        if 'error_code' in obj_status:
-            error_logger.error(json.dumps(obj_status) + '\n')
+        if logging_utils.log_reponse_error(error_logger, obj_status):
             return
-        print("ws-stat: ", obj_status)
+        logging.info("ws-stat: ", obj_status)
         current_obj_id = obj_status.get('object_id', None)
         if not current_obj_id:
             error_logger.error(f'Object id missing from destination workspace: {obj_status}')
@@ -471,8 +469,7 @@ class WorkspaceClient(dbclient):
         acl_list = object_acl.get('access_control_list', None)
         api_args = {'access_control_list': self.build_acl_args(acl_list)}
         resp = self.patch(api_path, api_args)
-        if 'error_code' in resp:
-            error_logger.error(json.dumps(resp) + '\n')
+        logging_utils.log_reponse_error(error_logger, resp)
 
     def import_workspace_acls(self, workspace_log_file='acl_notebooks.log',
                               dir_log_file='acl_directories.log'):
