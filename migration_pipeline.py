@@ -130,6 +130,7 @@ def build_validate_pipeline(client_config, checkpoint_service, args):
     source_dir = os.path.join(base_dir, args.validate_source_session) + '/'
     destination_dir = os.path.join(base_dir, args.validate_destination_session) + '/'
 
+    init_diff_logger(client_config['export_dir'])
     pipeline = Pipeline(client_config['export_dir'], completed_pipeline_steps, args.dry_run)
 
     def add_diff_task(name, config, file_path, parents=None):

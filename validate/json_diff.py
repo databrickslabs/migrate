@@ -1,4 +1,6 @@
+import os.path
 from abc import ABC, abstractmethod
+import logging
 
 
 class AbstractDiff(ABC):
@@ -142,6 +144,26 @@ class DiffConfig:
         self.children = children
 
 
+_diff_logger = logging.getLogger('diff-logger')
+
+
+def init_diff_logger(base_dir):
+    _diff_logger.setLevel(logging.INFO)
+
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
+
+    fh = logging.FileHandler(os.path.join(base_dir, "validation.log"))
+    fh.setLevel(logging.INFO)
+
+    _diff_logger.addHandler(ch)
+    _diff_logger.addHandler(fh)
+
+
+def diff_logger():
+    return _diff_logger
+
+
 def prepare_diff_input(data, config=None):
     """ This function converts input data with the two rules below:
     1) List of primary types to sets.
@@ -164,7 +186,11 @@ def prepare_diff_input(data, config=None):
             result = {}
             for inner in data:
                 converted = prepare_diff_input(inner, config)
-                result[converted[config.primary_key]] = converted
+                if converted[config.primary_key] not in result:
+                    result[converted[config.primary_key]] = converted
+                else:
+                    diff_logger().info(f"Duplicates found:\n{str(converted)}\n---\n" +
+                                       str(result[converted[config.primary_key]]))
             return result
         else:
             raise NotImplementedError(f"Type {type(data[0])} is not supported.")
@@ -191,9 +217,9 @@ def prepare_diff_input(data, config=None):
 
 def print_diff(diff, prefix=""):
     if not diff:
-        print("No diff found.")
+        diff_logger().info("No diff found.")
     elif isinstance(diff, (TypeDiff, ValueDiff, Miss)):
-        print(prefix + ":" + str(diff) + "\n")
+        diff_logger().info(prefix + ":" + str(diff) + "\n")
     elif isinstance(diff, DictDiff):
         for key in sorted(diff.children.keys()):
             value = diff.children[key]
