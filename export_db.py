@@ -95,6 +95,7 @@ def main():
             lib_c = LibraryClient(client_config)
             start = timer()
             lib_c.log_library_details()
+            lib_c.log_cluster_libs()
             end = timer()
             print("Complete Library Download Time: " + str(timedelta(seconds=end - start)))
 

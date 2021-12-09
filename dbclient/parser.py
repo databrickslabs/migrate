@@ -13,6 +13,7 @@ class NotebookFormat(Enum):
     dbc = 'DBC'
     source = 'SOURCE'
     html = 'HTML'
+
     # jupyter is only supported for python notebooks. consider adding this back if there's demand
     # jupyter = 'JUPYTER'
 
@@ -48,12 +49,14 @@ def get_login_credentials(creds_path='~/.databrickscfg', profile='DEFAULT'):
         current_profile = dict(config[profile])
         return current_profile
     except KeyError:
-        raise ValueError('Unable to find credentials to load for profile. Profile only supports tokens.')
+        raise ValueError(
+            'Unable to find credentials to load for profile. Profile only supports tokens.')
 
 
 def get_export_user_parser():
     # export workspace items
-    parser = argparse.ArgumentParser(description='Export user(s) workspace artifacts from Databricks')
+    parser = argparse.ArgumentParser(
+        description='Export user(s) workspace artifacts from Databricks')
 
     parser.add_argument('--profile', action='store', default='DEFAULT',
                         help='Profile to parse the credentials')
@@ -336,8 +339,8 @@ def get_import_parser():
 def prompt_for_input(message):
     import sys
     # raw_input returns the empty string for "enter", therefore default is no
-    yes = {'yes','y', 'ye'}
-    no = {'no','n', ''}
+    yes = {'yes', 'y', 'ye'}
+    no = {'no', 'n', ''}
 
     choice = input(message + '\n').lower()
     if choice in yes:
@@ -346,6 +349,10 @@ def prompt_for_input(message):
         return False
     else:
         sys.stdout.write("Please respond with 'yes' or 'no'")
+
+
+def build_client_config_without_profile(args):
+    return build_client_config('', '', '', args)
 
 
 def build_client_config(profile, url, token, args):
@@ -381,7 +388,8 @@ def build_client_config(profile, url, token, args):
 
 
 def get_pipeline_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description='Export user(s) workspace artifacts from Databricks')
+    parser = argparse.ArgumentParser(
+        description='Export user(s) workspace artifacts from Databricks')
 
     parser.add_argument('--profile', action='store', default='DEFAULT',
                         help='Profile to parse the credentials')
@@ -437,6 +445,17 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
 
     parser.add_argument('--import-pipeline', action='store_true',
                         help='Execute all import tasks.')
+
+    parser.add_argument('--validate-pipeline', action='store_true',
+                        help='Validate exported data between source and destination.')
+
+    parser.add_argument('--validate-source-session', action='store', default='',
+                        help='Session used by exporting source workspace. Only used for ' +
+                             '--validate-pipeline.')
+
+    parser.add_argument('--validate-destination-session', action='store', default='',
+                        help='Session used by exporting destination workspace. Only used for ' +
+                             '--validate-pipeline.')
 
     parser.add_argument('--use-checkpoint', action='store_true',
                         help='use checkpointing to restart from previous state')

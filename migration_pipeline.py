@@ -5,32 +5,37 @@ from tasks import *
 import wmconstants
 from checkpoint_service import CheckpointService
 
+
 def generate_session() -> str:
     return datetime.now().strftime('%Y%m%d%H%M%S')
 
 
 def build_pipeline(args) -> Pipeline:
     """Build the pipeline based on the command line arguments."""
-
-    login_args = parser.get_login_credentials(profile=args.profile)
-    if parser.is_azure_creds(login_args) and (not args.azure):
-        raise ValueError(
-            'Login credentials do not match args. Please provide --azure flag for azure envs.')
-
-    # Cant use netrc credentials because requests module tries to load the credentials into http
-    # basic auth headers parse the credentials
-    url = login_args['host']
-    token = login_args['token']
-    client_config = parser.build_client_config(args.profile, url, token, args)
-
     # Resume session if specified, and create a new one otherwise. Different session will work in
     # different export_dir in order to be isolated.
     session = args.session if args.session else generate_session()
-
     print(f"Using the session id: {session}")
 
+    if args.validate_pipeline:
+        client_config = parser.build_client_config_without_profile(args)
+    else:
+        login_args = parser.get_login_credentials(profile=args.profile)
+        if parser.is_azure_creds(login_args) and (not args.azure):
+            raise ValueError(
+                'Login credentials do not match args. Please provide --azure flag for azure envs.')
+
+        # Cant use netrc credentials because requests module tries to load the credentials into http
+        # basic auth headers parse the credentials
+        url = login_args['host']
+        token = login_args['token']
+        client_config = parser.build_client_config(args.profile, url, token, args)
+
     client_config['session'] = session
-    client_config['export_dir'] = os.path.join(client_config['export_dir'], session) + '/'
+
+    # Need to keep the export_dir as base_dir to find exported data from source and destination.
+    client_config['base_dir'] = client_config['export_dir']
+    client_config['export_dir'] = os.path.join(client_config['base_dir'], session) + '/'
 
     if client_config['debug']:
         logging.info(url, token)
@@ -45,8 +50,8 @@ def build_pipeline(args) -> Pipeline:
     if args.import_pipeline:
         return build_import_pipeline(client_config, checkpoint_service, args)
 
-    # Verification job
-    # TODO: Add verification job at the end
+    if args.validate_pipeline:
+        return build_validate_pipeline(client_config, checkpoint_service, args)
 
 
 def build_export_pipeline(client_config, checkpoint_service, args) -> Pipeline:
@@ -76,9 +81,11 @@ def build_export_pipeline(client_config, checkpoint_service, args) -> Pipeline:
     export_metastore_table_acls = pipeline.add_task(MetastoreTableACLExportTask(client_config, args, wmconstants.METASTORE_TABLE_ACLS in skip_tasks), [export_metastore])
     # FinishExport task is never skipped
     finish_export = pipeline.add_task(FinishExportTask(client_config),
-                                      [export_workspace_acls, export_notebooks, export_jobs, export_metastore_table_acls])
+                                      [export_workspace_acls, export_notebooks, export_jobs,
+                                       export_metastore_table_acls])
 
     return pipeline
+
 
 def build_import_pipeline(client_config, checkpoint_service, args) -> Pipeline:
     """
@@ -103,7 +110,56 @@ def build_import_pipeline(client_config, checkpoint_service, args) -> Pipeline:
     import_jobs = pipeline.add_task(JobsImportTask(client_config, args, wmconstants.JOBS in skip_tasks), [import_instance_pools])
     import_metastore = pipeline.add_task(MetastoreImportTask(client_config, checkpoint_service, args, wmconstants.METASTORE in skip_tasks), [import_groups])
     import_metastore_table_acls = pipeline.add_task(MetastoreTableACLImportTask(client_config, args, wmconstants.METASTORE_TABLE_ACLS in skip_tasks), [import_metastore])
+    return pipeline
 
+
+def build_validate_pipeline(client_config, checkpoint_service, args):
+    completed_pipeline_steps = checkpoint_service.get_checkpoint_key_set(
+        wmconstants.WM_VALIDATE, wmconstants.MIGRATION_PIPELINE_OBJECT_TYPE)
+
+    base_dir = client_config['base_dir']
+    source_dir = os.path.join(base_dir, args.validate_source_session) + '/'
+    destination_dir = os.path.join(base_dir, args.validate_destination_session) + '/'
+
+    pipeline = Pipeline(client_config['export_dir'], completed_pipeline_steps, args.dry_run)
+
+    def add_diff_task(name, config, file_path, parents=None):
+        source_file = os.path.join(source_dir, file_path)
+        destination_file = os.path.join(destination_dir, file_path)
+        return pipeline.add_task(DiffTask(name, source_file, destination_file, config), parents)
+
+    add_diff_task(
+        "validate-users",
+        DiffConfig(
+            primary_key='userName',
+            ignored_keys={'id'},
+            children={
+                "emails": DiffConfig(
+                    primary_key="value",
+                ),
+                "roles": DiffConfig(
+                    primary_key="value",
+                ),
+                "groups": DiffConfig(
+                    primary_key="display",
+                    ignored_keys={'value', '$ref'}
+                ),
+                "entitlements": DiffConfig(
+                    primary_key="value",
+                ),
+            }),
+        "users.log"
+    )
+    add_diff_task(
+        "validate-instance_profile",
+        DiffConfig(primary_key='instance_profile_arn'),
+        "instance_profiles.log",
+    )
+    add_diff_task(
+        "validate-user_dirs",
+        DiffConfig(primary_key='path', ignored_keys={'object_id'}),
+        "user_dirs.log",
+    )
     return pipeline
 
 
