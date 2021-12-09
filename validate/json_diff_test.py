@@ -1,6 +1,8 @@
 import unittest
 from .json_diff import *
 
+init_diff_logger("/tmp")
+
 
 class JsonDiffTest(unittest.TestCase):
     def test_equal(self):
@@ -166,6 +168,31 @@ class PrepareDiffInputTest(unittest.TestCase):
                         )
                 }))
         )
+
+    def test_duplicates(self):
+        self.assertEqual(
+            {
+                'foo': {
+                    'b': {'key': 'b', 'value': 'y'},
+                    'a': {'key': 'a', 'value': 'q'},
+                    'c': {'key': 'c', 'value': 'n'}
+                },
+                'bar': 'baz'
+            },
+            prepare_diff_input(
+                {
+                    'foo': [{'key': 'b', 'value': 'y'},
+                            {'key': 'c', 'value': 'n'},
+                            {'key': 'c', 'value': 'm'},
+                            {'key': 'a', 'value': 'q'}],
+                    'bar': 'baz'
+                },
+                DiffConfig(children={
+                    'foo':
+                        DiffConfig(
+                            primary_key='key'
+                        )
+                })))
 
 
 class PrintDiffTest(unittest.TestCase):
