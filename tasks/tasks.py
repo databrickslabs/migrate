@@ -31,7 +31,8 @@ class UserExportTask(AbstractTask):
 
 class GroupExportTask(AbstractTask):
     """Task that exports groups."""
-  def __init__(self, client_config, skip=False):
+
+    def __init__(self, client_config, skip=False):
         super().__init__("export_groups", wmconstants.WM_EXPORT, wmconstants.GROUP_OBJECT, skip)
         self.client_config = client_config
 
@@ -65,7 +66,7 @@ class GroupImportTask(AbstractTask):
     """Task that imports groups."""
 
     def __init__(self, client_config, skip=False):
-        super().__init__("import_groups", wmconstants.WM_IMPORT, wmconstants.GROUP_OBJECT. skip)
+        super().__init__("import_groups", wmconstants.WM_IMPORT, wmconstants.GROUP_OBJECT, skip)
         self.client_config = client_config
 
     def run(self):
@@ -97,7 +98,7 @@ class WorkspaceACLExportTask(AbstractTask):
     The behavior is equivalent to `$ python export_db.py --workspace-acls`, which lives in main function of
     export_db.py.
     """
-    def __init__(self, client_config, skip=False):
+    def __init__(self, client_config, checkpoint_service, skip=False):
         super().__init__("export_workspace_acls", wmconstants.WM_EXPORT, wmconstants.WORKSPACE_NOTEBOOK_ACL_OBJECT, skip)
         self.client_config = client_config
         self.checkpoint_service = checkpoint_service
@@ -329,7 +330,7 @@ class SecretImportTask(AbstractTask):
     The behavior is equivalent to `$ python import_db.py --secrets`
     """
     def __init__(self, client_config, skip=False):
-        super().__init__("import_secrets", wmconstants.WM_IMPORT, wmconstants.SECTEC_OBJECT)
+        super().__init__("import_secrets", wmconstants.WM_IMPORT, wmconstants.SECTEC_OBJECT, skip)
         self.client_config = client_config
 
     def run(self):
@@ -342,7 +343,7 @@ class FinishExportTask(AbstractTask):
     Todo: Add some validation logic to ensure export finished successfully.
     """
     def __init__(self, client_config, skip=False):
-        super().__init__("finish_export", "", "")
+        super().__init__("finish_export", "", "", skip)
         self.client_config = client_config
 
     def run(self):

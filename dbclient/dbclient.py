@@ -6,6 +6,7 @@ import re
 from dbclient import parser
 import time
 import requests.packages.urllib3
+import logging_utils
 import logging
 
 global pprint_j
@@ -164,6 +165,7 @@ class dbclient:
             if http_status_code in dbclient.http_error_codes:
                 raise Exception("Error: GET request failed with code {}\n{}".format(http_status_code, raw_results.text))
             results = raw_results.json()
+            logging_utils.log_reponse_error(logging.getLogger(), results)
             if print_json:
                 print(json.dumps(results, indent=4, sort_keys=True))
             if type(results) == list:
@@ -205,6 +207,7 @@ class dbclient:
                                                                                       http_status_code,
                                                                                       raw_results.text))
             results = raw_results.json()
+            logging_utils.log_reponse_error(logging.getLogger(), results)
             if print_json:
                 print(json.dumps(results, indent=4, sort_keys=True))
             # if results are empty, let's return the return status

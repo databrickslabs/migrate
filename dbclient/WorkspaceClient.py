@@ -224,17 +224,21 @@ class WorkspaceClient(dbclient):
                     print(resp_upload)
         # import the user's workspace ACLs
         notebook_acl_logs = user_import_dir + f'/{username}/acl_notebooks.log'
+        acl_notebooks_error_logger = logging_utils.get_error_logger(
+            wmconstants.WM_IMPORT, wmconstants.WORKSPACE_NOTEBOOK_ACL_OBJECT, self.get_export_dir())
         if os.path.exists(notebook_acl_logs):
             print(f"Importing the notebook acls for {username}")
             with open(notebook_acl_logs) as nb_acls_fp:
                 for nb_acl_str in nb_acls_fp:
-                    self.apply_acl_on_object(nb_acl_str)
+                    self.apply_acl_on_object(nb_acl_str, acl_notebooks_error_logger)
         dir_acl_logs = user_import_dir + f'/{username}/acl_directories.log'
+        acl_dir_error_logger = logging_utils.get_error_logger(
+            wmconstants.WM_IMPORT, wmconstants.WORKSPACE_DIRECTORY_ACL_OBJECT, self.get_export_dir())
         if os.path.exists(dir_acl_logs):
             print(f"Importing the directory acls for {username}")
             with open(dir_acl_logs) as dir_acls_fp:
                 for dir_acl_str in dir_acls_fp:
-                    self.apply_acl_on_object(dir_acl_str)
+                    self.apply_acl_on_object(dir_acl_str, acl_dir_error_logger)
         self.set_export_dir(original_export_dir)
 
     def download_notebooks(self, ws_log_file='user_workspace.log', ws_dir='artifacts/'):
