@@ -393,8 +393,10 @@ class DiffTask(AbstractTask):
         self.config = config
 
     def run(self):
+        print(f"----------------------------  {self.name} Start -----------------------------------")
         source_data = validate.prepare_diff_input(read_json_file(self.source), self.config)
         destination_data = validate.prepare_diff_input(read_json_file(self.destination),
                                                        self.config)
         diff = diff_json(source_data, destination_data)
         print_diff(diff)
+        print(f"---------------------------- {self.name} Complete --------------------------------")
