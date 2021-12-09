@@ -390,12 +390,20 @@ class DiffTask(AbstractTask):
         self.config = config
 
     def run(self):
-        diff_logger().info(f"------------------------  {self.name} Start -------------------------")
+        diff_logger().info(f"########################  {self.name} Start #########################")
+
         raw_source = read_json_file(self.source)
+        diff_logger().info(f"### Parsing {self.source} ###")
         prepared_source = validate.prepare_diff_input(raw_source, self.config)
+
         raw_destination = read_json_file(self.destination)
+        diff_logger().info(f"### Parsing {self.destination} ###")
         prepared_destination = validate.prepare_diff_input(raw_destination, self.config)
+
         diff_logger().info(f"Object counts {len(raw_source)} <-> {len(raw_destination)}")
+
+        diff_logger().info(f"### Comparing {self.source} and {self.destination} ###")
         diff = diff_json(prepared_source, prepared_destination)
         print_diff(diff)
-        diff_logger().info(f"------------------------  {self.name} Complete ----------------------")
+
+        diff_logger().info(f"########################  {self.name} Complete ######################")
