@@ -28,17 +28,17 @@ class JsonDiffTest(unittest.TestCase):
         expected.add_child('i', ValueDiff(1, 2))
         expected.add_child('f', TypeDiff(2.0, 3))
         expected.add_child('s', ValueDiff('hello', 'world'))
-        expected.add_child('l', Miss('RIGHT', 'left'))
-        expected.add_child('r', Miss('LEFT', 'right'))
-        self.assertEqual(expected, diff_json({'i': 1, 'f': 2.0, 's': 'hello', 'l': 'left'},
-                                             {'f': 3, 's': 'world', 'i': 2, 'r': 'right'}))
+        expected.add_child('l', Miss('DESTINATION', 'source'))
+        expected.add_child('r', Miss('SOURCE', 'destination'))
+        self.assertEqual(expected, diff_json({'i': 1, 'f': 2.0, 's': 'hello', 'l': 'source'},
+                                             {'f': 3, 's': 'world', 'i': 2, 'r': 'destination'}))
 
     def test_set_diff(self):
         expected = DictDiff()
-        expected.add_child('left', Miss('RIGHT', 'left'))
-        expected.add_child('right', Miss('LEFT', 'right'))
-        self.assertEqual(expected, diff_json({'left', 'common'},
-                                             {'right', 'common'}))
+        expected.add_child('source', Miss('DESTINATION', 'source'))
+        expected.add_child('destination', Miss('SOURCE', 'destination'))
+        self.assertEqual(expected, diff_json({'source', 'common'},
+                                             {'destination', 'common'}))
 
     def test_nested_dict_diff(self):
         expected1 = DictDiff()
@@ -47,12 +47,12 @@ class JsonDiffTest(unittest.TestCase):
 
         expected2 = DictDiff()
         expected2.add_child('s', ValueDiff('hello', 'world'))
-        expected2.add_child('l', Miss('RIGHT', 'left'))
-        expected2.add_child('r', Miss('LEFT', 'right'))
+        expected2.add_child('l', Miss('DESTINATION', 'source'))
+        expected2.add_child('r', Miss('SOURCE', 'destination'))
         expected1.add_child('n', expected2)
         self.assertEqual(expected1, diff_json(
-            {'i': 1, 'f': 2.0, 'e': 'equal', 'n': {'s': 'hello', 'l': 'left'}},
-            {'f': 3, 'i': 2, 'e': 'equal', 'n': {'s': 'world', 'r': 'right'}}))
+            {'i': 1, 'f': 2.0, 'e': 'equal', 'n': {'s': 'hello', 'l': 'source'}},
+            {'f': 3, 'i': 2, 'e': 'equal', 'n': {'s': 'world', 'r': 'destination'}}))
 
 
 class PrepareDiffInputTest(unittest.TestCase):
@@ -202,8 +202,8 @@ class PrintDiffTest(unittest.TestCase):
         expected1.add_child('f', TypeDiff(2.0, 3))
         expected2 = DictDiff()
         expected2.add_child('s', ValueDiff('hello', 'world'))
-        expected2.add_child('l', Miss('RIGHT', 'left'))
-        expected2.add_child('r', Miss('LEFT', 'right'))
+        expected2.add_child('l', Miss('DESTINATION', 'source'))
+        expected2.add_child('r', Miss('SOURCE', 'destination'))
         expected1.add_child('n', expected2)
         print_diff(expected1, prefix="SIMPLE")
         # TODO(Yubing): Check output.
