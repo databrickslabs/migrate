@@ -13,38 +13,38 @@ class AbstractDiff(ABC):
 
 
 class Diff(AbstractDiff):
-    def __init__(self, left, right):
+    def __init__(self, source, destination):
         super().__init__()
-        self.left = left
-        self.right = right
+        self.source = source
+        self.destination = destination
 
     @abstractmethod
     def __str__(self):
         pass
 
 
-def _diff_message(hint, left, right):
-    return f"{hint}:\n< {left}\n---\n> {right}"
+def _diff_message(hint, source, destination):
+    return f"{hint}:\n< {source}\n---\n> {destination}"
 
 
 class TypeDiff(Diff):
-    def __init__(self, left, right):
-        super().__init__(left, right)
+    def __init__(self, source, destination):
+        super().__init__(source, destination)
 
     def __str__(self):
-        return _diff_message("TYPE_MISMATCH", f"{type(self.left)}':'{self.left}",
-                             f"{type(self.right)}':'{self.right}")
+        return _diff_message("TYPE_MISMATCH", f"{type(self.source)}':'{self.source}",
+                             f"{type(self.destination)}':'{self.destination}")
 
     def __eq__(self, other):
         return str(self) == str(other)
 
 
 class ValueDiff(Diff):
-    def __init__(self, left, right):
-        super().__init__(left, right)
+    def __init__(self, source, destination):
+        super().__init__(source, destination)
 
     def __str__(self):
-        return _diff_message("VALUE_MISMATCH", self.left, self.right)
+        return _diff_message("VALUE_MISMATCH", self.source, self.destination)
 
     def __eq__(self, other):
         return str(self) == str(other)
@@ -77,52 +77,52 @@ class Miss(AbstractDiff):
 
     def __str__(self):
         hint = f"MISS_{self.side}:\n"
-        value = f"< {self.value}" if self.side == "RIGHT" else f"> {self.value}"
+        value = f"< {self.value}" if self.side == "DESTINATION" else f"> {self.value}"
         return f"{hint}{value}"
 
     def __eq__(self, other):
         return str(self) == str(other)
 
 
-def diff_json(left, right):
+def diff_json(source, destination):
     """diff_json compares two dict and return the diff.
 
     It is required that input dicts only contains dict and prime data types. List is not supported
     intentionally to reduce the complexity.
 
-    :param left - left hand side of the comparison.
-    :param right - right hand side of the comparison.
+    :param source - source hand side of the comparison.
+    :param destination - destination hand side of the comparison.
     """
-    if type(left) != type(right):
-        return TypeDiff(left, right)
+    if type(source) != type(destination):
+        return TypeDiff(source, destination)
 
-    if isinstance(left, (int, float, str)):
-        if left != right:
-            return ValueDiff(left, right)
-    elif isinstance(left, dict):
+    if isinstance(source, (int, float, str)):
+        if source != destination:
+            return ValueDiff(source, destination)
+    elif isinstance(source, dict):
         diff = DictDiff()
-        for key in set(left.keys()).union(set(right.keys())):
-            if key not in left:
-                diff.add_child(key, Miss('LEFT', right[key]))
-            elif key not in right:
-                diff.add_child(key, Miss('RIGHT', left[key]))
+        for key in set(source.keys()).union(set(destination.keys())):
+            if key not in source:
+                diff.add_child(key, Miss('SOURCE', destination[key]))
+            elif key not in destination:
+                diff.add_child(key, Miss('DESTINATION', source[key]))
             else:
-                child_diff = diff_json(left[key], right[key])
+                child_diff = diff_json(source[key], destination[key])
                 if child_diff:
                     diff.add_child(key, child_diff)
         if diff.has_diff():
             return diff
-    elif isinstance(left, set):
+    elif isinstance(source, set):
         diff = DictDiff()
-        for key in left.union(right):
-            if key not in left:
-                diff.add_child(key, Miss('LEFT', key))
-            elif key not in right:
-                diff.add_child(key, Miss('RIGHT', key))
+        for key in source.union(destination):
+            if key not in source:
+                diff.add_child(key, Miss('SOURCE', key))
+            elif key not in destination:
+                diff.add_child(key, Miss('DESTINATION', key))
         if diff.has_diff():
             return diff
     else:
-        raise NotImplementedError(f"Type {type(left)} is not supported.")
+        raise NotImplementedError(f"Type {type(source)} is not supported.")
 
     return None
 
