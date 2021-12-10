@@ -1,4 +1,15 @@
 #!/bin/bash
+#
+# Used to launch a jumpbox EC2 instance with an AMI_NAME (e.g. wm-jumpbox-v1.02) into $REGION with $INSTANCE_TYPE.
+# One can ssh into the jumpbox with the provided $KEY_NAME.
+# If the invoker already has a running Jumpbox, the script does not create a new one.
+# The script prints the command to ssh into the jumpbox at the end.
+# Requirements:
+# - aws cli
+#   - e.g. brew install awscli
+#
+# - jq
+#   - e.g. brew install jq
 set -e
 
 AMI_NAME=$1
@@ -8,8 +19,8 @@ KEY_NAME=$4
 INSTANCE_TYPE=$5
 
 if [ $# -ne 5 ] && [ $# -ne 4 ]; then
-    echo "Usage: ..."
-    echo "e.g. ..."
+    echo "Usage: ./launch_jumpbox.sh AMI_NAME REGION AWS_PROFILE KEY_NAME [INSTANCE_TYPE]"
+    echo "e.g. ./launch_jumpbox.sh wm-jumpbox-v1.02 us-west-2 aws-field-eng_databricks-power-user kevin_testing t2.micro"
     exit 1
 fi
 
