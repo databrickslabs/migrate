@@ -70,9 +70,9 @@ def build_export_pipeline(client_config, checkpoint_service, args) -> Pipeline:
     export_secrets = pipeline.add_task(SecretExportTask(client_config, args), [export_groups])
     export_clusters = pipeline.add_task(ClustersExportTask(client_config, args), [export_secrets])
     export_instance_pools = pipeline.add_task(InstancePoolsExportTask(client_config, args), [export_clusters])
-    export_jobs = pipeline.add_task(JobsExportTask(client_config, args), [export_instance_pools])
     export_metastore = pipeline.add_task(MetastoreExportTask(client_config, checkpoint_service, args), [export_groups])
     export_metastore_table_acls = pipeline.add_task(MetastoreTableACLExportTask(client_config, args), [export_metastore])
+    export_jobs = pipeline.add_task(JobsExportTask(client_config, args), [export_instance_pools])
     finish_export = pipeline.add_task(FinishExportTask(client_config),
                                       [export_workspace_acls, export_notebooks, export_jobs, export_metastore_table_acls])
 
@@ -96,9 +96,9 @@ def build_import_pipeline(client_config, checkpoint_service, args) -> Pipeline:
     import_secrets = pipeline.add_task(SecretImportTask(client_config), [import_groups])
     import_clusters = pipeline.add_task(ClustersImportTask(client_config, args), [import_secrets])
     import_instance_pools = pipeline.add_task(InstancePoolsImportTask(client_config, args), [import_clusters])
-    import_jobs = pipeline.add_task(JobsImportTask(client_config, args), [import_instance_pools])
     import_metastore = pipeline.add_task(MetastoreImportTask(client_config, checkpoint_service, args), [import_groups])
     import_metastore_table_acls = pipeline.add_task(MetastoreTableACLImportTask(client_config, args), [import_metastore])
+    import_jobs = pipeline.add_task(JobsImportTask(client_config, args), [import_instance_pools])
 
     return pipeline
 
