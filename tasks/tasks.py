@@ -1,6 +1,7 @@
 import logging
 
 import json
+import os
 
 import validate
 from pipeline import AbstractTask
@@ -385,6 +386,23 @@ def read_json_file(file):
     return [json.loads(line) for line in lines]
 
 
+def diff_files(source, destination, config):
+    diff_logger().info(f"---------------- Compare {source} <-> {destination} ---------------------")
+    raw_source = read_json_file(source)
+    diff_logger().info(f"### Parsing {source} ###")
+    prepared_source = validate.prepare_diff_input(raw_source, config)
+
+    raw_destination = read_json_file(destination)
+    diff_logger().info(f"### Parsing {destination} ###")
+    prepared_destination = validate.prepare_diff_input(raw_destination, config)
+
+    diff_logger().info(f"Object counts {len(raw_source)} <-> {len(raw_destination)}")
+
+    diff_logger().info(f"### Comparing {source} and {destination} ###")
+    diff = diff_json(prepared_source, prepared_destination)
+    print_diff(diff)
+
+
 class DiffTask(AbstractTask):
     def __init__(self, name, source, destination, config=None):
         super().__init__(name)
@@ -393,20 +411,31 @@ class DiffTask(AbstractTask):
         self.config = config
 
     def run(self):
-        diff_logger().info(f"########################  {self.name} Start #########################")
+        diff_logger().info(f"######################### {self.name} Start #########################")
+        diff_files(self.source, self.destination, self.config)
+        diff_logger().info(f"######################### {self.name} Complete ######################")
 
-        raw_source = read_json_file(self.source)
-        diff_logger().info(f"### Parsing {self.source} ###")
-        prepared_source = validate.prepare_diff_input(raw_source, self.config)
 
-        raw_destination = read_json_file(self.destination)
-        diff_logger().info(f"### Parsing {self.destination} ###")
-        prepared_destination = validate.prepare_diff_input(raw_destination, self.config)
+class DirDiffTask(AbstractTask):
+    def __init__(self, name, source, destination, config):
+        super().__init__(name)
+        self.source = source
+        self.destination = destination
+        self.config = config
 
-        diff_logger().info(f"Object counts {len(raw_source)} <-> {len(raw_destination)}")
+    def run(self):
+        diff_logger().info(f"######################## {self.name} Start ##########################")
+        source_files = set(os.listdir(self.source))
+        destination_files = set(os.listdir(self.destination))
 
-        diff_logger().info(f"### Comparing {self.source} and {self.destination} ###")
-        diff = diff_json(prepared_source, prepared_destination)
-        print_diff(diff)
+        for file in source_files.union(destination_files):
+            source_file = os.path.join(self.source, file)
+            destination_file = os.path.join(self.destination, file)
+            if file not in source_files:
+                diff_logger().info(f"MISS_FILE_SOURCE:\n> {source_file}")
+            elif file not in destination_files:
+                diff_logger().info(f"MISS_FILE_DESTINATION:\n< {destination_file}")
+            else:
+                diff_files(source_file, destination_file, self.config)
 
-        diff_logger().info(f"########################  {self.name} Complete ######################")
+        diff_logger().info(f"######################### {self.name} Complete ######################")
