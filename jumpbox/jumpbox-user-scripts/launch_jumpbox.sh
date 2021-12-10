@@ -61,6 +61,8 @@ done
 echo "Instance $INSTANCE_ID is in running state!"
 
 PUBLIC_DNS=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --region $REGION --profile $AWS_PROFILE | jq .Reservations | jq .'[].Instances' | jq -r .'[].PublicDnsName')
+echo "==============================================================="
 echo "Ssh into your jumpbox using the following command: "
 echo "ssh -i \$KEY_NAME.pem ec2-user@$PUBLIC_DNS"
-echo "e.g. ssh -i $KEY_NAME-$REGION-pem ec2-user@$PUBLIC_DNS"
+echo "e.g. ssh -i $KEY_NAME-$REGION.pem ec2-user@$PUBLIC_DNS"
+echo "==============================================================="
