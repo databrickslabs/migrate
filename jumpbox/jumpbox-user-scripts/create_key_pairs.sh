@@ -18,6 +18,7 @@ AWS_PROFILE=$3
 if [ $# -ne 3 ]; then
     echo "Usage: ./create_key_pairs.sh KEY_NAME REGION AWS_PROFILE"
     echo "e.g. ./create_key_pairs.sh kevin_testing us-west-2 aws-some-profile"
+    exit 1
 fi
 
 PRIVATE_KEY=$(aws ec2 create-key-pair --key-name $KEY_NAME --region $REGION --profile $AWS_PROFILE | jq .KeyMaterial)
