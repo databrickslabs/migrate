@@ -4,6 +4,7 @@ from pipeline import Pipeline
 from tasks import *
 import wmconstants
 from checkpoint_service import CheckpointService
+import logging_utils
 
 
 def generate_session() -> str:
@@ -37,11 +38,13 @@ def build_pipeline(args) -> Pipeline:
     client_config['base_dir'] = client_config['export_dir']
     client_config['export_dir'] = os.path.join(client_config['base_dir'], session) + '/'
 
-    if client_config['debug']:
-        logging.info(url, token)
-
     if not args.dry_run:
         os.makedirs(client_config['export_dir'], exist_ok=True)
+
+    logging_utils.set_default_logging(client_config['export_dir'])
+    if client_config['debug']:
+        logging_utils.set_default_logging(client_config['export_dir'], logging.DEBUG)
+        logging.info(url, token)
 
     checkpoint_service = CheckpointService(client_config)
     if args.export_pipeline:
@@ -164,9 +167,6 @@ def build_validate_pipeline(client_config, checkpoint_service, args):
 
 
 def main():
-    logging.basicConfig(format="%(asctime)s;%(levelname)s;%(message)s", datefmt='%Y-%m-%d,%H:%M:%S',
-                        level=logging.INFO)
-
     args = parser.get_pipeline_parser().parse_args()
     if os.name == 'nt' and (not args.bypass_windows_check):
         raise ValueError('This tool currently does not support running on Windows OS')

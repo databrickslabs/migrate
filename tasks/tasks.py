@@ -8,12 +8,13 @@ from dbclient import *
 from validate import *
 from timeit import default_timer as timer
 from datetime import timedelta
+import wmconstants
 
 
 class InstanceProfileExportTask(AbstractTask):
     """Task that exports instance profiles."""
     def __init__(self, client_config, skip=False):
-        super().__init__(name="export_instance_profiles", skip=skip)
+        super().__init__("export_instance_profiles", wmconstants.WM_EXPORT, wmconstants.INSTANCE_PROFILE_OBJECT, skip)
         self.client_config = client_config
 
     def run(self):
@@ -27,7 +28,7 @@ class UserExportTask(AbstractTask):
     """Task that exports users."""
 
     def __init__(self, client_config, skip=False):
-        super().__init__(name="export_users", skip=skip)
+        super().__init__("export_users", wmconstants.WM_EXPORT, wmconstants.USER_OBJECT, skip)
         self.client_config = client_config
 
     def run(self):
@@ -37,8 +38,9 @@ class UserExportTask(AbstractTask):
 
 class GroupExportTask(AbstractTask):
     """Task that exports groups."""
+
     def __init__(self, client_config, skip=False):
-        super().__init__(name="export_groups", skip=skip)
+        super().__init__("export_groups", wmconstants.WM_EXPORT, wmconstants.GROUP_OBJECT, skip)
         self.client_config = client_config
 
     def run(self):
@@ -49,7 +51,7 @@ class GroupExportTask(AbstractTask):
 class InstanceProfileImportTask(AbstractTask):
     """Task that imports instance profiles."""
     def __init__(self, client_config, skip=False):
-        super().__init__(name="import_instance_profiles", skip=skip)
+        super().__init__("import_instance_profiles", wmconstants.WM_IMPORT, wmconstants.INSTANCE_PROFILE_OBJECT, skip)
         self.client_config = client_config
 
     def run(self):
@@ -62,7 +64,7 @@ class UserImportTask(AbstractTask):
     """Task that imports users."""
 
     def __init__(self, client_config, skip=False):
-        super().__init__(name="import_users", skip=skip)
+        super().__init__("import_users", wmconstants.WM_IMPORT, wmconstants.USER_OBJECT, skip)
         self.client_config = client_config
 
     def run(self):
@@ -74,7 +76,7 @@ class GroupImportTask(AbstractTask):
     """Task that imports groups."""
 
     def __init__(self, client_config, skip=False):
-        super().__init__(name="import_groups", skip=skip)
+        super().__init__("import_groups", wmconstants.WM_IMPORT, wmconstants.GROUP_OBJECT, skip)
         self.client_config = client_config
 
     def run(self):
@@ -87,8 +89,9 @@ class WorkspaceItemLogExportTask(AbstractTask):
     The behavior is equivalent to `$ python export_db.py --workspace`, which lives in main function of
     export_db.py.
     """
+ 
     def __init__(self, client_config, checkpoint_service, skip=False):
-        super().__init__(name="export_workspace_items_log", skip=skip)
+        super().__init__("export_workspace_items_log", wmconstants.WM_EXPORT, wmconstants.WORKSPACE_NOTEBOOK_PATH_OBJECT, skip)
         self.client_config = client_config
         self.checkpoint_service = checkpoint_service
 
@@ -107,7 +110,7 @@ class WorkspaceACLExportTask(AbstractTask):
     export_db.py.
     """
     def __init__(self, client_config, checkpoint_service, skip=False):
-        super().__init__(name="export_workspace_acls", skip=skip)
+        super().__init__("export_workspace_acls", wmconstants.WM_EXPORT, wmconstants.WORKSPACE_NOTEBOOK_ACL_OBJECT, skip)
         self.client_config = client_config
         self.checkpoint_service = checkpoint_service
 
@@ -124,7 +127,7 @@ class NotebookExportTask(AbstractTask):
     export_db.py.
     """
     def __init__(self, client_config, checkpoint_service, skip=False):
-        super().__init__(name="export_notebooks", skip=skip)
+        super().__init__("export_notebooks", wmconstants.WM_EXPORT, wmconstants.WORKSPACE_NOTEBOOK_OBJECT, skip)
         self.client_config = client_config
         self.checkpoint_service = checkpoint_service
 
@@ -141,7 +144,7 @@ class WorkspaceACLImportTask(AbstractTask):
     import_db.py.
     """
     def __init__(self, client_config, checkpoint_service, skip=False):
-        super().__init__(name="import_workspace_acls", skip=skip)
+        super().__init__("import_workspace_acls", wmconstants.WM_IMPORT, wmconstants.WORKSPACE_NOTEBOOK_ACL_OBJECT, skip)
         self.client_config = client_config
         self.checkpoint_service = checkpoint_service
 
@@ -157,7 +160,7 @@ class NotebookImportTask(AbstractTask):
     import_db.py.
     """
     def __init__(self, client_config, checkpoint_service, args, skip=False):
-        super().__init__(name="import_notebooks", skip=skip)
+        super().__init__("import_notebooks", wmconstants.WM_IMPORT, wmconstants.WORKSPACE_NOTEBOOK_OBJECT, skip)
         self.client_config = client_config
         self.checkpoint_service = checkpoint_service
         self.args = args
@@ -175,7 +178,7 @@ class NotebookImportTask(AbstractTask):
 class ClustersExportTask(AbstractTask):
     """Task that exports all clusters."""
     def __init__(self, client_config, args, skip=False):
-        super().__init__(name="export_clusters", skip=skip)
+        super().__init__("export_clusters", wmconstants.WM_EXPORT, wmconstants.CLUSTER_OBJECT, skip)
         self.client_config = client_config
         self.args = args
 
@@ -189,7 +192,7 @@ class ClustersExportTask(AbstractTask):
 class InstancePoolsExportTask(AbstractTask):
     """Task that exports all instance pools."""
     def __init__(self, client_config, args, skip=False):
-        super().__init__(name="export_instance_pools", skip=skip)
+        super().__init__("export_instance_pools", wmconstants.WM_EXPORT, wmconstants.INSTANCE_POOL_OBJECT, skip)
         self.client_config = client_config
         self.args = args
 
@@ -201,7 +204,7 @@ class InstancePoolsExportTask(AbstractTask):
 class ClustersImportTask(AbstractTask):
     """Task that imports all clusters."""
     def __init__(self, client_config, args, skip=False):
-        super().__init__(name="import_clusters", skip=skip)
+        super().__init__("import_clusters", wmconstants.WM_IMPORT, wmconstants.CLUSTER_OBJECT, skip)
         self.client_config = client_config
         self.args = args
 
@@ -214,7 +217,7 @@ class ClustersImportTask(AbstractTask):
 class InstancePoolsImportTask(AbstractTask):
     """Task that imports all instance pools."""
     def __init__(self, client_config, args, skip=False):
-        super().__init__(name="import_instance_pools", skip=skip)
+        super().__init__("import_instance_pools", wmconstants.WM_IMPORT, wmconstants.INSTANCE_POOL_OBJECT, skip)
         self.client_config = client_config
         self.args = args
 
@@ -230,7 +233,7 @@ class JobsExportTask(AbstractTask):
     export_db.py.
     """
     def __init__(self, client_config, args, skip=False):
-        super().__init__(name="export_jobs", skip=skip)
+        super().__init__("export_jobs", wmconstants.WM_EXPORT, wmconstants.JOB_OBJECT, skip)
         self.client_config = client_config
         self.args = args
 
@@ -246,7 +249,7 @@ class JobsImportTask(AbstractTask):
     import_db.py.
     """
     def __init__(self, client_config, args, skip=False):
-        super().__init__(name="import_jobs", skip=skip)
+        super().__init__("import_jobs", wmconstants.WM_IMPORT, wmconstants.JOB_OBJECT, skip)
         self.client_config = client_config
         self.args = args
 
@@ -262,7 +265,7 @@ class MetastoreExportTask(AbstractTask):
     export_db.py.
     """
     def __init__(self, client_config, checkpoint_service, args, skip=False):
-        super().__init__(name="export_metastore", skip=skip)
+        super().__init__("export_metastore", wmconstants.WM_EXPORT, wmconstants.METASTORE_TABLES, skip)
         self.client_config = client_config
         self.checkpoint_service = checkpoint_service
         self.args = args
@@ -280,7 +283,7 @@ class MetastoreImportTask(AbstractTask):
     import_db.py.
     """
     def __init__(self, client_config, checkpoint_service, args, skip=False):
-        super().__init__(name="import_metastore", skip=skip)
+        super().__init__("import_metastore", wmconstants.WM_IMPORT, wmconstants.METASTORE_TABLES, skip)
         self.client_config = client_config
         self.checkpoint_service = checkpoint_service
         self.args = args
@@ -300,7 +303,7 @@ class MetastoreTableACLExportTask(AbstractTask):
     export_db.py.
     """
     def __init__(self, client_config, args, skip=False):
-        super().__init__(name="export_metastore_table_acls", skip=skip)
+        super().__init__("export_metastore_table_acls", wmconstants.WM_EXPORT, wmconstants.METASTORE_TABLES_ACL, skip)
         self.client_config = client_config
         self.args = args
 
@@ -324,7 +327,7 @@ class MetastoreTableACLImportTask(AbstractTask):
     import_db.py.
     """
     def __init__(self, client_config, args, skip=False):
-        super().__init__(name="import_metastore_table_acls", skip=skip)
+        super().__init__("import_metastore_table_acls", wmconstants.WM_IMPORT, wmconstants.METASTORE_TABLES_ACL, skip)
         self.client_config = client_config
         self.args = args
 
@@ -339,7 +342,7 @@ class SecretExportTask(AbstractTask):
     The behavior is equivalent to `$ python export_db.py --secrets --cluster-name $clusterName
     """
     def __init__(self, client_config, args, skip=False):
-        super().__init__(name="export_secrets", skip=skip)
+        super().__init__("export_secrets", wmconstants.WM_EXPORT, wmconstants.SECTEC_OBJECT, skip)
         self.client_config = client_config
         self.args = args
 
@@ -355,7 +358,7 @@ class SecretImportTask(AbstractTask):
     The behavior is equivalent to `$ python import_db.py --secrets`
     """
     def __init__(self, client_config, skip=False):
-        super().__init__(name="import_secrets", skip=skip)
+        super().__init__("import_secrets", wmconstants.WM_IMPORT, wmconstants.SECTEC_OBJECT, skip)
         self.client_config = client_config
 
     def run(self):
@@ -369,7 +372,7 @@ class FinishExportTask(AbstractTask):
     Todo: Add some validation logic to ensure export finished successfully.
     """
     def __init__(self, client_config, skip=False):
-        super().__init__(name="finish_export", skip=skip)
+        super().__init__("finish_export", "", "", skip)
         self.client_config = client_config
 
     def run(self):

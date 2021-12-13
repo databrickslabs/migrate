@@ -1,6 +1,6 @@
 import os
-import logging
 from abc import ABC, abstractmethod
+import logging
 
 class AbstractCheckpointKeySet(ABC):
     """Abstract base class for checkpoint read and write."""
@@ -42,7 +42,7 @@ class CheckpointKeySet(AbstractCheckpointKeySet):
         """Checks if key exists in the checkpoint set"""
         exists = key in self._checkpoint_key_set
         if exists:
-            print(f"{key} found in checkpoint")
+            logging.info(f"{key} found in checkpoint")
         return exists
 
     def _restore_from_checkpoint_file(self):
