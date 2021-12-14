@@ -22,6 +22,7 @@ class JsonDiffTest(unittest.TestCase):
         self.assertEqual(ValueDiff(1.0, 2.0, expected_counters), diff_json(1.0, 2.0, counters))
         self.assertEqual(ValueDiff('hello', 'world', expected_counters), diff_json('hello', 'world', counters))
         self.assertEqual(counters, expected_counters)
+        self.assertEqual(dict(counters), {'VALUE_MISMATCH': 3})
 
     def test_type_diff(self):
         counters = defaultdict(int)
@@ -31,6 +32,7 @@ class JsonDiffTest(unittest.TestCase):
         self.assertEqual(TypeDiff(2.0, {}, expected_counters), diff_json(2.0, {}, counters))
         self.assertEqual(TypeDiff({}, 1, expected_counters), diff_json({}, 1, counters))
         self.assertEqual(counters, expected_counters)
+        self.assertEqual(dict(counters), {'TYPE_MISMATCH': 4})
 
     def test_dict_diff(self):
         counters = defaultdict(int)
@@ -45,6 +47,8 @@ class JsonDiffTest(unittest.TestCase):
                                              {'f': 3, 's': 'world', 'i': 2, 'r': 'destination'},
                                              counters))
         self.assertEqual(counters, expected_counters)
+        self.assertEqual(dict(counters), {
+            'TYPE_MISMATCH': 1, 'VALUE_MISMATCH': 2, 'MISS_DESTINATION': 1, 'MISS_SOURCE': 1})
 
     def test_set_diff(self):
         counters = defaultdict(int)
@@ -55,6 +59,7 @@ class JsonDiffTest(unittest.TestCase):
         self.assertEqual(expected, diff_json({'source', 'common'},
                                              {'destination', 'common'}, counters))
         self.assertEqual(counters, expected_counters)
+        self.assertEqual(dict(counters), {'MISS_DESTINATION': 1, 'MISS_SOURCE': 1})
 
     def test_nested_dict_diff(self):
         counters = defaultdict(int)
@@ -72,6 +77,8 @@ class JsonDiffTest(unittest.TestCase):
             {'i': 1, 'f': 2.0, 'e': 'equal', 'n': {'s': 'hello', 'l': 'source'}},
             {'f': 3, 'i': 2, 'e': 'equal', 'n': {'s': 'world', 'r': 'destination'}}, counters))
         self.assertEqual(counters, expected_counters)
+        self.assertEqual(dict(counters), {
+            'TYPE_MISMATCH': 1, 'VALUE_MISMATCH': 2, 'MISS_DESTINATION': 1, 'MISS_SOURCE': 1})
 
 
 class PrepareDiffInputTest(unittest.TestCase):
