@@ -2,6 +2,14 @@
 
 This JumpBox is built off a light-weight AMI which was manually built off of an already configured EC2 instance.
 
+## Prerequisites
+One needs to have jq and aws-cli installed on the machine.
+e.g. for mac,
+```
+brew install awscli
+brew install jq
+```
+
 ## AMI Development
 
 Because the configuration is straightforward, simple and does not expect frequent changes, we are not using any automated AMI build pipeline.
@@ -35,6 +43,21 @@ One can run this from locally or inside the jumpbox (as long as the aws configur
 ## Script Usage
 
 ### How to create an instance off of the AMI and use?
+
+#### Using ./create_key_pairs.sh and ./launch_jumpbox.sh
+First if you don't have a key_pair uploaded in the region of the AWS, use ./create_key_pairs.sh to create a key-pair.
+```
+./create_key_pairs.sh KEY_NAME REGION AWS_PROFILE
+```
+It creates the key-pair and saves the private_key into a local file (e.g. $KEY_NAME-$REGION.pem)
+
+Now, use the ./launch_jumpbox.sh to launch a jumpbox.
+```
+./launch_jumpbox.sh AMI_NAME REGION AWS_PROFILE KEY_NAME [INSTANCE_TYPE]
+```
+Follow the command output to ssh into your jumpbox.
+
+#### Manual way
 Go to the AWS console and the corresponding region.
 Click EC2 page and click on the AMIs under Images tab on the left panel.
 Choose the "Private images" and look for the latest AMI (e.g. wm-jumpbox-v1.02)
@@ -57,7 +80,9 @@ e.g. `./refresh_migrate_script.sh shard-qa`
 Fetches and merges the latest changes of the workspace migration script.
 When using under the SRC_SHARD_NAME working directory, one does not need to pass in any argument.
 
-###  TODO: python entry point
-Takes
-SRC_SHARD_NAME,  SRC_HOST,  SRC_TOKEN,
-DST_SHARD_NAME, DST_HOST, DST_TOKEN
+### Script execution (TODO)
+```
+python3 migration_pipeline.py --profile $SRC_PROFILE --export-pipeline --use-checkpoint --cluster-name $CLUSTER_NAME [--session $SESSION_ID]
+python3 migration_pipeline.py --profile $DST_PROFILE --import-pipeline --use-checkpoint --session $SESSION_ID
+```
+
