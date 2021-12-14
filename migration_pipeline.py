@@ -187,6 +187,7 @@ def build_validate_pipeline(client_config, checkpoint_service, args):
             ),
         }))
     # WorkspaceItemLogExportTask
+    # TODO(yubing): compare artifacts.
     workspace_item_config = DiffConfig(primary_key='path', ignored_keys={'object_id'})
     add_diff_task("validate-user_dirs", "user_dirs.log", workspace_item_config)
     add_diff_task("validate-user_workspace", "user_workspace.log", workspace_item_config)
