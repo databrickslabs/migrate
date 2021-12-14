@@ -4,6 +4,7 @@ import json
 import os
 
 import validate
+from collections import defaultdict
 from pipeline import AbstractTask
 from dbclient import *
 from validate import *
@@ -396,10 +397,12 @@ def diff_files(source, destination, config):
     logging.info(f"### Parsing {destination} ###")
     prepared_destination = validate.prepare_diff_input(raw_destination, config)
 
-    logging.info(f"Object counts {len(raw_source)} <-> {len(raw_destination)}")
-
     logging.info(f"### Comparing {source} and {destination} ###")
-    diff = diff_json(prepared_source, prepared_destination)
+    logging.info(f"Object counts {len(raw_source)} <-> {len(raw_destination)}")
+    counters = defaultdict(int)
+    diff = diff_json(prepared_source, prepared_destination, counters)
+    if counters:
+        logging.info(f"Diff counts {str(dict(counters))}")
     print_diff(diff)
 
 
