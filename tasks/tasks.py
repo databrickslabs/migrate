@@ -387,18 +387,18 @@ def read_json_file(file):
 
 
 def diff_files(source, destination, config):
-    diff_logger().info(f"---------------- Compare {source} <-> {destination} ---------------------")
+    logging.info(f"---------------- Compare {source} <-> {destination} ---------------------")
     raw_source = read_json_file(source)
-    diff_logger().info(f"### Parsing {source} ###")
+    logging.info(f"### Parsing {source} ###")
     prepared_source = validate.prepare_diff_input(raw_source, config)
 
     raw_destination = read_json_file(destination)
-    diff_logger().info(f"### Parsing {destination} ###")
+    logging.info(f"### Parsing {destination} ###")
     prepared_destination = validate.prepare_diff_input(raw_destination, config)
 
-    diff_logger().info(f"Object counts {len(raw_source)} <-> {len(raw_destination)}")
+    logging.info(f"Object counts {len(raw_source)} <-> {len(raw_destination)}")
 
-    diff_logger().info(f"### Comparing {source} and {destination} ###")
+    logging.info(f"### Comparing {source} and {destination} ###")
     diff = diff_json(prepared_source, prepared_destination)
     print_diff(diff)
 
@@ -411,9 +411,9 @@ class DiffTask(AbstractTask):
         self.config = config
 
     def run(self):
-        diff_logger().info(f"######################### {self.name} Start #########################")
+        logging.info(f"######################### {self.name} Start #########################")
         diff_files(self.source, self.destination, self.config)
-        diff_logger().info(f"######################### {self.name} Complete ######################")
+        logging.info(f"######################### {self.name} Complete ######################")
 
 
 class DirDiffTask(AbstractTask):
@@ -424,7 +424,7 @@ class DirDiffTask(AbstractTask):
         self.config = config
 
     def run(self):
-        diff_logger().info(f"######################## {self.name} Start ##########################")
+        logging.info(f"######################## {self.name} Start ##########################")
         source_files = set(os.listdir(self.source))
         destination_files = set(os.listdir(self.destination))
 
@@ -432,10 +432,10 @@ class DirDiffTask(AbstractTask):
             source_file = os.path.join(self.source, file)
             destination_file = os.path.join(self.destination, file)
             if file not in source_files:
-                diff_logger().info(f"MISS_FILE_SOURCE:\n> {source_file}")
+                logging.info(f"MISS_FILE_SOURCE:\n> {source_file}")
             elif file not in destination_files:
-                diff_logger().info(f"MISS_FILE_DESTINATION:\n< {destination_file}")
+                logging.info(f"MISS_FILE_DESTINATION:\n< {destination_file}")
             else:
                 diff_files(source_file, destination_file, self.config)
 
-        diff_logger().info(f"######################### {self.name} Complete ######################")
+        logging.info(f"######################### {self.name} Complete ######################")

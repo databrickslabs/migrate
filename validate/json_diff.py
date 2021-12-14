@@ -127,6 +127,9 @@ def diff_json(source, destination):
     return None
 
 
+_HASH_PRIMARY_KEY = "__HASH__"
+
+
 class DiffConfig:
     """
     DiffConfig configures how to diff two Python dicts. It should have the same structure as `data`,
@@ -136,26 +139,30 @@ class DiffConfig:
     2) If `data` is a dict, ignore_keys can be set to ignore certain fields. And the children should
     be a dict which holds config for children.
 
+    :param primary_key could be set to one of the following 3:
+    1) The field name to be used as the primary key.
+    2) A list of field names that can be used as the primary key. If multiple fields exist in the
+    inner dict, the first appearance in the list will be used.
+    3) "__HASH__" the hash of the inner dict will be used as the key.
     """
 
     def __init__(self, primary_key=None, ignored_keys=None, children=None):
-        self.primary_key = primary_key
+        if primary_key == _HASH_PRIMARY_KEY:
+            self.primary_key = primary_key
+        else:
+            self.primary_key = primary_key if isinstance(primary_key, list) else [primary_key]
+
         self.ignore_keys = ignored_keys
         self.children = children
 
 
-_diff_logger = logging.getLogger('validate')
-
-
 def init_diff_logger(base_dir):
-    _diff_logger.setLevel(logging.INFO)
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
     fh = logging.FileHandler(os.path.join(base_dir, "validation.log"))
-    fh.setLevel(logging.INFO)
-    _diff_logger.addHandler(fh)
+    fh.setLevel(logging.DEBUG)
 
-
-def diff_logger():
-    return _diff_logger
+    logging.basicConfig(format="", handlers=[ch, fh], level=logging.DEBUG, force=True)
 
 
 def prepare_diff_input(data, config=None):
@@ -180,11 +187,22 @@ def prepare_diff_input(data, config=None):
             result = {}
             for inner in data:
                 converted = prepare_diff_input(inner, config)
-                if converted[config.primary_key] not in result:
-                    result[converted[config.primary_key]] = converted
+                key = None
+
+                if config.primary_key == _HASH_PRIMARY_KEY:
+                    key = str(converted)
                 else:
-                    diff_logger().info(f"Duplicates found:\n{str(converted)}\n---\n" +
-                                       str(result[converted[config.primary_key]]))
+                    for primary_key in config.primary_key:
+                        if primary_key in converted:
+                            key = converted[primary_key]
+                            break
+
+                if key not in result:
+                    result[key] = converted
+                else:
+                    logging.info(f"Duplicates found:\n{str(converted)}\n---\n" +
+                                 str(result[key]))
+
             return result
         else:
             raise NotImplementedError(f"Type {type(data[0])} is not supported.")
@@ -211,9 +229,9 @@ def prepare_diff_input(data, config=None):
 
 def print_diff(diff, prefix=""):
     if not diff:
-        diff_logger().info("No diff found.")
+        logging.info("No diff found.")
     elif isinstance(diff, (TypeDiff, ValueDiff, Miss)):
-        diff_logger().info(prefix + ":" + str(diff) + "\n")
+        logging.debug(prefix + ":" + str(diff) + "\n")
     elif isinstance(diff, DictDiff):
         for key in sorted(diff.children.keys()):
             value = diff.children[key]
