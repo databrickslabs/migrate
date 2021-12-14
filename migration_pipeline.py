@@ -9,10 +9,8 @@ from checkpoint_service import CheckpointService
 def generate_session(args) -> str:
     if args.validate_pipeline:
         prefix = 'V'
-    elif args.export_pipeline:
-        prefix = 'E'
     else:
-        prefix = 'I'
+        prefix = 'M'
 
     return prefix + datetime.now().strftime('%Y%m%d%H%M%S')
 
