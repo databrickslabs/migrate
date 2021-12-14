@@ -141,6 +141,12 @@ def build_validate_pipeline(client_config, checkpoint_service, args):
         destination = os.path.join(destination_dir, dir_path)
         return pipeline.add_task(DirDiffTask(name, source, destination, config), parents)
 
+    # InstanceProfileExportTask
+    add_diff_task(
+        "validate-instance_profile", "instance_profiles.log",
+        DiffConfig(primary_key='instance_profile_arn'),
+    )
+    # UserExportTask
     add_diff_task(
         "validate-users", "users.log",
         DiffConfig(
@@ -162,14 +168,7 @@ def build_validate_pipeline(client_config, checkpoint_service, args):
                 ),
             }),
     )
-    add_diff_task(
-        "validate-instance_profile", "instance_profiles.log",
-        DiffConfig(primary_key='instance_profile_arn'),
-    )
-    workspace_item_config = DiffConfig(primary_key='path', ignored_keys={'object_id'})
-    add_diff_task("validate-user_dirs", "user_dirs.log", workspace_item_config)
-    add_diff_task("validate-user_workspace", "user_workspace.log", workspace_item_config)
-    add_diff_task("validate-libraries", "libraries.log", workspace_item_config)
+    # GroupExportTask
     add_dir_diff_task("validate-groups", "groups", DiffConfig(
         primary_key='displayName',
         ignored_keys={'id'},
@@ -189,6 +188,31 @@ def build_validate_pipeline(client_config, checkpoint_service, args):
                 primary_key="value",
             ),
         }))
+    # WorkspaceItemLogExportTask
+    workspace_item_config = DiffConfig(primary_key='path', ignored_keys={'object_id'})
+    add_diff_task("validate-user_dirs", "user_dirs.log", workspace_item_config)
+    add_diff_task("validate-user_workspace", "user_workspace.log", workspace_item_config)
+    add_diff_task("validate-libraries", "libraries.log", workspace_item_config)
+
+    # WorkspaceACLExportTask
+    acl_config = DiffConfig(
+        primary_key='path',
+        ignored_keys={'object_id'},
+        children={
+            "access_control_list": DiffConfig(
+                primary_key=["user_name", "group_name"],
+                children={
+                    "all_permissions": DiffConfig(
+                        primary_key="__HASH__",
+                        ignored_keys={'inherited_from_object'}
+                    )
+                }
+            )
+        }
+    )
+    add_diff_task("validate-acl_notebooks", "acl_notebooks.log", acl_config)
+    add_diff_task("validate-acl_directories", "acl_directories.log", acl_config)
+
     return pipeline
 
 
