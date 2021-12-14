@@ -135,6 +135,70 @@ class PrepareDiffInputTest(unittest.TestCase):
                 }))
         )
 
+    def test_hash_key(self):
+        self.maxDiff = None
+        self.assertEqual(
+            {
+                'foo': {
+                    "{'key': 'b', 'value': 'y', 'info': {100: {'id': 100, 'v': '111'}}}":
+                        {'key': 'b', 'value': 'y', 'info': {100: {'id': 100, 'v': '111'}}},
+                    "{'key': 'a', 'value': 'q', 'info': {200: {'id': 200, 'v': '222'}}}":
+                        {'key': 'a', 'value': 'q', 'info': {200: {'id': 200, 'v': '222'}}},
+                    "{'key': 'c', 'value': 'n', 'info': {300: {'id': 300, 'v': '333'}}}":
+                        {'key': 'c', 'value': 'n', 'info': {300: {'id': 300, 'v': '333'}}}
+                },
+                'bar': 'baz'
+            },
+            prepare_diff_input(
+                {
+                    'foo': [
+                        {'key': 'b', 'value': 'y', 'info': [{'id': 100, 'v': '111'}]},
+                        {'key': 'c', 'value': 'n', 'info': [{'id': 300, 'v': '333'}]},
+                        {'key': 'a', 'value': 'q', 'info': [{'id': 200, 'v': '222'}]},
+                    ],
+                    'bar': 'baz',
+                },
+                DiffConfig(children={
+                    'foo':
+                        DiffConfig(
+                            primary_key='__HASH__',
+                            children={
+                                'info': DiffConfig(primary_key='id')
+                            }
+                        )
+                }))
+        )
+
+    def test_multiple_keys(self):
+        self.assertEqual(
+            {
+                'foo': {
+                    'b': {'key': 'b', 'value': 'y', 'info': {100: {'id': 100, 'v': '111'}}},
+                    'a': {'key': 'a', 'value': 'q', 'info': {200: {'id': 200, 'v': '222'}}},
+                    'c': {'key2': 'c', 'value': 'n', 'info': {300: {'id': 300, 'v': '333'}}}
+                },
+                'bar': 'baz'
+            },
+            prepare_diff_input(
+                {
+                    'foo': [
+                        {'key': 'b', 'value': 'y', 'info': [{'id': 100, 'v': '111'}]},
+                        {'key2': 'c', 'value': 'n', 'info': [{'id': 300, 'v': '333'}]},
+                        {'key': 'a', 'value': 'q', 'info': [{'id': 200, 'v': '222'}]},
+                    ],
+                    'bar': 'baz',
+                },
+                DiffConfig(children={
+                    'foo':
+                        DiffConfig(
+                            primary_key=['key', 'key2'],
+                            children={
+                                'info': DiffConfig(primary_key='id')
+                            }
+                        )
+                }))
+        )
+
     def test_ignore(self):
         self.assertEqual(
             {
