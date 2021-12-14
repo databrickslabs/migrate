@@ -414,9 +414,8 @@ class DiffTask(AbstractTask):
         self.config = config
 
     def run(self):
-        logging.info(f"######################### {self.name} Start #########################")
+        logging.info(f"############################# {self.name} #################################")
         diff_files(self.source, self.destination, self.config)
-        logging.info(f"######################### {self.name} Complete ######################")
 
 
 class DirDiffTask(AbstractTask):
@@ -427,7 +426,7 @@ class DirDiffTask(AbstractTask):
         self.config = config
 
     def run(self):
-        logging.info(f"######################## {self.name} Start ##########################")
+        logging.info(f"############################# {self.name} #################################")
         source_files = set(os.listdir(self.source))
         destination_files = set(os.listdir(self.destination))
 
@@ -440,5 +439,3 @@ class DirDiffTask(AbstractTask):
                 logging.info(f"MISS_FILE_DESTINATION:\n< {destination_file}")
             else:
                 diff_files(source_file, destination_file, self.config)
-
-        logging.info(f"######################### {self.name} Complete ######################")
