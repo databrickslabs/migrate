@@ -2,7 +2,8 @@ import logging
 import os
 import re
 import time
-
+import logging_utils
+import wmconstants
 from dbclient import *
 
 
@@ -75,7 +76,7 @@ class ClustersClient(dbclient):
         import os
         real_path = os.path.dirname(os.path.realpath(__file__))
         if self.is_aws():
-            print("Updating cluster with: " + iam_role)
+            logging.info("Updating cluster with: " + iam_role)
             current_cluster_json = self.get(f'/clusters/get?cluster_id={cid}')
             run_properties = set(list(current_cluster_json.keys())) - self.create_configs
             for p in run_properties:
@@ -87,7 +88,7 @@ class ClustersClient(dbclient):
                 aws_conf = {'instance_profile_arn': iam_role}
             current_cluster_json['aws_attributes'] = aws_conf
             resp = self.post('/clusters/edit', current_cluster_json)
-            print(resp)
+            logging.info(resp)
             new_cid = self.wait_for_cluster(cid)
             return new_cid
         else:
@@ -128,7 +129,7 @@ class ClustersClient(dbclient):
             return clusters_list
 
     def get_execution_context(self, cid):
-        print("Creating remote Spark Session")
+        logging.info("Creating remote Spark Session")
         time.sleep(5)
         ec_payload = {"language": "python",
                       "clusterId": cid}
@@ -136,8 +137,8 @@ class ClustersClient(dbclient):
         # Grab the execution context ID
         ec_id = ec.get('id', None)
         if not ec_id:
-            print('Unable to establish remote session')
-            print(ec)
+            logging.info('Unable to establish remote session')
+            logging.info(ec)
             raise Exception("Remote session error")
         return ec_id
 
@@ -225,7 +226,7 @@ class ClustersClient(dbclient):
         cluster_log = self.get_export_dir() + log_file
         acl_cluster_log = self.get_export_dir() + acl_log_file
         if not os.path.exists(cluster_log):
-            print("No clusters to import.")
+            logging.info("No clusters to import.")
             return
         current_cluster_names = set([x.get('cluster_name', None) for x in self.get_cluster_list(False)])
         old_2_new_policy_ids = self.get_new_policy_id_dict()  # dict of {old_id : new_id}
@@ -235,7 +236,7 @@ class ClustersClient(dbclient):
                 cluster_conf = json.loads(line)
                 cluster_name = cluster_conf['cluster_name']
                 if cluster_name in current_cluster_names:
-                    print("Cluster already exists, skipping: {0}".format(cluster_name))
+                    logging.info("Cluster already exists, skipping: {0}".format(cluster_name))
                     continue
                 cluster_creator = cluster_conf.pop('creator_user_name')
                 if 'policy_id' in cluster_conf:
@@ -359,6 +360,8 @@ class ClustersClient(dbclient):
     def import_cluster_policies(self, log_file='cluster_policies.log', acl_log_file='acl_cluster_policies.log'):
         policies_log = self.get_export_dir() + log_file
         acl_policies_log = self.get_export_dir() + acl_log_file
+        error_logger = logging_utils.get_error_logger(
+            wmconstants.WM_IMPORT, wmconstants.CLUSTER_OBJECT, self.get_export_dir())
         # create the policies
         if os.path.exists(policies_log):
             with open(policies_log, 'r') as policy_fp:
@@ -368,6 +371,8 @@ class ClustersClient(dbclient):
                     create_args = {'name': policy_conf['name'],
                                    'definition': policy_conf['definition']}
                     resp = self.post('/policies/clusters/create', create_args)
+                    ignore_error_list = ['INVALID_PARAMETER_VALUE']
+                    logging_utils.log_reponse_error(error_logger, resp, None, ignore_error_list)
             # ACLs are created by using the `access_control_list` key
             with open(acl_policies_log, 'r') as acl_fp:
                 id_map = self.get_policy_id_by_name_dict()
@@ -377,25 +382,31 @@ class ClustersClient(dbclient):
                     policy_id = id_map[p_acl['name']]
                     api = f'/permissions/cluster-policies/{policy_id}'
                     resp = self.put(api, acl_create_args)
-                    print(resp)
+                    logging_utils.log_reponse_error(error_logger, resp)
         else:
-            print('Skipping cluster policies as no log file exists')
+            logging.info('Skipping cluster policies as no log file exists')
 
     def import_instance_pools(self, log_file='instance_pools.log'):
         pool_log = self.get_export_dir() + log_file
+        error_logger = logging_utils.get_error_logger(
+            wmconstants.WM_IMPORT, wmconstants.INSTANCE_POOL_OBJECT, self.get_export_dir())
         if not os.path.exists(pool_log):
-            print("No instance pools to import.")
+            logging.info("No instance pools to import.")
             return
         with open(pool_log, 'r') as fp:
             for line in fp:
                 pool_conf = json.loads(line)
                 pool_resp = self.post('/instance-pools/create', pool_conf)
+                ignore_error_list = ['INVALID_PARAMETER_VALUE']
+                logging_utils.log_reponse_error(error_logger, pool_resp, None, ignore_error_list)
 
     def import_instance_profiles(self, log_file='instance_profiles.log'):
         # currently an AWS only operation
+        error_logger = logging_utils.get_error_logger(
+            wmconstants.WM_IMPORT, wmconstants.INSTANCE_PROFILE_OBJECT, self.get_export_dir())
         ip_log = self.get_export_dir() + log_file
         if not os.path.exists(ip_log):
-            print("No instance profiles to import.")
+            logging.info("No instance profiles to import.")
             return
         # check current profiles and skip if the profile already exists
         ip_list = self.get('/instance-profiles/list').get('instance_profiles', None)
@@ -410,13 +421,10 @@ class ClustersClient(dbclient):
                 if ip_arn not in list_of_profiles:
                     print("Importing arn: {0}".format(ip_arn))
                     resp = self.post('/instance-profiles/add', {'instance_profile_arn': ip_arn})
-                    if 'error_code' in resp:
-                        print("ERROR: Failed to add instance profile")
-                    else:
+                    if not logging_utils.log_reponse_error(error_logger, resp):
                         import_profiles_count += 1
-                    print(resp)
                 else:
-                    print("Skipping since profile already exists: {0}".format(ip_arn))
+                    logging.info("Skipping since profile already exists: {0}".format(ip_arn))
         return import_profiles_count
 
     def is_spark_3(self, cid):
@@ -456,7 +464,7 @@ class ClustersClient(dbclient):
             cid = self.start_cluster_by_name(cluster_name)
             return cid
         else:
-            print("Starting cluster with name: {0} ".format(cluster_name))
+            logging.info("Starting cluster with name: {0} ".format(cluster_name))
             c_info = self.post('/clusters/create', cluster_json)
             if c_info['http_status_code'] != 200:
                 raise Exception("Could not launch cluster. Verify that the --azure flag or cluster config is correct.")
@@ -473,6 +481,8 @@ class ClustersClient(dbclient):
         """
         cluster_log = self.get_export_dir() + log_file
         acl_cluster_log = self.get_export_dir() + acl_log_file
+        error_logger = logging_utils.get_error_logger(
+            wmconstants.WM_EXPORT, wmconstants.CLUSTER_OBJECT, self.get_export_dir())
         # pinned by cluster_user is a flag per cluster
         cl_raw = self.get_cluster_list(False)
         cluster_list = self.remove_automated_clusters(cl_raw)
@@ -495,7 +505,7 @@ class ClustersClient(dbclient):
                     iam_role = aws_conf.get('instance_profile_arn', None)
                     if iam_role and ip_list:
                         if iam_role not in nonempty_ip_list:
-                            print("Skipping log of default IAM role: " + iam_role)
+                            logging.info("Skipping log of default IAM role: " + iam_role)
                             del aws_conf['instance_profile_arn']
                             cluster_json['aws_attributes'] = aws_conf
                     cluster_json['aws_attributes'] = aws_conf
@@ -503,7 +513,7 @@ class ClustersClient(dbclient):
                 if cluster_perms['http_status_code'] == 200:
                     acl_log_fp.write(json.dumps(cluster_perms) + '\n')
                 else:
-                    logging.error(f'Failed to get cluster ACL: {cluster_perms}')
+                    error_logger.error(f'Failed to get cluster ACL: {cluster_perms}')
 
                 if filter_user:
                     if cluster_json['creator_user_name'] == filter_user:
@@ -573,7 +583,7 @@ class ClustersClient(dbclient):
         resp = self.post('/clusters/start', {'cluster_id': cid})
         if 'error_code' in resp:
             if resp.get('error_code', None) == 'INVALID_STATE':
-                print('Error: {0}'.format(resp.get('message', None)))
+                logging.error(resp.get('message', None))
             else:
                 raise Exception('Error: cluster does not exist, or is in a state that is unexpected. '
                                 'Cluster should either be terminated state, or already running.')
@@ -592,8 +602,7 @@ class ClustersClient(dbclient):
 
         com_id = command.get('id', None)
         if not com_id:
-            print("ERROR: ")
-            print(command)
+            logging.error(command)
         # print('command_id : ' + com_id)
         result_payload = {'clusterId': cid, 'contextId': ec_id, 'commandId': com_id}
 
@@ -608,8 +617,7 @@ class ClustersClient(dbclient):
         end_result_status = self.get_key(resp, 'status')
         end_results = self.get_key(resp, 'results')
         if end_results.get('resultType', None) == 'error':
-            print("ERROR: ")
-            print(end_results.get('summary', None))
+            logging.error(end_results.get('summary', None))
         return end_results
 
     def wait_for_cluster(self, cid):

@@ -342,7 +342,7 @@ class SecretExportTask(AbstractTask):
     The behavior is equivalent to `$ python export_db.py --secrets --cluster-name $clusterName
     """
     def __init__(self, client_config, args, skip=False):
-        super().__init__("export_secrets", wmconstants.WM_EXPORT, wmconstants.SECTEC_OBJECT, skip)
+        super().__init__("export_secrets", wmconstants.WM_EXPORT, wmconstants.SECRET_OBJECT, skip)
         self.client_config = client_config
         self.args = args
 
@@ -358,7 +358,7 @@ class SecretImportTask(AbstractTask):
     The behavior is equivalent to `$ python import_db.py --secrets`
     """
     def __init__(self, client_config, skip=False):
-        super().__init__("import_secrets", wmconstants.WM_IMPORT, wmconstants.SECTEC_OBJECT, skip)
+        super().__init__("import_secrets", wmconstants.WM_IMPORT, wmconstants.SECRET_OBJECT, skip)
         self.client_config = client_config
 
     def run(self):
