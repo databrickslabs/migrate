@@ -27,9 +27,14 @@ def _diff_message(hint, source, destination):
     return f"{hint}:\n< {source}\n---\n> {destination}"
 
 
+_TYPE_DIFF_TYPE = "TYPE_MISMATCH"
+_VALUE_DIFF_TYPE = "VALUE_MISMATCH"
+
+
 class TypeDiff(Diff):
-    def __init__(self, source, destination):
+    def __init__(self, source, destination, counters):
         super().__init__(source, destination)
+        counters[_TYPE_DIFF_TYPE] = counters[_TYPE_DIFF_TYPE] + 1
 
     def __str__(self):
         return _diff_message("TYPE_MISMATCH", f"{type(self.source)}':'{self.source}",
@@ -40,11 +45,12 @@ class TypeDiff(Diff):
 
 
 class ValueDiff(Diff):
-    def __init__(self, source, destination):
+    def __init__(self, source, destination, counters):
         super().__init__(source, destination)
+        counters[_VALUE_DIFF_TYPE] = counters[_VALUE_DIFF_TYPE] + 1
 
     def __str__(self):
-        return _diff_message("VALUE_MISMATCH", self.source, self.destination)
+        return _diff_message(_VALUE_DIFF_TYPE, self.source, self.destination)
 
     def __eq__(self, other):
         return str(self) == str(other)
@@ -70,21 +76,22 @@ class DictDiff(AbstractDiff):
 
 
 class Miss(AbstractDiff):
-    def __init__(self, side, value):
+    def __init__(self, side, value, counters):
         super().__init__()
         self.side = side
         self.value = value
+        self.type = f"MISS_{self.side}"
+        counters[self.type] = counters[self.type] + 1
 
     def __str__(self):
-        hint = f"MISS_{self.side}:\n"
         value = f"< {self.value}" if self.side == "DESTINATION" else f"> {self.value}"
-        return f"{hint}{value}"
+        return f"{self.type}:\n{value}"
 
     def __eq__(self, other):
         return str(self) == str(other)
 
 
-def diff_json(source, destination):
+def diff_json(source, destination, counters):
     """diff_json compares two dict and return the diff.
 
     It is required that input dicts only contains dict and prime data types. List is not supported
@@ -92,22 +99,23 @@ def diff_json(source, destination):
 
     :param source - source hand side of the comparison.
     :param destination - destination hand side of the comparison.
+    :param counters - a default dict to counter different types of diffs.
     """
     if type(source) != type(destination):
-        return TypeDiff(source, destination)
+        return TypeDiff(source, destination, counters)
 
     if isinstance(source, (int, float, str)):
         if source != destination:
-            return ValueDiff(source, destination)
+            return ValueDiff(source, destination, counters)
     elif isinstance(source, dict):
         diff = DictDiff()
         for key in set(source.keys()).union(set(destination.keys())):
             if key not in source:
-                diff.add_child(key, Miss('SOURCE', destination[key]))
+                diff.add_child(key, Miss('SOURCE', destination[key], counters))
             elif key not in destination:
-                diff.add_child(key, Miss('DESTINATION', source[key]))
+                diff.add_child(key, Miss('DESTINATION', source[key], counters))
             else:
-                child_diff = diff_json(source[key], destination[key])
+                child_diff = diff_json(source[key], destination[key], counters)
                 if child_diff:
                     diff.add_child(key, child_diff)
         if diff.has_diff():
@@ -116,9 +124,9 @@ def diff_json(source, destination):
         diff = DictDiff()
         for key in source.union(destination):
             if key not in source:
-                diff.add_child(key, Miss('SOURCE', key))
+                diff.add_child(key, Miss('SOURCE', key, counters))
             elif key not in destination:
-                diff.add_child(key, Miss('DESTINATION', key))
+                diff.add_child(key, Miss('DESTINATION', key, counters))
         if diff.has_diff():
             return diff
     else:
