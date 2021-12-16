@@ -36,11 +36,14 @@ def get_error_log_file(action_type, object_type, parent_dir):
 def _get_log_dir(parent_dir):
     return parent_dir + "/app_logs"
 
-
-def log_reponse_error(error_logger, response, error_msg=None, error_ignore_list=[]):
-    if ('error_code' in response and response['error_code'] not in error_ignore_list) \
-            | ('error' in response) \
-            | (response.get('resultType', None) == 'error' and 'already exists' not in response.get('summary', None)):
+default_ignore_error_list=[
+    'RESOURCE_ALREADY_EXISTS'
+]
+def log_reponse_error(error_logger,
+                      response,
+                      error_msg=None,
+                      ignore_error_list=default_ignore_error_list):
+    if check_error(response, ignore_error_list):
         if error_msg:
             error_logger.error(error_msg + '\n')
         else:
@@ -48,3 +51,8 @@ def log_reponse_error(error_logger, response, error_msg=None, error_ignore_list=
         return True
     else:
         return False
+
+def check_error(response, ignore_error_list=default_ignore_error_list):
+    return ('error_code' in response and response['error_code'] not in ignore_error_list) \
+            or ('error' in response and response['error'] not in ignore_error_list) \
+            or (response.get('resultType', None) == 'error' and 'already exists' not in response.get('summary', None))

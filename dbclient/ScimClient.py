@@ -43,7 +43,7 @@ class ScimClient(dbclient):
 
     def import_single_user(self, user_email, log_file='single_user.log'):
         single_user_log = self.get_export_dir() + log_file
-        resp = self.import_users(single_user_log)
+        resp = self.import_users(single_user_log, logging.getLogger())
 
     def get_users_from_log(self, users_log='users.log'):
         """
