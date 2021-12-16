@@ -1,4 +1,6 @@
+import os.path
 from abc import ABC, abstractmethod
+import logging
 
 
 class AbstractDiff(ABC):
@@ -11,38 +13,44 @@ class AbstractDiff(ABC):
 
 
 class Diff(AbstractDiff):
-    def __init__(self, left, right):
+    def __init__(self, source, destination):
         super().__init__()
-        self.left = left
-        self.right = right
+        self.source = source
+        self.destination = destination
 
     @abstractmethod
     def __str__(self):
         pass
 
 
-def _diff_message(hint, left, right):
-    return f"{hint}:\n< {left}\n---\n> {right}"
+def _diff_message(hint, source, destination):
+    return f"{hint}:\n< {source}\n---\n> {destination}"
+
+
+_TYPE_DIFF_TYPE = "TYPE_MISMATCH"
+_VALUE_DIFF_TYPE = "VALUE_MISMATCH"
 
 
 class TypeDiff(Diff):
-    def __init__(self, left, right):
-        super().__init__(left, right)
+    def __init__(self, source, destination, counters):
+        super().__init__(source, destination)
+        counters[_TYPE_DIFF_TYPE] = counters[_TYPE_DIFF_TYPE] + 1
 
     def __str__(self):
-        return _diff_message("TYPE_MISMATCH", f"{type(self.left)}':'{self.left}",
-                             f"{type(self.right)}':'{self.right}")
+        return _diff_message("TYPE_MISMATCH", f"{type(self.source)}':'{self.source}",
+                             f"{type(self.destination)}':'{self.destination}")
 
     def __eq__(self, other):
         return str(self) == str(other)
 
 
 class ValueDiff(Diff):
-    def __init__(self, left, right):
-        super().__init__(left, right)
+    def __init__(self, source, destination, counters):
+        super().__init__(source, destination)
+        counters[_VALUE_DIFF_TYPE] = counters[_VALUE_DIFF_TYPE] + 1
 
     def __str__(self):
-        return _diff_message("VALUE_MISMATCH", self.left, self.right)
+        return _diff_message(_VALUE_DIFF_TYPE, self.source, self.destination)
 
     def __eq__(self, other):
         return str(self) == str(other)
@@ -68,61 +76,66 @@ class DictDiff(AbstractDiff):
 
 
 class Miss(AbstractDiff):
-    def __init__(self, side, value):
+    def __init__(self, side, value, counters):
         super().__init__()
         self.side = side
         self.value = value
+        self.type = f"MISS_{self.side}"
+        counters[self.type] = counters[self.type] + 1
 
     def __str__(self):
-        hint = f"MISS_{self.side}:\n"
-        value = f"< {self.value}" if self.side == "RIGHT" else f"> {self.value}"
-        return f"{hint}{value}"
+        value = f"< {self.value}" if self.side == "DESTINATION" else f"> {self.value}"
+        return f"{self.type}:\n{value}"
 
     def __eq__(self, other):
         return str(self) == str(other)
 
 
-def diff_json(left, right):
+def diff_json(source, destination, counters):
     """diff_json compares two dict and return the diff.
 
     It is required that input dicts only contains dict and prime data types. List is not supported
     intentionally to reduce the complexity.
 
-    :param left - left hand side of the comparison.
-    :param right - right hand side of the comparison.
+    :param source - source hand side of the comparison.
+    :param destination - destination hand side of the comparison.
+    :param counters - a default dict to counter different types of diffs.
     """
-    if type(left) != type(right):
-        return TypeDiff(left, right)
+    if type(source) != type(destination):
+        return TypeDiff(source, destination, counters)
 
-    if isinstance(left, (int, float, str)):
-        if left != right:
-            return ValueDiff(left, right)
-    elif isinstance(left, dict):
+    if isinstance(source, (int, float, str)):
+        if source != destination:
+            return ValueDiff(source, destination, counters)
+    elif isinstance(source, dict):
         diff = DictDiff()
-        for key in set(left.keys()).union(set(right.keys())):
-            if key not in left:
-                diff.add_child(key, Miss('LEFT', right[key]))
-            elif key not in right:
-                diff.add_child(key, Miss('RIGHT', left[key]))
+        for key in set(source.keys()).union(set(destination.keys())):
+            if key not in source:
+                diff.add_child(key, Miss('SOURCE', destination[key], counters))
+            elif key not in destination:
+                diff.add_child(key, Miss('DESTINATION', source[key], counters))
             else:
-                child_diff = diff_json(left[key], right[key])
+                child_diff = diff_json(source[key], destination[key], counters)
                 if child_diff:
                     diff.add_child(key, child_diff)
         if diff.has_diff():
             return diff
-    elif isinstance(left, set):
+    elif isinstance(source, set):
         diff = DictDiff()
-        for key in left.union(right):
-            if key not in left:
-                diff.add_child(key, Miss('LEFT', key))
-            elif key not in right:
-                diff.add_child(key, Miss('RIGHT', key))
+        for key in source.union(destination):
+            if key not in source:
+                diff.add_child(key, Miss('SOURCE', key, counters))
+            elif key not in destination:
+                diff.add_child(key, Miss('DESTINATION', key, counters))
         if diff.has_diff():
             return diff
     else:
-        raise NotImplementedError(f"Type {type(left)} is not supported.")
+        raise NotImplementedError(f"Type {type(source)} is not supported.")
 
     return None
+
+
+_HASH_PRIMARY_KEY = "__HASH__"
 
 
 class DiffConfig:
@@ -134,12 +147,30 @@ class DiffConfig:
     2) If `data` is a dict, ignore_keys can be set to ignore certain fields. And the children should
     be a dict which holds config for children.
 
+    :param primary_key could be set to one of the following 3:
+    1) The field name to be used as the primary key.
+    2) A list of field names that can be used as the primary key. If multiple fields exist in the
+    inner dict, the first appearance in the list will be used.
+    3) "__HASH__" the hash of the inner dict will be used as the key.
     """
 
     def __init__(self, primary_key=None, ignored_keys=None, children=None):
-        self.primary_key = primary_key
+        if primary_key == _HASH_PRIMARY_KEY:
+            self.primary_key = primary_key
+        else:
+            self.primary_key = primary_key if isinstance(primary_key, list) else [primary_key]
+
         self.ignore_keys = ignored_keys
         self.children = children
+
+
+def init_diff_logger(base_dir):
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
+    fh = logging.FileHandler(os.path.join(base_dir, "validation.log"))
+    fh.setLevel(logging.DEBUG)
+
+    logging.basicConfig(format="", handlers=[ch, fh], level=logging.DEBUG, force=True)
 
 
 def prepare_diff_input(data, config=None):
@@ -164,7 +195,22 @@ def prepare_diff_input(data, config=None):
             result = {}
             for inner in data:
                 converted = prepare_diff_input(inner, config)
-                result[converted[config.primary_key]] = converted
+                key = None
+
+                if config.primary_key == _HASH_PRIMARY_KEY:
+                    key = str(converted)
+                else:
+                    for primary_key in config.primary_key:
+                        if primary_key in converted:
+                            key = converted[primary_key]
+                            break
+
+                if key not in result:
+                    result[key] = converted
+                else:
+                    logging.info(f"Duplicates found:\n{str(converted)}\n---\n" +
+                                 str(result[key]))
+
             return result
         else:
             raise NotImplementedError(f"Type {type(data[0])} is not supported.")
@@ -191,9 +237,9 @@ def prepare_diff_input(data, config=None):
 
 def print_diff(diff, prefix=""):
     if not diff:
-        print("No diff found.")
+        logging.info("No diff found.")
     elif isinstance(diff, (TypeDiff, ValueDiff, Miss)):
-        print(prefix + ":" + str(diff) + "\n")
+        logging.debug(prefix + ":" + str(diff) + "\n")
     elif isinstance(diff, DictDiff):
         for key in sorted(diff.children.keys()):
             value = diff.children[key]

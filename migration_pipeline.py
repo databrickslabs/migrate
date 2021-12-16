@@ -7,15 +7,20 @@ from checkpoint_service import CheckpointService
 import logging_utils
 
 
-def generate_session() -> str:
-    return datetime.now().strftime('%Y%m%d%H%M%S')
+def generate_session(args) -> str:
+    if args.validate_pipeline:
+        prefix = 'V'
+    else:
+        prefix = 'M'
+
+    return prefix + datetime.now().strftime('%Y%m%d%H%M%S')
 
 
 def build_pipeline(args) -> Pipeline:
     """Build the pipeline based on the command line arguments."""
     # Resume session if specified, and create a new one otherwise. Different session will work in
     # different export_dir in order to be isolated.
-    session = args.session if args.session else generate_session()
+    session = args.session if args.session else generate_session(args)
     print(f"Using the session id: {session}")
 
     if args.validate_pipeline:
@@ -124,15 +129,27 @@ def build_validate_pipeline(client_config, checkpoint_service, args):
     source_dir = os.path.join(base_dir, args.validate_source_session) + '/'
     destination_dir = os.path.join(base_dir, args.validate_destination_session) + '/'
 
+    init_diff_logger(client_config['export_dir'])
     pipeline = Pipeline(client_config['export_dir'], completed_pipeline_steps, args.dry_run)
 
-    def add_diff_task(name, config, file_path, parents=None):
+    def add_diff_task(name, file_path, config, parents=None):
         source_file = os.path.join(source_dir, file_path)
         destination_file = os.path.join(destination_dir, file_path)
         return pipeline.add_task(DiffTask(name, source_file, destination_file, config), parents)
 
+    def add_dir_diff_task(name, dir_path, config, parents=None):
+        source = os.path.join(source_dir, dir_path)
+        destination = os.path.join(destination_dir, dir_path)
+        return pipeline.add_task(DirDiffTask(name, source, destination, config), parents)
+
+    # InstanceProfileExportTask
     add_diff_task(
-        "validate-users",
+        "validate-instance_profile", "instance_profiles.log",
+        DiffConfig(primary_key='instance_profile_arn'),
+    )
+    # UserExportTask
+    add_diff_task(
+        "validate-users", "users.log",
         DiffConfig(
             primary_key='userName',
             ignored_keys={'id'},
@@ -151,18 +168,53 @@ def build_validate_pipeline(client_config, checkpoint_service, args):
                     primary_key="value",
                 ),
             }),
-        "users.log"
     )
-    add_diff_task(
-        "validate-instance_profile",
-        DiffConfig(primary_key='instance_profile_arn'),
-        "instance_profiles.log",
+    # GroupExportTask
+    add_dir_diff_task("validate-groups", "groups", DiffConfig(
+        primary_key='displayName',
+        ignored_keys={'id'},
+        children={
+            "members": DiffConfig(
+                primary_key="display",
+                ignored_keys={"value", "$ref"}
+            ),
+            "roles": DiffConfig(
+                primary_key="value",
+            ),
+            "groups": DiffConfig(
+                primary_key="display",
+                ignored_keys={'value', '$ref'}
+            ),
+            "entitlements": DiffConfig(
+                primary_key="value",
+            ),
+        }))
+    # WorkspaceItemLogExportTask
+    # TODO(yubing): compare artifacts.
+    workspace_item_config = DiffConfig(primary_key='path', ignored_keys={'object_id'})
+    add_diff_task("validate-user_dirs", "user_dirs.log", workspace_item_config)
+    add_diff_task("validate-user_workspace", "user_workspace.log", workspace_item_config)
+    add_diff_task("validate-libraries", "libraries.log", workspace_item_config)
+
+    # WorkspaceACLExportTask
+    acl_config = DiffConfig(
+        primary_key='path',
+        ignored_keys={'object_id'},
+        children={
+            "access_control_list": DiffConfig(
+                primary_key=["user_name", "group_name"],
+                children={
+                    "all_permissions": DiffConfig(
+                        primary_key="__HASH__",
+                        ignored_keys={'inherited_from_object'}
+                    )
+                }
+            )
+        }
     )
-    add_diff_task(
-        "validate-user_dirs",
-        DiffConfig(primary_key='path', ignored_keys={'object_id'}),
-        "user_dirs.log",
-    )
+    add_diff_task("validate-acl_notebooks", "acl_notebooks.log", acl_config)
+    add_diff_task("validate-acl_directories", "acl_directories.log", acl_config)
+
     return pipeline
 
 

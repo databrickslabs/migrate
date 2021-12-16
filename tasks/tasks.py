@@ -1,8 +1,10 @@
 import logging
 
 import json
+import os
 
 import validate
+from collections import defaultdict
 from pipeline import AbstractTask
 from dbclient import *
 from validate import *
@@ -385,6 +387,25 @@ def read_json_file(file):
     return [json.loads(line) for line in lines]
 
 
+def diff_files(source, destination, config):
+    logging.info(f"---------------- Compare {source} <-> {destination} ---------------------")
+    raw_source = read_json_file(source)
+    logging.info(f"### Parsing {source} ###")
+    prepared_source = validate.prepare_diff_input(raw_source, config)
+
+    raw_destination = read_json_file(destination)
+    logging.info(f"### Parsing {destination} ###")
+    prepared_destination = validate.prepare_diff_input(raw_destination, config)
+
+    logging.info(f"### Comparing {source} and {destination} ###")
+    logging.info(f"Object counts {len(raw_source)} <-> {len(raw_destination)}")
+    counters = defaultdict(int)
+    diff = diff_json(prepared_source, prepared_destination, counters)
+    if counters:
+        logging.info(f"Diff counts {str(dict(counters))}")
+    print_diff(diff)
+
+
 class DiffTask(AbstractTask):
     def __init__(self, name, source, destination, config=None):
         super().__init__(name)
@@ -393,8 +414,28 @@ class DiffTask(AbstractTask):
         self.config = config
 
     def run(self):
-        source_data = validate.prepare_diff_input(read_json_file(self.source), self.config)
-        destination_data = validate.prepare_diff_input(read_json_file(self.destination),
-                                                       self.config)
-        diff = diff_json(source_data, destination_data)
-        print_diff(diff)
+        logging.info(f"############################# {self.name} #################################")
+        diff_files(self.source, self.destination, self.config)
+
+
+class DirDiffTask(AbstractTask):
+    def __init__(self, name, source, destination, config):
+        super().__init__(name)
+        self.source = source
+        self.destination = destination
+        self.config = config
+
+    def run(self):
+        logging.info(f"############################# {self.name} #################################")
+        source_files = set(os.listdir(self.source))
+        destination_files = set(os.listdir(self.destination))
+
+        for file in source_files.union(destination_files):
+            source_file = os.path.join(self.source, file)
+            destination_file = os.path.join(self.destination, file)
+            if file not in source_files:
+                logging.info(f"MISS_FILE_SOURCE:\n> {source_file}")
+            elif file not in destination_files:
+                logging.info(f"MISS_FILE_DESTINATION:\n< {destination_file}")
+            else:
+                diff_files(source_file, destination_file, self.config)
