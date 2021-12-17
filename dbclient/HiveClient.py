@@ -491,7 +491,7 @@ class HiveClient(ClustersClient):
 
         if ddl_str_resp['resultType'] != 'text':
             ddl_str_resp['table'] = '{0}.{1}'.format(db_name, table_name)
-            error_logger.error(json.dumps(ddl_str_resp) + '\n')
+            error_logger.error(json.dumps(ddl_str_resp))
             return False
         get_ddl_str_len = 'ddl_len = len(ddl_str); print(ddl_len)'
         len_resp = self.submit_command(cid, ec_id, get_ddl_str_len)

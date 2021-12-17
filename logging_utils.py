@@ -45,9 +45,9 @@ def log_reponse_error(error_logger,
                       ignore_error_list=default_ignore_error_list):
     if check_error(response, ignore_error_list):
         if error_msg:
-            error_logger.error(error_msg + '\n')
+            error_logger.error(error_msg)
         else:
-            error_logger.error(json.dumps(response) + '\n')
+            error_logger.error(json.dumps(response))
         return True
     else:
         return False

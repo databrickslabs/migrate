@@ -372,7 +372,7 @@ class ClustersClient(dbclient):
                                    'definition': policy_conf['definition']}
                     resp = self.post('/policies/clusters/create', create_args)
                     ignore_error_list = ['INVALID_PARAMETER_VALUE']
-                    logging_utils.log_reponse_error(error_logger, resp, error_msg=None, ignore_error_list=ignore_error_list)
+                    logging_utils.log_reponse_error(error_logger, resp, ignore_error_list=ignore_error_list)
             # ACLs are created by using the `access_control_list` key
             with open(acl_policies_log, 'r') as acl_fp:
                 id_map = self.get_policy_id_by_name_dict()
@@ -398,7 +398,7 @@ class ClustersClient(dbclient):
                 pool_conf = json.loads(line)
                 pool_resp = self.post('/instance-pools/create', pool_conf)
                 ignore_error_list = ['INVALID_PARAMETER_VALUE']
-                logging_utils.log_reponse_error(error_logger, pool_resp, error_msg=None, ignore_error_list=ignore_error_list)
+                logging_utils.log_reponse_error(error_logger, pool_resp, ignore_error_list=ignore_error_list)
 
     def import_instance_profiles(self, log_file='instance_profiles.log'):
         # currently an AWS only operation

@@ -140,7 +140,7 @@ class SecretsClient(ClustersClient):
                 other_permissions = self.get_all_other_permissions(scope_name, scopes_acl_dict)
                 create_resp = self.post('/secrets/scopes/create', create_scope_args)
                 logging_utils.log_reponse_error(
-                    error_logger, create_resp, error_msg=None, ignore_error_list=['RESOURCE_ALREADY_EXISTS'])
+                    error_logger, create_resp, ignore_error_list=['RESOURCE_ALREADY_EXISTS'])
                 if other_permissions:
                     # use this dict minus the `users:MANAGE` permissions and apply the other permissions to the scope
                     for perm, principal_list in other_permissions.items():
