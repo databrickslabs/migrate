@@ -390,14 +390,13 @@ def read_json_file(file):
 def diff_files(source, destination, config):
     logging.info(f"---------------- Compare {source} <-> {destination} ---------------------")
     raw_source = read_json_file(source)
-    logging.info(f"### Parsing {source} ###")
+    logging.debug(f"### Parsing {source} ###")
     prepared_source = validate.prepare_diff_input(raw_source, config)
 
     raw_destination = read_json_file(destination)
-    logging.info(f"### Parsing {destination} ###")
+    logging.debug(f"### Parsing {destination} ###")
     prepared_destination = validate.prepare_diff_input(raw_destination, config)
 
-    logging.info(f"### Comparing {source} and {destination} ###")
     logging.info(f"Object counts {len(raw_source)} <-> {len(raw_destination)}")
     counters = defaultdict(int)
     diff = diff_json(prepared_source, prepared_destination, counters)
@@ -419,16 +418,22 @@ class DiffTask(AbstractTask):
 
 
 class DirDiffTask(AbstractTask):
-    def __init__(self, name, source, destination, config):
+    def __init__(self, name, source, destination, config, suffix=None):
         super().__init__(name)
         self.source = source
         self.destination = destination
         self.config = config
+        self.suffix = suffix
+
+    def _list_files(self, directory):
+        return {file for file in os.listdir(directory)
+                if self.suffix is None or file.endswith(self.suffix)}
 
     def run(self):
         logging.info(f"############################# {self.name} #################################")
-        source_files = set(os.listdir(self.source))
-        destination_files = set(os.listdir(self.destination))
+        source_files = self._list_files(self.source)
+        destination_files = self._list_files(self.destination)
+        logging.info(f"Files counts {len(source_files)} <-> {len(destination_files)}")
 
         for file in source_files.union(destination_files):
             source_file = os.path.join(self.source, file)
