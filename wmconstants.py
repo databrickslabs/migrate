@@ -12,7 +12,7 @@ METASTORE_TABLES_ACL = "metastore_acl"
 CLUSTER_OBJECT = "clusters"
 INSTANCE_POOL_OBJECT = "instance_pools"
 JOB_OBJECT = "jobs"
-SECTEC_OBJECT = "secrets"
+SECRET_OBJECT = "secrets"
 # Migration pipeline placeholder constants
 MIGRATION_PIPELINE_OBJECT_TYPE = "tasks"
 

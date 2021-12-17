@@ -165,7 +165,8 @@ class dbclient:
             if http_status_code in dbclient.http_error_codes:
                 raise Exception("Error: GET request failed with code {}\n{}".format(http_status_code, raw_results.text))
             results = raw_results.json()
-            logging_utils.log_reponse_error(logging.getLogger(), results)
+            if logging_utils.check_error(results):
+                logging.warn(json.dumps(results) + '\n')
             if print_json:
                 print(json.dumps(results, indent=4, sort_keys=True))
             if type(results) == list:
@@ -207,7 +208,8 @@ class dbclient:
                                                                                       http_status_code,
                                                                                       raw_results.text))
             results = raw_results.json()
-            logging_utils.log_reponse_error(logging.getLogger(), results)
+            if logging_utils.check_error(results):
+                logging.warn(json.dumps(results) + '\n')
             if print_json:
                 print(json.dumps(results, indent=4, sort_keys=True))
             # if results are empty, let's return the return status
