@@ -2,6 +2,7 @@ import logging
 import json
 import os
 
+
 def set_default_logging(parent_dir, level=logging.INFO):
     os.makedirs(_get_log_dir(parent_dir), exist_ok=True)
     log_file = f"{_get_log_dir(parent_dir)}/wm_logs.log"
@@ -27,18 +28,31 @@ def get_error_logger(action_type, object_type, log_dir):
     logger.addHandler(error_handler)
     return logger
 
+
 def get_error_log_file(action_type, object_type, parent_dir):
     return f"{_get_log_dir(parent_dir)}/failed_{action_type}_{object_type}.log"
+
 
 def _get_log_dir(parent_dir):
     return parent_dir + "/app_logs"
 
-def log_reponse_error(error_logger, response, error_msg=None):
-    if 'error_code' in response or 'error' in response:
+default_ignore_error_list=[
+    'RESOURCE_ALREADY_EXISTS'
+]
+def log_reponse_error(error_logger,
+                      response,
+                      error_msg=None,
+                      ignore_error_list=default_ignore_error_list):
+    if check_error(response, ignore_error_list):
         if error_msg:
-            error_logger.error(error_msg + '\n')
+            error_logger.error(error_msg)
         else:
-            error_logger.error(json.dumps(response) + '\n')
+            error_logger.error(json.dumps(response))
         return True
     else:
         return False
+
+def check_error(response, ignore_error_list=default_ignore_error_list):
+    return ('error_code' in response and response['error_code'] not in ignore_error_list) \
+            or ('error' in response and response['error'] not in ignore_error_list) \
+            or (response.get('resultType', None) == 'error' and 'already exists' not in response.get('summary', None))
