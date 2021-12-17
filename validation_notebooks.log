@@ -1,0 +1,111 @@
+Only in logs/E20211209154049/artifacts/: 0 SparkR Overview (1).dbc
+Only in logs/E20211209154049/artifacts/: DBIOCacheAutoscalingSuite-0828-153030-56610020161.dbc
+Only in logs/E20211209154049/artifacts/: DBIOCacheAutoscalingSuite-0829-014738-58395451491.dbc
+Only in logs/E20211209154049/artifacts/: Databricks for Data Scientists.dbc
+Binary files logs/E20211209153920/artifacts/Demos/DBWSRoadShow/01. Build & Manage Your Data Lake With Delta Lake (Demo).dbc and logs/E20211209154049/artifacts/Demos/DBWSRoadShow/01. Build & Manage Your Data Lake With Delta Lake (Demo).dbc differ
+Binary files logs/E20211209153920/artifacts/Demos/DBWSRoadShow/02. Analytics and Data Science On All Of Your Data (Demo).dbc and logs/E20211209154049/artifacts/Demos/DBWSRoadShow/02. Analytics and Data Science On All Of Your Data (Demo).dbc differ
+Binary files logs/E20211209153920/artifacts/Demos/DBWSRoadShow/03. Operationalizing Data Science & Machine Learning (Demo).dbc and logs/E20211209154049/artifacts/Demos/DBWSRoadShow/03. Operationalizing Data Science & Machine Learning (Demo).dbc differ
+Binary files logs/E20211209153920/artifacts/Demos/DBWSRoadShow/classes_init.dbc and logs/E20211209154049/artifacts/Demos/DBWSRoadShow/classes_init.dbc differ
+Binary files logs/E20211209153920/artifacts/Demos/MLExample/03. Operationalizing Data Science & Machine Learning.dbc and logs/E20211209154049/artifacts/Demos/MLExample/03. Operationalizing Data Science & Machine Learning.dbc differ
+Binary files logs/E20211209153920/artifacts/Demos/MLExample/classes_init.dbc and logs/E20211209154049/artifacts/Demos/MLExample/classes_init.dbc differ
+Binary files logs/E20211209153920/artifacts/Demos/Security/SQLConnectADFromDriver.dbc and logs/E20211209154049/artifacts/Demos/Security/SQLConnectADFromDriver.dbc differ
+Binary files logs/E20211209153920/artifacts/Demos/TablePermissions/ADLSFolderDatabase.dbc and logs/E20211209154049/artifacts/Demos/TablePermissions/ADLSFolderDatabase.dbc differ
+Binary files logs/E20211209153920/artifacts/Demos/TensorFlow/TensorFlow_2_0_+_Keras_Crash_Course.dbc and logs/E20211209154049/artifacts/Demos/TensorFlow/TensorFlow_2_0_+_Keras_Crash_Course.dbc differ
+Binary files logs/E20211209153920/artifacts/Demos/TimeSeriesOptimization/Mounts.dbc and logs/E20211209154049/artifacts/Demos/TimeSeriesOptimization/Mounts.dbc differ
+Binary files logs/E20211209153920/artifacts/Demos/TimeSeriesOptimization/Pivot and Unpivot Examples.dbc and logs/E20211209154049/artifacts/Demos/TimeSeriesOptimization/Pivot and Unpivot Examples.dbc differ
+Binary files logs/E20211209153920/artifacts/Demos/TimeSeriesOptimization/Res Calc Koalas.dbc and logs/E20211209154049/artifacts/Demos/TimeSeriesOptimization/Res Calc Koalas.dbc differ
+Binary files logs/E20211209153920/artifacts/Demos/TimeSeriesOptimization/Res Calc Spark - #1 Load Data.dbc and logs/E20211209154049/artifacts/Demos/TimeSeriesOptimization/Res Calc Spark - #1 Load Data.dbc differ
+Binary files logs/E20211209153920/artifacts/Demos/TimeSeriesOptimization/Res Calc Spark - #2 Prepare Lookups.dbc and logs/E20211209154049/artifacts/Demos/TimeSeriesOptimization/Res Calc Spark - #2 Prepare Lookups.dbc differ
+Binary files logs/E20211209153920/artifacts/Demos/TimeSeriesOptimization/Res Calc Spark - #3 HighOrderTransform.dbc and logs/E20211209154049/artifacts/Demos/TimeSeriesOptimization/Res Calc Spark - #3 HighOrderTransform.dbc differ
+Binary files logs/E20211209153920/artifacts/Demos/TimeSeriesOptimization/Res Calc Spark - #4 Dump tables to csvs.dbc and logs/E20211209154049/artifacts/Demos/TimeSeriesOptimization/Res Calc Spark - #4 Dump tables to csvs.dbc differ
+Binary files logs/E20211209153920/artifacts/Demos/TimeSeriesOptimization/archive/Res Calc Koalas.dbc and logs/E20211209154049/artifacts/Demos/TimeSeriesOptimization/archive/Res Calc Koalas.dbc differ
+Binary files logs/E20211209153920/artifacts/Demos/TimeSeriesOptimization/archive/Res Calc Spark On Stack.dbc and logs/E20211209154049/artifacts/Demos/TimeSeriesOptimization/archive/Res Calc Spark On Stack.dbc differ
+Binary files logs/E20211209153920/artifacts/Demos/TimeSeriesOptimization/archive/Res Calc.dbc and logs/E20211209154049/artifacts/Demos/TimeSeriesOptimization/archive/Res Calc.dbc differ
+Binary files logs/E20211209153920/artifacts/Demos/TimeSeriesOptimization/archive/Res Data Load.dbc and logs/E20211209154049/artifacts/Demos/TimeSeriesOptimization/archive/Res Data Load.dbc differ
+Binary files logs/E20211209153920/artifacts/Demos/TimeSeriesOptimization/archive/load_tables_to_delta.dbc and logs/E20211209154049/artifacts/Demos/TimeSeriesOptimization/archive/load_tables_to_delta.dbc differ
+Binary files logs/E20211209153920/artifacts/Demos/ValueAtRisk/00_context.dbc and logs/E20211209154049/artifacts/Demos/ValueAtRisk/00_context.dbc differ
+Binary files logs/E20211209153920/artifacts/Demos/ValueAtRisk/01_nyse_etl.dbc and logs/E20211209154049/artifacts/Demos/ValueAtRisk/01_nyse_etl.dbc differ
+Binary files logs/E20211209153920/artifacts/Demos/ValueAtRisk/02_create_model.dbc and logs/E20211209154049/artifacts/Demos/ValueAtRisk/02_create_model.dbc differ
+Binary files logs/E20211209153920/artifacts/Demos/ValueAtRisk/03_monte_carlo.dbc and logs/E20211209154049/artifacts/Demos/ValueAtRisk/03_monte_carlo.dbc differ
+Binary files logs/E20211209153920/artifacts/Demos/ValueAtRisk/04_var_aggregation.dbc and logs/E20211209154049/artifacts/Demos/ValueAtRisk/04_var_aggregation.dbc differ
+Binary files logs/E20211209153920/artifacts/Demos/ValueAtRisk/05_var_backtesting.dbc and logs/E20211209154049/artifacts/Demos/ValueAtRisk/05_var_backtesting.dbc differ
+Binary files logs/E20211209153920/artifacts/Demos/ValueAtRisk/zz_scratch/03_monte_carlo_agg.dbc and logs/E20211209154049/artifacts/Demos/ValueAtRisk/zz_scratch/03_monte_carlo_agg.dbc differ
+Binary files logs/E20211209153920/artifacts/Demos/ValueAtRisk/zz_scratch/ZZ_standalone_var_portfolio.dbc and logs/E20211209154049/artifacts/Demos/ValueAtRisk/zz_scratch/ZZ_standalone_var_portfolio.dbc differ
+Binary files logs/E20211209153920/artifacts/Demos/ValueAtRisk/zz_scratch/ZZ_var_101.dbc and logs/E20211209154049/artifacts/Demos/ValueAtRisk/zz_scratch/ZZ_var_101.dbc differ
+Only in logs/E20211209154049/artifacts/: Lift Over.dbc
+Only in logs/E20211209154049/artifacts/: OLD
+Only in logs/E20211209154049/artifacts/: PROD-14446.dbc
+Only in logs/E20211209154049/artifacts/: Quickstart Notebook.dbc
+Binary files logs/E20211209153920/artifacts/Repos that need migration.dbc and logs/E20211209154049/artifacts/Repos that need migration.dbc differ
+Only in logs/E20211209154049/artifacts/: S3 benchmark.dbc
+Only in logs/E20211209154049/artifacts/: Shared
+Only in logs/E20211209154049/artifacts/: Sourav-test.dbc
+Only in logs/E20211209154049/artifacts/: SqlAclsSmokeTest-0123-170158-ewry1.dbc
+Binary files logs/E20211209153920/artifacts/Users/anindita.mahapatra+tzar@databricks.com/workspace_migration_analysis.dbc and logs/E20211209154049/artifacts/Users/anindita.mahapatra+tzar@databricks.com/workspace_migration_analysis.dbc differ
+Binary files logs/E20211209153920/artifacts/Users/marwa.krouma+tzar@databricks.com/workspace_migration_analysis.dbc and logs/E20211209154049/artifacts/Users/marwa.krouma+tzar@databricks.com/workspace_migration_analysis.dbc differ
+Binary files logs/E20211209153920/artifacts/Users/mwc+user1@databricks.com/hello worlds.dbc and logs/E20211209154049/artifacts/Users/mwc+user1@databricks.com/hello worlds.dbc differ
+Binary files logs/E20211209153920/artifacts/Users/mwc+user4@databricks.com/hello user3.dbc and logs/E20211209154049/artifacts/Users/mwc+user4@databricks.com/hello user3.dbc differ
+Binary files logs/E20211209153920/artifacts/Users/mwc+user4@databricks.com/testing123.dbc and logs/E20211209154049/artifacts/Users/mwc+user4@databricks.com/testing123.dbc differ
+Only in logs/E20211209154049/artifacts/Users/mwc@databricks.com: Cleanup Workspace Tool.dbc
+Binary files logs/E20211209153920/artifacts/Users/mwc@databricks.com/EBS Volume Scale Test.dbc and logs/E20211209154049/artifacts/Users/mwc@databricks.com/EBS Volume Scale Test.dbc differ
+Binary files logs/E20211209153920/artifacts/Users/mwc@databricks.com/Inventory Optimization | Family, Location, & Business Group.dbc and logs/E20211209154049/artifacts/Users/mwc@databricks.com/Inventory Optimization | Family, Location, & Business Group.dbc differ
+Binary files logs/E20211209153920/artifacts/Users/mwc@databricks.com/Metastore Tests.dbc and logs/E20211209154049/artifacts/Users/mwc@databricks.com/Metastore Tests.dbc differ
+Binary files logs/E20211209153920/artifacts/Users/mwc@databricks.com/Metastore.dbc and logs/E20211209154049/artifacts/Users/mwc@databricks.com/Metastore.dbc differ
+Binary files logs/E20211209153920/artifacts/Users/mwc@databricks.com/Migration Test Build.dbc and logs/E20211209154049/artifacts/Users/mwc@databricks.com/Migration Test Build.dbc differ
+Binary files logs/E20211209153920/artifacts/Users/mwc@databricks.com/Repair Tables for Migration.dbc and logs/E20211209154049/artifacts/Users/mwc@databricks.com/Repair Tables for Migration.dbc differ
+Binary files logs/E20211209153920/artifacts/Users/mwc@databricks.com/Scim Tests.dbc and logs/E20211209154049/artifacts/Users/mwc@databricks.com/Scim Tests.dbc differ
+Binary files logs/E20211209153920/artifacts/Users/mwc@databricks.com/Test Data.dbc and logs/E20211209154049/artifacts/Users/mwc@databricks.com/Test Data.dbc differ
+Binary files logs/E20211209153920/artifacts/Users/mwc@databricks.com/Test&And.dbc and logs/E20211209154049/artifacts/Users/mwc@databricks.com/Test&And.dbc differ
+Binary files logs/E20211209153920/artifacts/Users/mwc@databricks.com/Test|Pipe|Notebook.dbc and logs/E20211209154049/artifacts/Users/mwc@databricks.com/Test|Pipe|Notebook.dbc differ
+Binary files logs/E20211209153920/artifacts/Users/mwc@databricks.com/empty_space_example .dbc and logs/E20211209154049/artifacts/Users/mwc@databricks.com/empty_space_example .dbc differ
+Binary files logs/E20211209153920/artifacts/Users/mwc@databricks.com/foo barz empty.dbc and logs/E20211209154049/artifacts/Users/mwc@databricks.com/foo barz empty.dbc differ
+Binary files logs/E20211209153920/artifacts/Users/mwc@databricks.com/hello_world - kinesis checker.dbc and logs/E20211209154049/artifacts/Users/mwc@databricks.com/hello_world - kinesis checker.dbc differ
+Binary files logs/E20211209153920/artifacts/Users/mwc@databricks.com/s3 bucket tests.dbc and logs/E20211209154049/artifacts/Users/mwc@databricks.com/s3 bucket tests.dbc differ
+Binary files logs/E20211209153920/artifacts/Users/mwc@databricks.com/tmp/migrate/Export_Table_ACLs.py.dbc and logs/E20211209154049/artifacts/Users/mwc@databricks.com/tmp/migrate/Export_Table_ACLs.py.dbc differ
+Only in logs/E20211209154049/artifacts/Users/mwc@databricks.com/tmp/migrate: Import_Table_ACLs.py.dbc
+Binary files logs/E20211209153920/artifacts/Users/nancy.shah+tzar@databricks.com/workspace_migration_analysis.dbc and logs/E20211209154049/artifacts/Users/nancy.shah+tzar@databricks.com/workspace_migration_analysis.dbc differ
+Binary files logs/E20211209153920/artifacts/Users/ramdas.murali+tzar@databricks.com/migrationAnalysis.dbc and logs/E20211209154049/artifacts/Users/ramdas.murali+tzar@databricks.com/migrationAnalysis.dbc differ
+Binary files logs/E20211209153920/artifacts/Users/ramdas.murali+tzar@databricks.com/test.dbc and logs/E20211209154049/artifacts/Users/ramdas.murali+tzar@databricks.com/test.dbc differ
+Binary files logs/E20211209153920/artifacts/Users/sourav.khandelwal@databricks.com/tmp/migrate/Export_Table_ACLs.py.dbc and logs/E20211209154049/artifacts/Users/sourav.khandelwal@databricks.com/tmp/migrate/Export_Table_ACLs.py.dbc differ
+Only in logs/E20211209154049/artifacts/Users/sourav.khandelwal@databricks.com/tmp/migrate: Import_Table_ACLs.py.dbc
+Binary files logs/E20211209153920/artifacts/Users/stephanie.liu@databricks.com/Enable Repos Script.dbc and logs/E20211209154049/artifacts/Users/stephanie.liu@databricks.com/Enable Repos Script.dbc differ
+Only in logs/E20211209154049/artifacts/Users/tomi.schumacher@databricks.com: mini_job.dbc
+Binary files logs/E20211209153920/artifacts/Users/tomi.schumacher@databricks.com/scratch.dbc and logs/E20211209154049/artifacts/Users/tomi.schumacher@databricks.com/scratch.dbc differ
+Binary files logs/E20211209153920/artifacts/Users/tomi.schumacher@databricks.com/tmp/migrate/Export_Table_ACLs.py.dbc and logs/E20211209154049/artifacts/Users/tomi.schumacher@databricks.com/tmp/migrate/Export_Table_ACLs.py.dbc differ
+Binary files logs/E20211209153920/artifacts/Users/yonghong.goh+tzar@databricks.com/Common.dbc and logs/E20211209154049/artifacts/Users/yonghong.goh+tzar@databricks.com/Common.dbc differ
+Binary files logs/E20211209153920/artifacts/Users/yonghong.goh+tzar@databricks.com/Export_Experiment.dbc and logs/E20211209154049/artifacts/Users/yonghong.goh+tzar@databricks.com/Export_Experiment.dbc differ
+Binary files logs/E20211209153920/artifacts/Users/yonghong.goh+tzar@databricks.com/Export_Run.dbc and logs/E20211209154049/artifacts/Users/yonghong.goh+tzar@databricks.com/Export_Run.dbc differ
+Binary files logs/E20211209153920/artifacts/Users/yonghong.goh+tzar@databricks.com/Import_Run.dbc and logs/E20211209154049/artifacts/Users/yonghong.goh+tzar@databricks.com/Import_Run.dbc differ
+Binary files logs/E20211209153920/artifacts/Users/yonghong.goh+tzar@databricks.com/MLFLow Export-Import Readme.dbc and logs/E20211209154049/artifacts/Users/yonghong.goh+tzar@databricks.com/MLFLow Export-Import Readme.dbc differ
+Binary files logs/E20211209153920/artifacts/Users/yonghong.goh+tzar@databricks.com/count_migration_assets.dbc and logs/E20211209154049/artifacts/Users/yonghong.goh+tzar@databricks.com/count_migration_assets.dbc differ
+Binary files logs/E20211209153920/artifacts/Users/yonghong.goh+tzar@databricks.com/tmp/migrate/Export_Table_ACLs.py.dbc and logs/E20211209154049/artifacts/Users/yonghong.goh+tzar@databricks.com/tmp/migrate/Export_Table_ACLs.py.dbc differ
+Binary files logs/E20211209153920/artifacts/Users_test/yh@yh.com/mlflow-export-import/Common.dbc and logs/E20211209154049/artifacts/Users_test/yh@yh.com/mlflow-export-import/Common.dbc differ
+Binary files logs/E20211209153920/artifacts/Users_test/yh@yh.com/mlflow-export-import/Export_Experiment.dbc and logs/E20211209154049/artifacts/Users_test/yh@yh.com/mlflow-export-import/Export_Experiment.dbc differ
+Binary files logs/E20211209153920/artifacts/Users_test/yh@yh.com/mlflow-export-import/Export_Model.dbc and logs/E20211209154049/artifacts/Users_test/yh@yh.com/mlflow-export-import/Export_Model.dbc differ
+Binary files logs/E20211209153920/artifacts/Users_test/yh@yh.com/mlflow-export-import/Export_Run.dbc and logs/E20211209154049/artifacts/Users_test/yh@yh.com/mlflow-export-import/Export_Run.dbc differ
+Binary files logs/E20211209153920/artifacts/Users_test/yh@yh.com/mlflow-export-import/Import_Experiment.dbc and logs/E20211209154049/artifacts/Users_test/yh@yh.com/mlflow-export-import/Import_Experiment.dbc differ
+Binary files logs/E20211209153920/artifacts/Users_test/yh@yh.com/mlflow-export-import/Import_Model.dbc and logs/E20211209154049/artifacts/Users_test/yh@yh.com/mlflow-export-import/Import_Model.dbc differ
+Binary files logs/E20211209153920/artifacts/Users_test/yh@yh.com/mlflow-export-import/Import_Run.dbc and logs/E20211209154049/artifacts/Users_test/yh@yh.com/mlflow-export-import/Import_Run.dbc differ
+Only in logs/E20211209154049/artifacts/: __StressTest
+Only in logs/E20211209154049/artifacts/: bdwn_test.dbc
+Only in logs/E20211209154049/artifacts/: databricks
+Only in logs/E20211209154049/artifacts/: databricks_guide
+Only in logs/E20211209154049/artifacts/: dbfs-test-nb.dbc
+Only in logs/E20211209154049/artifacts/: dbfstest.dbc
+Only in logs/E20211209154049/artifacts/: ddd.dbc
+Only in logs/E20211209154049/artifacts/: expand.dbc
+Only in logs/E20211209154049/artifacts/: henry
+Only in logs/E20211209154049/artifacts/: henry-lib.dbc
+Only in logs/E20211209154049/artifacts/: instance_benchmark.dbc
+Only in logs/E20211209154049/artifacts/: irene-test.dbc
+Only in logs/E20211209154049/artifacts/: liang-init.dbc
+Only in logs/E20211209154049/artifacts/: library test.dbc
+Only in logs/E20211209154049/artifacts/: misc
+Only in logs/E20211209154049/artifacts/: qa
+Only in logs/E20211209154049/artifacts/: run-wgr-25-phenos-1-round.dbc
+Only in logs/E20211209154049/artifacts/: sueann-test.dbc
+Only in logs/E20211209154049/artifacts/: test-tree-version-rollback.dbc
+Only in logs/E20211209154049/artifacts/: test.dbc
+Only in logs/E20211209154049/artifacts/: test1.dbc
+Binary files logs/E20211209153920/artifacts/tmp/migrate/Export_Table_ACLs.py.dbc and logs/E20211209154049/artifacts/tmp/migrate/Export_Table_ACLs.py.dbc differ
+Only in logs/E20211209154049/artifacts/tmp/migrate: Import_Table_ACLs.py.dbc

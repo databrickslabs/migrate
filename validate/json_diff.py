@@ -155,11 +155,7 @@ class DiffConfig:
     """
 
     def __init__(self, primary_key=None, ignored_keys=None, children=None):
-        if primary_key == _HASH_PRIMARY_KEY:
-            self.primary_key = primary_key
-        else:
-            self.primary_key = primary_key if isinstance(primary_key, list) else [primary_key]
-
+        self.primary_key = primary_key
         self.ignore_keys = ignored_keys
         self.children = children
 
@@ -171,6 +167,24 @@ def init_diff_logger(base_dir):
     fh.setLevel(logging.DEBUG)
 
     logging.basicConfig(format="", handlers=[ch, fh], level=logging.DEBUG, force=True)
+
+
+def _get_primary_key(data, primary_key):
+    if isinstance(primary_key, str):
+        if primary_key == _HASH_PRIMARY_KEY:
+            return str(data)
+        else:
+            return data.get(primary_key, None)
+    elif isinstance(primary_key, list):
+        for primary_key in primary_key:
+            if primary_key in data:
+                return data[primary_key]
+    elif isinstance(primary_key, dict):
+        assert len(primary_key) == 1, f"Dict-type primary key should only contain one element."
+        for k, v in primary_key.items():
+            if k in data:
+                return _get_primary_key(data[k], v)
+    return None
 
 
 def prepare_diff_input(data, config=None):
@@ -195,17 +209,10 @@ def prepare_diff_input(data, config=None):
             result = {}
             for inner in data:
                 converted = prepare_diff_input(inner, config)
-                key = None
-
-                if config.primary_key == _HASH_PRIMARY_KEY:
-                    key = str(converted)
-                else:
-                    for primary_key in config.primary_key:
-                        if primary_key in converted:
-                            key = converted[primary_key]
-                            break
-
-                if key not in result:
+                key = _get_primary_key(converted, config.primary_key)
+                if key is None:
+                    logging.info(f"No keys {str(config.primary_key)} found in {str(inner)}")
+                elif key not in result:
                     result[key] = converted
                 else:
                     logging.info(f"Duplicates found:\n{str(converted)}\n---\n" +
@@ -243,6 +250,8 @@ def print_diff(diff, prefix=""):
     elif isinstance(diff, DictDiff):
         for key in sorted(diff.children.keys()):
             value = diff.children[key]
+            if not key:
+                logging.error("\n\n\n" + str(value) + "\n\n\n")
             print_diff(value, prefix + "|" + key)
     else:
         raise NotImplementedError(f"Type {type(diff)} is not supported.")
