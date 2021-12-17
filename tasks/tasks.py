@@ -407,7 +407,7 @@ def diff_files(source, destination, config):
 
 class DiffTask(AbstractTask):
     def __init__(self, name, source, destination, config=None):
-        super().__init__(name)
+        super().__init__(name, wmconstants.WM_VALIDATE, name, False)
         self.source = source
         self.destination = destination
         self.config = config
@@ -419,7 +419,7 @@ class DiffTask(AbstractTask):
 
 class DirDiffTask(AbstractTask):
     def __init__(self, name, source, destination, config, suffix=None):
-        super().__init__(name)
+        super().__init__(name, wmconstants.WM_VALIDATE, name, False)
         self.source = source
         self.destination = destination
         self.config = config
