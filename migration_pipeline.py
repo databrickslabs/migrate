@@ -236,7 +236,6 @@ def build_validate_pipeline(client_config, checkpoint_service, args):
         primary_key="name",
         ignored_keys=["policy_id", "created_at_timestamp"],
     ))
-
     add_diff_task("validate-acl_clusters", "acl_clusters.log", DiffConfig(
         primary_key='cluster_name',
         ignored_keys={'object_id'},
@@ -285,7 +284,7 @@ def build_validate_pipeline(client_config, checkpoint_service, args):
     # Handled by bash script.
 
     # JobsExportTask
-    # No primary key available.
+    # No primary key available for jobs.log and acl_jobs.log.
 
     # MetastoreExportTask
     add_diff_task("validate-database_details", "database_details.log", DiffConfig(
@@ -316,3 +315,6 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+# -rw-r--r--   1 yubing.yin  staff    20843 Dec 13 11:07 acl_jobs.log
