@@ -299,7 +299,7 @@ def build_validate_pipeline(client_config, checkpoint_service, args):
     add_dir_diff_task("validate-table_acls", "table_acls", DiffConfig(
         primary_key="__HASH__",
         ignored_keys=["ExportTimestamp"]
-    ), ".json")
+    ), suffix=".json")
 
     return pipeline
 
@@ -315,6 +315,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-# -rw-r--r--   1 yubing.yin  staff    20843 Dec 13 11:07 acl_jobs.log
