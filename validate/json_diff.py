@@ -180,7 +180,8 @@ def _get_primary_key(data, primary_key):
             if primary_key in data:
                 return data[primary_key]
     elif isinstance(primary_key, dict):
-        assert len(primary_key) == 1, f"Dict-type primary key should only contain one element."
+        assert len(primary_key) == 1, \
+            f"Dict-type primary key should only contain one element: {primary_key}"
         for k, v in primary_key.items():
             if k in data:
                 return _get_primary_key(data[k], v)
