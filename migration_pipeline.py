@@ -137,10 +137,10 @@ def build_validate_pipeline(client_config, checkpoint_service, args):
         destination_file = os.path.join(destination_dir, file_path)
         return pipeline.add_task(DiffTask(name, source_file, destination_file, config), parents)
 
-    def add_dir_diff_task(name, dir_path, config, parents=None):
+    def add_dir_diff_task(name, dir_path, config, suffix=None, parents=None):
         source = os.path.join(source_dir, dir_path)
         destination = os.path.join(destination_dir, dir_path)
-        return pipeline.add_task(DirDiffTask(name, source, destination, config), parents)
+        return pipeline.add_task(DirDiffTask(name, source, destination, config, suffix), parents)
 
     # InstanceProfileExportTask
     add_diff_task(
@@ -190,12 +190,10 @@ def build_validate_pipeline(client_config, checkpoint_service, args):
             ),
         }))
     # WorkspaceItemLogExportTask
-    # TODO(yubing): compare artifacts.
     workspace_item_config = DiffConfig(primary_key='path', ignored_keys={'object_id'})
     add_diff_task("validate-user_dirs", "user_dirs.log", workspace_item_config)
     add_diff_task("validate-user_workspace", "user_workspace.log", workspace_item_config)
     add_diff_task("validate-libraries", "libraries.log", workspace_item_config)
-
     # WorkspaceACLExportTask
     acl_config = DiffConfig(
         primary_key='path',
@@ -214,6 +212,94 @@ def build_validate_pipeline(client_config, checkpoint_service, args):
     )
     add_diff_task("validate-acl_notebooks", "acl_notebooks.log", acl_config)
     add_diff_task("validate-acl_directories", "acl_directories.log", acl_config)
+    # SecretExportTask
+    add_dir_diff_task("validate-secrets_scopes", "secret_scopes", DiffConfig(primary_key='name'))
+    add_diff_task("validate-secret_scopes_acls", "secret_scopes_acls.log", DiffConfig(
+        primary_key='scope_name',
+        children={
+            'items': DiffConfig(
+                primary_key='principal'
+            )
+        }
+    ))
+    #  ClustersExportTask
+    add_diff_task("validate-clusters", "clusters.log", DiffConfig(
+        primary_key="cluster_name",
+        ignored_keys=["cluster_id", "policy_id", "instance_pool_id", "spark_version"],
+        children={
+            "aws_attributes": DiffConfig(
+                ignored_keys=["zone_id"]
+            )
+        }
+    ))
+    add_diff_task("validate-cluster_policies", "cluster_policies.log", DiffConfig(
+        primary_key="name",
+        ignored_keys=["policy_id", "created_at_timestamp"],
+    ))
+    add_diff_task("validate-acl_clusters", "acl_clusters.log", DiffConfig(
+        primary_key='cluster_name',
+        ignored_keys={'object_id'},
+        children={
+            "access_control_list": DiffConfig(
+                primary_key=["user_name", "group_name"],
+                children={
+                    "all_permissions": DiffConfig(
+                        primary_key="__HASH__",
+                        ignored_keys={'inherited_from_object'}
+                    )
+                }
+            )
+        }
+    ))
+    add_diff_task("validate-acl_cluster_policies", "acl_cluster_policies.log", DiffConfig(
+        primary_key='name',
+        ignored_keys={'object_id'},
+        children={
+            "access_control_list": DiffConfig(
+                primary_key=["user_name", "group_name"],
+                children={
+                    "all_permissions": DiffConfig(
+                        primary_key="__HASH__",
+                        ignored_keys={'inherited_from_object'}
+                    )
+                }
+            )
+        }
+    ))
+    # InstancePoolsExportTask
+    add_diff_task("validate-instance_pools", "instance_pools.log", DiffConfig(
+        primary_key="instance_pool_name",
+        ignored_keys=["instance_pool_id"],
+        children={
+            "aws_attributes": DiffConfig(
+                ignored_keys=["zone_id"]
+            ),
+            "default_tags": DiffConfig(
+                ignored_keys=["DatabricksInstancePoolId", "DatabricksInstanceGroupId"]
+            )
+        }
+    ))
+
+    # NotebookExportTask
+    # Handled by bash script.
+
+    # JobsExportTask
+    # No primary key available for jobs.log and acl_jobs.log.
+
+    # MetastoreExportTask
+    add_diff_task("validate-database_details", "database_details.log", DiffConfig(
+        primary_key="Database Name",
+    ))
+    add_diff_task("validate-success_metastore", "success_metastore.log", DiffConfig(
+        primary_key="table",
+    ))
+    # metastore/ handled by bash script.
+
+    # MetastoreTableACLExportTask
+    add_dir_diff_task("validate-table_acls", "table_acls", DiffConfig(
+        primary_key="__HASH__",
+        ignored_keys=["ExportTimestamp"]
+    ), suffix=".json")
 
     return pipeline
 

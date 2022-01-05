@@ -161,6 +161,33 @@ class PrepareDiffInputTest(unittest.TestCase):
                 }))
         )
 
+    def test_nested_primary_key(self):
+        self.assertEqual(
+            {
+                'foo': {
+                    100: {'key': 'b', 'value': 'y', 'info': {'id': 100, 'v': '111'}},
+                    200: {'key': 'a', 'value': 'q', 'info': {'id': 200, 'v': '222'}},
+                    300: {'key': 'c', 'value': 'n', 'info': {'id': 300, 'v': '333'}}
+                },
+                'bar': 'baz'
+            },
+            prepare_diff_input(
+                {
+                    'foo': [
+                        {'key': 'b', 'value': 'y', 'info': {'id': 100, 'v': '111'}},
+                        {'key': 'c', 'value': 'n', 'info': {'id': 300, 'v': '333'}},
+                        {'key': 'a', 'value': 'q', 'info': {'id': 200, 'v': '222'}},
+                    ],
+                    'bar': 'baz',
+                },
+                DiffConfig(children={
+                    'foo':
+                        DiffConfig(
+                            primary_key={'info': 'id'},
+                        )
+                }))
+        )
+
     def test_hash_key(self):
         self.maxDiff = None
         self.assertEqual(

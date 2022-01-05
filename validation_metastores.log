@@ -1,0 +1,37 @@
+Only in logs/E20211209153920/metastore/default: foo_re
+diff -ur logs/E20211209153920/metastore/mwc_s3/flights_delta logs/E20211209154049/metastore/mwc_s3/flights_delta
+--- logs/E20211209153920/metastore/mwc_s3/flights_delta	2021-12-09 15:48:43.000000000 -0800
++++ logs/E20211209154049/metastore/mwc_s3/flights_delta	2021-12-13 11:19:32.000000000 -0800
+@@ -1,2 +1,5 @@
+ CREATE TABLE `mwc_s3`.`flights_delta` (`date` STRING, `delay` STRING, `distance` STRING, `origin` STRING, `destination` STRING)
+-USING delta
+\ No newline at end of file
++USING delta
++OPTIONS (
++  path 'dbfs:/home/mwc/db_s3/flights_delta'
++)
+\ No newline at end of file
+diff -ur logs/E20211209153920/metastore/mwc_s3/flights_delta_with_comments logs/E20211209154049/metastore/mwc_s3/flights_delta_with_comments
+--- logs/E20211209153920/metastore/mwc_s3/flights_delta_with_comments	2021-12-09 15:48:48.000000000 -0800
++++ logs/E20211209154049/metastore/mwc_s3/flights_delta_with_comments	2021-12-13 11:19:37.000000000 -0800
+@@ -1,2 +1,5 @@
+ CREATE TABLE `mwc_s3`.`flights_delta_with_comments` (`date` STRING, `delay` STRING, `distance` STRING, `origin` STRING, `destination` STRING)
+-USING delta
+\ No newline at end of file
++USING delta
++OPTIONS (
++  path 'dbfs:/home/mwc/db_s3/flights_delta_with_comments'
++)
+\ No newline at end of file
+diff -ur logs/E20211209153920/metastore/mwc_s3/foo_dbfs logs/E20211209154049/metastore/mwc_s3/foo_dbfs
+--- logs/E20211209153920/metastore/mwc_s3/foo_dbfs	2021-12-09 15:48:54.000000000 -0800
++++ logs/E20211209154049/metastore/mwc_s3/foo_dbfs	2021-12-13 11:19:43.000000000 -0800
+@@ -1,2 +1,5 @@
+ CREATE TABLE `mwc_s3`.`foo_dbfs` (`1` INT)
+-USING delta
+\ No newline at end of file
++USING delta
++OPTIONS (
++  path 'dbfs:/home/mwc/db_s3/foo_dbfs'
++)
+\ No newline at end of file
