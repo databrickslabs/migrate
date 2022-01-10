@@ -1,8 +1,12 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from timeit import default_timer as timer
+from datetime import timedelta
 import functools
 from typing import List, Optional
+import logging_utils
+import os
 
 from .task import AbstractTask
 
@@ -28,16 +32,18 @@ class Pipeline:
         task: AbstractTask = None
         children = []
 
-    def __init__(self, working_dir: str, dry_run: bool = False):
+    def __init__(self, working_dir: str, completed_pipeline_steps, dry_run: bool = False):
         """
         :param working_dir: the dir where the pipeline reads / writes checkpoints and outputs logs.
+        :param completed_pipeline_steps: CheckpointKeySet of completed pipeline tasks
         """
         self._source = self.Node()
         self._working_dir = working_dir
+        self._completed_steps = completed_pipeline_steps
         self._tasks = []
         self._dry_run = dry_run
 
-    def add_task(self, task: AbstractTask, parents: Optional[List[Node]] = None) -> Node:
+    def add_task(self, task: AbstractTask, parents: Optional[List[Node]] = None, skip=False) -> Node:
         node = self.Node(task)
         if not parents:
             parents = [self._source]
@@ -58,7 +64,21 @@ class Pipeline:
                 future.result()
 
     def _run_task(self, task: AbstractTask):
-        logging.info(f'Start `{task.name}`')
-        if not self._dry_run:
+        if self._completed_steps.contains(f'{task.name}'):
+            logging.info(f'Task {task.name} already completed, found in checkpoint')
+            return
+        start = timer()
+        logging.info(f'Start {task.name}')
+        if not self._dry_run and not task.skip:
             task.run()
-        logging.info(f'Complete `{task.name}`')
+            end = timer()
+            logging.info(f'{task.name} Completed. Total time taken: {str(timedelta(seconds=end - start))}')
+            failed_task_log = logging_utils.get_error_log_file(task.action_type, task.object_type, self._working_dir)
+            if os.path.exists(failed_task_log) and os.path.getsize(failed_task_log) > 0:
+                msg = f'{task.name} has failures. Refer to {failed_task_log} to see failures. Terminating pipeline.'
+                logging.info(msg)
+                raise RuntimeError(msg)
+            self._completed_steps.write(f'{task.name}')
+        else:
+            logging.info(f'{task.name} Skipped.')
+

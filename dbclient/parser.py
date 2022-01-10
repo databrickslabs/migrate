@@ -1,6 +1,6 @@
 import argparse
 import configparser
-import re
+import wmconstants
 from enum import Enum
 from os import path
 
@@ -13,11 +13,21 @@ class NotebookFormat(Enum):
     dbc = 'DBC'
     source = 'SOURCE'
     html = 'HTML'
+
     # jupyter is only supported for python notebooks. consider adding this back if there's demand
     # jupyter = 'JUPYTER'
 
     def __str__(self):
         return self.value
+
+
+class ValidateSkipTasks(argparse.Action):
+    def __call__(self, parser, args, values, option_string=None):
+        valid_tasks = wmconstants.TASK_OBJECTS
+        for task in values:
+            if task not in valid_tasks:
+                raise ValueError(f"invalid task {task}. Skipped tasks must come from {valid_tasks}.")
+        setattr(args, self.dest, values)
 
 
 def is_azure_creds(creds):
@@ -39,12 +49,14 @@ def get_login_credentials(creds_path='~/.databrickscfg', profile='DEFAULT'):
         current_profile = dict(config[profile])
         return current_profile
     except KeyError:
-        raise ValueError('Unable to find credentials to load for profile. Profile only supports tokens.')
+        raise ValueError(
+            'Unable to find credentials to load for profile. Profile only supports tokens.')
 
 
 def get_export_user_parser():
     # export workspace items
-    parser = argparse.ArgumentParser(description='Export user(s) workspace artifacts from Databricks')
+    parser = argparse.ArgumentParser(
+        description='Export user(s) workspace artifacts from Databricks')
 
     parser.add_argument('--profile', action='store', default='DEFAULT',
                         help='Profile to parse the credentials')
@@ -200,6 +212,9 @@ def get_export_parser():
 
     parser.add_argument('--bypass-windows-check', action='store_true',
                         help='By-pass windows os checker')
+
+    parser.add_argument('--use-checkpoint', action='store_true',
+                        help='use checkpointing to restart from previous state')
     return parser
 
 
@@ -315,14 +330,17 @@ def get_import_parser():
 
     parser.add_argument('--delete-all-jobs', action='store_true',
                         help='Delete all jobs')
+
+    parser.add_argument('--use-checkpoint', action='store_true',
+                        help='use checkpointing to restart from previous state')
     return parser
 
 
 def prompt_for_input(message):
     import sys
     # raw_input returns the empty string for "enter", therefore default is no
-    yes = {'yes','y', 'ye'}
-    no = {'no','n', ''}
+    yes = {'yes', 'y', 'ye'}
+    no = {'no', 'n', ''}
 
     choice = input(message + '\n').lower()
     if choice in yes:
@@ -333,22 +351,15 @@ def prompt_for_input(message):
         sys.stdout.write("Please respond with 'yes' or 'no'")
 
 
-def url_validation(url):
-    if '/?o=' in url:
-        # if the workspace_id exists, lets remove it from the URL
-        new_url = re.sub("\/\?o=.*", '', url)
-        return new_url
-    elif 'net/' == url[-4:]:
-        return url[:-1]
-    elif 'com/' == url[-4:]:
-        return url[:-1]
-    return url
+def build_client_config_without_profile(args):
+    return build_client_config('', '', '', args)
 
 
-def build_client_config(url, token, args):
+def build_client_config(profile, url, token, args):
     # cant use netrc credentials because requests module tries to load the credentials into http basic auth headers
     # aws is the default
-    config = {'url': url_validation(url),
+    config = {'profile': profile,
+              'url': url,
               'token': token,
               'is_aws': (not args.azure),
               'verbose': (not args.silent),
@@ -371,11 +382,14 @@ def build_client_config(url, token, args):
         config['export_dir'] = 'logs/'
     else:
         config['export_dir'] = 'azure_logs/'
+
+    config['use_checkpoint'] = args.use_checkpoint
     return config
 
 
 def get_pipeline_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description='Export user(s) workspace artifacts from Databricks')
+    parser = argparse.ArgumentParser(
+        description='Export user(s) workspace artifacts from Databricks')
 
     parser.add_argument('--profile', action='store', default='DEFAULT',
                         help='Profile to parse the credentials')
@@ -395,12 +409,26 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
     parser.add_argument('--set-export-dir', action='store',
                         help='Set the base directory to export artifacts')
 
+    parser.add_argument('--cluster-name', action='store', required=False,
+                        help='Cluster name to export the metastore to a specific cluster. Cluster will be started.')
+
+    # Workspace arguments
     parser.add_argument('--notebook-format', type=NotebookFormat,
                         choices=list(NotebookFormat), default=NotebookFormat.dbc,
                         help='Choose the file format to download the notebooks (default: DBC)')
 
     parser.add_argument('--overwrite-notebooks', action='store_true', default=False,
                         help='Flag to overwrite notebooks to forcefully overwrite during notebook imports')
+
+    parser.add_argument('--archive-missing', action='store_true',
+                        help='Import all missing users into the top level /Archive/ directory.')
+
+    # Metastore arguments
+    parser.add_argument('--repair-metastore-tables', action='store_true', default=False,
+                        help='Repair legacy metastore tables')
+
+    parser.add_argument('--metastore-unicode', action='store_true',
+                        help='log all the metastore table definitions including unicode characters')
 
     parser.add_argument('--skip-failed', action='store_true', default=False,
                         help='Skip retries for any failed hive metastore exports.')
@@ -411,5 +439,28 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
 
     parser.add_argument('--dry-run', action='store_true', default=False,
                         help='Dry run the pipeline i.e. will not execute tasks if true.')
+
+    parser.add_argument('--export-pipeline', action='store_true',
+                        help='Execute all export tasks.')
+
+    parser.add_argument('--import-pipeline', action='store_true',
+                        help='Execute all import tasks.')
+
+    parser.add_argument('--validate-pipeline', action='store_true',
+                        help='Validate exported data between source and destination.')
+
+    parser.add_argument('--validate-source-session', action='store', default='',
+                        help='Session used by exporting source workspace. Only used for ' +
+                             '--validate-pipeline.')
+
+    parser.add_argument('--validate-destination-session', action='store', default='',
+                        help='Session used by exporting destination workspace. Only used for ' +
+                             '--validate-pipeline.')
+
+    parser.add_argument('--use-checkpoint', action='store_true',
+                        help='use checkpointing to restart from previous state')
+
+    parser.add_argument('--skip-tasks', nargs='+', type=str, action=ValidateSkipTasks, default=[],
+                        help='List of tasks to skip from the pipeline.')
 
     return parser

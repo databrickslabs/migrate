@@ -2,7 +2,8 @@ from dbclient import *
 from timeit import default_timer as timer
 from datetime import timedelta, datetime
 from os import makedirs
-
+from checkpoint_service import CheckpointService
+import logging_utils
 
 # python 3.6
 def main():
@@ -19,10 +20,12 @@ def main():
     # cant use netrc credentials because requests module tries to load the credentials into http basic auth headers
     url = login_args['host']
     token = login_args['token']
-    client_config = build_client_config(url, token, args)
+    client_config = build_client_config(args.profile, url, token, args)
 
     makedirs(client_config['export_dir'], exist_ok=True)
+    logging_utils.set_default_logging(client_config['export_dir'])
 
+    checkpoint_service = CheckpointService(client_config)
     if client_config['debug']:
         print(url, token)
     now = str(datetime.now())
@@ -45,22 +48,21 @@ def main():
     if args.workspace:
         print("Import the complete workspace at {0}".format(now))
         print("Import on {0}".format(url))
-        ws_c = WorkspaceClient(client_config)
+        ws_c = WorkspaceClient(client_config, checkpoint_service)
         start = timer()
         if ws_c.is_overwrite_notebooks():
             # if OVERWRITE is configured, check that the SOURCE format option is used. Otherwise fail
             if not ws_c.is_source_file_format():
                 raise ValueError('Overwrite notebooks only supports the SOURCE format. See Rest API docs for details')
         # log notebooks and libraries
-        ws_c.import_all_workspace_items(archive_missing=args.archive_missing,
-                                        restart_from_last=args.restart_from_checkpoint)
+        ws_c.import_all_workspace_items(archive_missing=args.archive_missing)
         end = timer()
         print("Complete Workspace Import Time: " + str(timedelta(seconds=end - start)))
 
     if args.workspace_top_level:
         print("Import the top level workspace items at {0}".format(now))
         print("Import on {0}".format(url))
-        ws_c = WorkspaceClient(client_config)
+        ws_c = WorkspaceClient(client_config, checkpoint_service)
         start = timer()
         if ws_c.is_overwrite_notebooks():
             # if OVERWRITE is configured, check that the SOURCE format option is used. Otherwise fail
@@ -74,7 +76,7 @@ def main():
     if args.workspace_acls:
         print("Import workspace ACLs at {0}".format(now))
         print("Import on {0}".format(url))
-        ws_c = WorkspaceClient(client_config)
+        ws_c = WorkspaceClient(client_config, checkpoint_service)
         start = timer()
         # log notebooks and libraries
         ws_c.import_workspace_acls()
@@ -117,17 +119,17 @@ def main():
     if args.metastore or args.metastore_unicode:
         print("Importing the metastore configs at {0}".format(now))
         start = timer()
-        hive_c = HiveClient(client_config)
+        hive_c = HiveClient(client_config, checkpoint_service)
         # log job configs
         hive_c.import_hive_metastore(cluster_name=args.cluster_name, has_unicode=args.metastore_unicode,
-                                     should_repair_table=args.repair_metastore_tables)
+                                    should_repair_table=args.repair_metastore_tables)
         end = timer()
         print("Complete Metastore Import Time: " + str(timedelta(seconds=end - start)))
 
     if args.repair_metastore_tables:
         print("Repairing metastore table")
         start = timer()
-        hive_c = HiveClient(client_config)
+        hive_c = HiveClient(client_config, checkpoint_service)
         hive_c.repair_legacy_tables(cluster_name=args.cluster_name)
         end = timer()
         print("Complete Metastore Repair Time: " + str(timedelta(seconds=end - start)))
@@ -192,7 +194,7 @@ def main():
     if args.import_home:
         username = args.import_home
         print("Importing home directory: {0}".format(username))
-        ws_c = WorkspaceClient(client_config)
+        ws_c = WorkspaceClient(client_config, checkpoint_service)
         start = timer()
         # log notebooks and libraries
         if ws_c.is_overwrite_notebooks():
@@ -210,7 +212,7 @@ def main():
         scim_c.import_all_users_and_groups()
         user_names = scim_c.get_users_from_log()
         print('Export users notebooks:', user_names)
-        ws_c = WorkspaceClient(client_config)
+        ws_c = WorkspaceClient(client_config, WorkspaceClient)
         if ws_c.is_overwrite_notebooks():
             # if OVERWRITE is configured, check that the SOURCE format option is used. Otherwise fail
             if not ws_c.is_source_file_format():
@@ -233,7 +235,7 @@ def main():
     if args.get_repair_log:
         print("Finding partitioned tables to repair at {0}".format(now))
         start = timer()
-        hive_c = HiveClient(client_config)
+        hive_c = HiveClient(client_config, checkpoint_service)
         # log job configs
         hive_c.repair_legacy_tables()
         end = timer()

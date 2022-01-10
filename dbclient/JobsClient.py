@@ -1,7 +1,8 @@
 import os
-
+import logging
+import logging_utils
 from dbclient import *
-
+import wmconstants
 
 class JobsClient(ClustersClient):
 
@@ -55,7 +56,7 @@ class JobsClient(ClustersClient):
             job_ids[job['settings']['name']] = job['job_id']
         return job_ids
 
-    def update_imported_job_names(self):
+    def update_imported_job_names(self, error_logger):
         # loop through and update the job names to remove the custom delimiter + job_id suffix
         current_jobs_list = self.get_jobs_list()
         for job in current_jobs_list:
@@ -66,9 +67,9 @@ class JobsClient(ClustersClient):
             old_job_name = job_name.split(':::')[0]
             new_settings = {'name': old_job_name}
             update_args = {'job_id': job_id, 'new_settings': new_settings}
-            print('Updating job name:', update_args)
+            logging.info('Updating job name:', update_args)
             resp = self.post('/jobs/update', update_args)
-            print(resp)
+            logging_utils.log_reponse_error(error_logger, resp)
 
     def log_job_configs(self, users_list=[], log_file='jobs.log', acl_file='acl_jobs.log'):
         """
@@ -80,6 +81,7 @@ class JobsClient(ClustersClient):
         """
         jobs_log = self.get_export_dir() + log_file
         acl_jobs_log = self.get_export_dir() + acl_file
+        error_logger = logging_utils.get_error_logger(wmconstants.WM_EXPORT, wmconstants.JOB_OBJECT, self.get_export_dir())
         # pinned by cluster_user is a flag per cluster
         jl_full = self.get_jobs_list(False)
         if users_list:
@@ -99,14 +101,17 @@ class JobsClient(ClustersClient):
                 x['settings'] = job_settings
                 log_fp.write(json.dumps(x) + '\n')
                 job_perms = self.get(f'/preview/permissions/jobs/{job_id}')
-                job_perms['job_name'] = new_job_name
-                acl_fp.write(json.dumps(job_perms) + '\n')
+                if not logging_utils.log_reponse_error(error_logger, job_perms):
+                    job_perms['job_name'] = new_job_name
+                    acl_fp.write(json.dumps(job_perms) + '\n')
 
     def import_job_configs(self, log_file='jobs.log', acl_file='acl_jobs.log'):
         jobs_log = self.get_export_dir() + log_file
         acl_jobs_log = self.get_export_dir() + acl_file
+        error_logger = logging_utils.get_error_logger(
+            wmconstants.WM_IMPORT, wmconstants.JOB_OBJECT, self.get_export_dir())
         if not os.path.exists(jobs_log):
-            print("No job configurations to import.")
+            logging.info("No job configurations to import.")
             return
         # get an old cluster id to new cluster id mapping object
         cluster_mapping = self.get_cluster_id_mapping()
@@ -118,7 +123,7 @@ class JobsClient(ClustersClient):
                 # set new cluster id for existing cluster attribute
                 new_cid = cluster_mapping.get(old_cid, None)
                 if not new_cid:
-                    print("Existing cluster has been removed. Resetting job to use new cluster.")
+                    logging.info("Existing cluster has been removed. Resetting job to use new cluster.")
                     settings.pop('existing_cluster_id')
                     settings['new_cluster'] = self.get_jobs_default_cluster_conf()
                 else:
@@ -151,14 +156,14 @@ class JobsClient(ClustersClient):
                     for task_settings in job_settings.get('tasks', []):
                         adjust_ids_for_cluster(task_settings)
 
-                print("Current Job Name: {0}".format(job_conf['settings']['name']))
+                logging.info("Current Job Name: {0}".format(job_conf['settings']['name']))
                 # creator can be none if the user is no longer in the org. see our docs page
-                creator_user_name = job_conf.get('creator_user_name', None)
                 create_resp = self.post('/jobs/create', job_settings)
-                if 'error_code' in create_resp:
-                    print("Resetting job to use default cluster configs due to expired configurations.")
+                if logging_utils.log_reponse_error(error_logger, create_resp):
+                    logging.info("Resetting job to use default cluster configs due to expired configurations.")
                     job_settings['new_cluster'] = self.get_jobs_default_cluster_conf()
                     create_resp_retry = self.post('/jobs/create', job_settings)
+                    logging_utils.log_reponse_error(error_logger, create_resp_retry)
         # update the jobs with their ACLs
         with open(acl_jobs_log, 'r') as acl_fp:
             job_id_by_name = self.get_job_id_by_name()
@@ -171,9 +176,9 @@ class JobsClient(ClustersClient):
                 acl_perms = self.build_acl_args(acl_conf['access_control_list'], True)
                 acl_create_args = {'access_control_list': acl_perms}
                 acl_resp = self.patch(api, acl_create_args)
-                print(acl_resp)
+                logging_utils.log_reponse_error(error_logger, acl_resp)
         # update the imported job names
-        self.update_imported_job_names()
+        self.update_imported_job_names(error_logger)
 
     def pause_all_jobs(self, pause=True):
         job_list = self.get_jobs_list()
@@ -195,26 +200,3 @@ class JobsClient(ClustersClient):
         job_list = self.get('/jobs/list').get('jobs', [])
         for job in job_list:
             self.post('/jobs/delete', {'job_id': job['job_id']})
-
-    def get_cluster_id_mapping(self, log_file='clusters.log'):
-        """
-        Get a dict mapping of old cluster ids to new cluster ids for jobs connecting to existing clusters
-        :param log_file:
-        :return:
-        """
-        cluster_logfile = self.get_export_dir() + log_file
-        current_cl = self.get('/clusters/list').get('clusters', [])
-        old_clusters = {}
-        # build dict with old cluster name to cluster id mapping
-        if not os.path.exists(cluster_logfile):
-            raise ValueError('Clusters log must exist to map clusters to previous existing cluster ids')
-        with open(cluster_logfile, 'r') as fp:
-            for line in fp:
-                conf = json.loads(line)
-                old_clusters[conf['cluster_name']] = conf['cluster_id']
-        new_to_old_mapping = {}
-        for new_cluster in current_cl:
-            old_cluster_id = old_clusters.get(new_cluster['cluster_name'], None)
-            if old_cluster_id:
-                new_to_old_mapping[old_cluster_id] = new_cluster['cluster_id']
-        return new_to_old_mapping
