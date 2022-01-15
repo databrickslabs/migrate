@@ -6,8 +6,8 @@ to move between different cloud providers, or to move to different regions / acc
 
 Packaged is based on python 3.6 and DBR 6.x and 7.x releases.  
 
-**Note:** Tools does not support windows currently since path resolution is different than mac / linux.  
-Support for Windows is work in progress to update all paths to use pathlib resolution. 
+> **Note:** Tools does not support windows currently since path resolution is different than mac / linux.  
+> Support for Windows is work in progress to update all paths to use pathlib resolution. 
 
 This package uses credentials from the 
 [Databricks CLI](https://docs.databricks.com/user-guide/dev-tools/databricks-cli.html)  
@@ -60,8 +60,8 @@ Support Matrix for Import and Export Operations:
   * The Databricks support team has a tool available to help with DBFS migrations between AWS workspaces today. 
   * Azure DBFS migrations is work in progress. 
 
-**Note:** MLFlow objects cannot be exported / imported with this tool.
-For more details, please look [here](https://github.com/amesar/mlflow-export-import/)
+> **Note:** MLFlow objects cannot be exported / imported with this tool.
+> For more details, please look [here](https://github.com/amesar/mlflow-export-import/)
 
 ## Workspace Analysis
 Import this [notebook](data/workspace_migration_analysis.py) to do an analysis of the number of objects within the 
@@ -83,9 +83,9 @@ current workspace. The last cell will print:
 6. Export Hive Metastore data 
 7. Export Table ACLs
 
-**Note:** During user / group import, users will be notified of the new workspace and account. This is required 
-for them to set up their credentials to access the new workspace. We need the user to exist before loading their 
-artifacts like notebooks, clusters, etc. 
+> **Note:** During user / group import, users will be notified of the new workspace and account. This is required 
+> for them to set up their credentials to access the new workspace. We need the user to exist before loading their 
+> artifacts like notebooks, clusters, etc. 
 
 By default, artifacts are stored in the `logs/` directory, and `azure_logs/` for Azure artifacts. 
 This is configurable with the `--set-export-dir` flag to specify the log directory.
