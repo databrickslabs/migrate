@@ -12,20 +12,27 @@ Packaged is based on python 3.6 and DBR 6.x and 7.x releases.
 This package uses credentials from the 
 [Databricks CLI](https://docs.databricks.com/user-guide/dev-tools/databricks-cli.html)  
 
-**Pre-Requisites**
+## Pre-Requisites
 To use this migration tool, you'll need:  
 * An environment running linux with python, pip, git, and the databricks CLI installed.
 * Admin access to both the old and new databricks accounts.
+
+## PreSetup
+
+> Click to expand & collapse tasks
+<details><summary><strong>1. Generate Tokens </strong></summary>
 
 **Generate Access Tokens for both the old and new databricks accounts**
 
 1. Click ![settings icon](https://docs.databricks.com/_images/user-settings-icon.png)User Settings Icon Settings in the lower left corner of your Databricks workspace
 2. Click on **Access Tokens** tab
-3. Click on **Generate New Token** button.
-
+3. Click on **Generate New Token** button. ![generate token](https://docs.databricks.com/_images/generate-token.png)
+4. Copy the generated token and store in a secure location.
 
 Be sure to keep a file with the url for both the old and new databricks account
 Add the old and new token and the old and new Instance ID if applicable.  You'll need easy access to all of these things when running the migration tool.
+</details>
+<details><summary><strong>2. Setup databricks-cli profiles</strong></summary>
 
 **In order to run the migration tool from your linux shell**
 
@@ -36,15 +43,25 @@ databricks configure --token --profile oldWS
 ```
 In this case oldWS is the profile name you'll refer to for running the migration tool `export_db.py` file within the old databricks account.
 
-When you use the databricks cli configure command, you'll be prompted for 2 things.  The first is:
-Databricks Host (should begin with https://):
-When this happens, enter the old databricks workspace URL that you captured in your file above.
-The second is:
-Token:
-When this happens, paste in the token you generated for the old databricks account.
+**When you use the databricks cli configure command, you'll be prompted for 2 things**
 
-Repeat the steps above for the new databricks account and change the "oldWS" profile name to something like "newWS" in order to keep track of which account you're exporting FROM and which account you're inporting TO.
+1. `Databricks Host (should begin with https://)`: When this happens, enter the old databricks workspace URL that you captured in your file above.
+2. `Token`: When this happens, paste in the token you generated for the old databricks account.
 
+
+Repeat the steps above for the new databricks account and change the `oldWS` profile name to something like `newWS` in order to keep track of which account you're exporting FROM and which account you're inporting TO.
+
+Create a profile for the New workspace by typing:
+
+```bash
+databricks configure --token --profile newWS
+```
+In this case newWS is the profile name you'll refer to for running the migration tool `import_db.py` file within the new databricks account.
+</details>
+
+---
+
+## Migration Components
 To use the migration tool see the details below to start running the tool in the order recommended to properly migrate files.
 
 Support Matrix for Import and Export Operations:
