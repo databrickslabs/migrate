@@ -17,16 +17,24 @@ To use this migration tool, you'll need:
 * An environment running linux with python, pip, git, and the databricks CLI installed.
 * Admin access to both the old and new databricks accounts.
 
-Generate Access Tokens for both the old and new databricks accounts
-Login to your Databricks account and navigate to "user settings"
-Click on "Access Tokens"
-Click on "Generate New Token"
+**Generate Access Tokens for both the old and new databricks accounts**
+
+1. Click ![settings icon](https://docs.databricks.com/_images/user-settings-icon.png)User Settings Icon Settings in the lower left corner of your Databricks workspace
+2. Click on **Access Tokens** tab
+3. Click on **Generate New Token** button.
+
 
 Be sure to keep a file with the url for both the old and new databricks account
 Add the old and new token and the old and new Instance ID if applicable.  You'll need easy access to all of these things when running the migration tool.
 
-In order to run the migration tool from your linux shell, Create a profile for the old workspace by typing:
-"databricks configure --token --profile oldWS"  in this case oldWS is the profile name you'll refer to for running the migration tool export_db.py file within the old databricks account.
+**In order to run the migration tool from your linux shell**
+
+Create a profile for the old workspace by typing:
+
+```bash
+databricks configure --token --profile oldWS
+```
+In this case oldWS is the profile name you'll refer to for running the migration tool `export_db.py` file within the old databricks account.
 
 When you use the databricks cli configure command, you'll be prompted for 2 things.  The first is:
 Databricks Host (should begin with https://):
