@@ -6,37 +6,62 @@ to move between different cloud providers, or to move to different regions / acc
 
 Packaged is based on python 3.6 and DBR 6.x and 7.x releases.  
 
-**Note:** Tools does not support windows currently since path resolution is different than mac / linux.  
-Support for Windows is work in progress to update all paths to use pathlib resolution. 
+> **Note:** Tools does not support windows currently since path resolution is different than mac / linux.  
+> Support for Windows is work in progress to update all paths to use pathlib resolution. 
 
 This package uses credentials from the 
 [Databricks CLI](https://docs.databricks.com/user-guide/dev-tools/databricks-cli.html)  
 
-**Pre-Requisites**
+## Pre-Requisites
 To use this migration tool, you'll need:  
 * An environment running linux with python, pip, git, and the databricks CLI installed.
 * Admin access to both the old and new databricks accounts.
 
-Generate Access Tokens for both the old and new databricks accounts
-Login to your Databricks account and navigate to "user settings"
-Click on "Access Tokens"
-Click on "Generate New Token"
+## PreSetup
+
+> Click to expand & collapse tasks
+<details><summary><strong>1. Generate Tokens </strong></summary>
+
+**Generate Access Tokens for both the old and new databricks accounts**
+
+1. Click ![settings icon](https://docs.databricks.com/_images/user-settings-icon.png)User Settings Icon Settings in the lower left corner of your Databricks workspace
+2. Click on **Access Tokens** tab
+3. Click on **Generate New Token** button. ![generate token](https://docs.databricks.com/_images/generate-token.png)
+4. Copy the generated token and store in a secure location.
 
 Be sure to keep a file with the url for both the old and new databricks account
 Add the old and new token and the old and new Instance ID if applicable.  You'll need easy access to all of these things when running the migration tool.
+</details>
+<details><summary><strong>2. Setup databricks-cli profiles</strong></summary>
 
-In order to run the migration tool from your linux shell, Create a profile for the old workspace by typing:
-"databricks configure --token --profile oldWS"  in this case oldWS is the profile name you'll refer to for running the migration tool export_db.py file within the old databricks account.
+**In order to run the migration tool from your linux shell**
 
-When you use the databricks cli configure command, you'll be prompted for 2 things.  The first is:
-Databricks Host (should begin with https://):
-When this happens, enter the old databricks workspace URL that you captured in your file above.
-The second is:
-Token:
-When this happens, paste in the token you generated for the old databricks account.
+Create a profile for the old workspace by typing:
 
-Repeat the steps above for the new databricks account and change the "oldWS" profile name to something like "newWS" in order to keep track of which account you're exporting FROM and which account you're inporting TO.
+```bash
+databricks configure --token --profile oldWS
+```
+In this case oldWS is the profile name you'll refer to for running the migration tool `export_db.py` file within the old databricks account.
 
+**When you use the databricks cli configure command, you'll be prompted for 2 things**
+
+1. `Databricks Host (should begin with https://)`: When this happens, enter the old databricks workspace URL that you captured in your file above.
+2. `Token`: When this happens, paste in the token you generated for the old databricks account.
+
+
+Repeat the steps above for the new databricks account and change the `oldWS` profile name to something like `newWS` in order to keep track of which account you're exporting FROM and which account you're inporting TO.
+
+Create a profile for the New workspace by typing:
+
+```bash
+databricks configure --token --profile newWS
+```
+In this case newWS is the profile name you'll refer to for running the migration tool `import_db.py` file within the new databricks account.
+</details>
+
+---
+
+## Migration Components
 To use the migration tool see the details below to start running the tool in the order recommended to properly migrate files.
 
 Support Matrix for Import and Export Operations:
@@ -60,10 +85,13 @@ Support Matrix for Import and Export Operations:
   * The Databricks support team has a tool available to help with DBFS migrations between AWS workspaces today. 
   * Azure DBFS migrations is work in progress. 
 
-**Note:** MLFlow objects cannot be exported / imported with this tool.
-For more details, please look [here](https://github.com/amesar/mlflow-export-import/)
+> **Note:** MLFlow objects cannot be exported / imported with this tool.
+> For more details, please look [here](https://github.com/amesar/mlflow-export-import/)
+
+---
 
 ## Workspace Analysis
+
 Import this [notebook](data/workspace_migration_analysis.py) to do an analysis of the number of objects within the 
 current workspace. The last cell will print:
 1. Number of users
@@ -83,14 +111,17 @@ current workspace. The last cell will print:
 6. Export Hive Metastore data 
 7. Export Table ACLs
 
-**Note:** During user / group import, users will be notified of the new workspace and account. This is required 
-for them to set up their credentials to access the new workspace. We need the user to exist before loading their 
-artifacts like notebooks, clusters, etc. 
+> **Note:** During user / group import, users will be notified of the new workspace and account. This is required 
+> for them to set up their credentials to access the new workspace. We need the user to exist before loading their 
+> artifacts like notebooks, clusters, etc. 
 
 By default, artifacts are stored in the `logs/` directory, and `azure_logs/` for Azure artifacts. 
 This is configurable with the `--set-export-dir` flag to specify the log directory.
 
 While exporting Libraries is supported, we do not have an implementation to import library definitions. 
+
+---
+
 ## Table of Contents
 - [Users and Groups](#users-and-groups)
 - [Clusters](#Clusters)
@@ -100,6 +131,7 @@ While exporting Libraries is supported, we do not have an implementation to impo
 - [Import Help Text](#import-help-text)
 
 ### Users and Groups
+
 This section uses the [SCIM API](https://docs.databricks.com/dev-tools/api/latest/scim/index.html) to export / import 
 user and groups.  
 [Instance Profiles API](https://docs.databricks.com/dev-tools/api/latest/instance-profiles.html) used 
@@ -121,6 +153,7 @@ artifacts into separate logging directories.
 
 
 ### Clusters
+
 The section uses the [Clusters APIs](https://docs.databricks.com/dev-tools/api/latest/clusters.html)  
 
 ```bash
@@ -134,18 +167,26 @@ This will export the following:
 ```bash
 python import_db.py --profile NEW_DEMO --clusters
 ```
-If you experience errors when you try to import the clusters, it may be that you need to modify the clusters file from the logs directory to include the new instance profile if it's not the same as the one in the old databricks account.
+<p style=color:red>If you experience errors when you try to import the clusters, it may be that you need to modify the clusters file from the logs directory to include the new instance profile if it's not the same as the one in the old databricks account.</p>
 
-To make changes to a cluster name to match the new databricks account you must edit the clusters log file after export.  You do this by looking at the clusters file and identifying the old cluster instance profile which will include the old account number and the name of the instance profile.
+**To make changes to a cluster name to match the new databricks account**
+
+you must edit the clusters log file after export. You do this by looking at the clusters file and identifying the old cluster instance profile which will include the old account number and the name of the instance profile.
+
 OLD profile text from an AWS Databricks account:
-arn:aws:iam::111111111111:instance-profile/profileName
+`arn:aws:iam::111111111111:instance-profile/profileName`
+
 The account number (111111111111) and profileName need to be found and replaced to migrate to the new account which may have a different account number and instance profile.
 
-To modify the clusters.log file run this: 
+**To modify the clusters.log file run this sed operation**
+
+```bash
 sed -i 's/old-text/new-text/g' input.txt
+```
 https://unix.stackexchange.com/questions/32907/what-characters-do-i-need-to-escape-when-using-sed-in-a-sh-script
 
 ### Notebooks
+
 This section uses the [Workspace API](https://docs.databricks.com/dev-tools/api/latest/workspace.html)
 
 This part is a 3 part process. 
@@ -183,6 +224,7 @@ python import_db.py --profile NEW_DEMO --import-home example@foobar.com
 This will include notebooks, directories, and their corresponding ACLs. 
 
 ### Jobs
+
 This section uses the [Jobs API](https://docs.databricks.com/dev-tools/api/latest/jobs.html)  
 Job ACLs are exported and imported with this option.
 
@@ -208,6 +250,7 @@ python import_db.py --profile NEW_DEMO --unpause-all-jobs
 ```
 
 ### Hive Metastore
+
 This section uses an API to remotely run Spark commands on a cluster, this API is called 
 [Execution Context](https://docs.databricks.com/dev-tools/api/1.2/index.html#execution-context)
 
