@@ -88,7 +88,10 @@ Support Matrix for Import and Export Operations:
 > **Note:** MLFlow objects cannot be exported / imported with this tool.
 > For more details, please look [here](https://github.com/amesar/mlflow-export-import/)
 
+---
+
 ## Workspace Analysis
+
 Import this [notebook](data/workspace_migration_analysis.py) to do an analysis of the number of objects within the 
 current workspace. The last cell will print:
 1. Number of users
@@ -116,6 +119,9 @@ By default, artifacts are stored in the `logs/` directory, and `azure_logs/` for
 This is configurable with the `--set-export-dir` flag to specify the log directory.
 
 While exporting Libraries is supported, we do not have an implementation to import library definitions. 
+
+---
+
 ## Table of Contents
 - [Users and Groups](#users-and-groups)
 - [Clusters](#Clusters)
@@ -125,6 +131,7 @@ While exporting Libraries is supported, we do not have an implementation to impo
 - [Import Help Text](#import-help-text)
 
 ### Users and Groups
+
 This section uses the [SCIM API](https://docs.databricks.com/dev-tools/api/latest/scim/index.html) to export / import 
 user and groups.  
 [Instance Profiles API](https://docs.databricks.com/dev-tools/api/latest/instance-profiles.html) used 
@@ -146,6 +153,7 @@ artifacts into separate logging directories.
 
 
 ### Clusters
+
 The section uses the [Clusters APIs](https://docs.databricks.com/dev-tools/api/latest/clusters.html)  
 
 ```bash
@@ -159,18 +167,26 @@ This will export the following:
 ```bash
 python import_db.py --profile NEW_DEMO --clusters
 ```
-If you experience errors when you try to import the clusters, it may be that you need to modify the clusters file from the logs directory to include the new instance profile if it's not the same as the one in the old databricks account.
+<p style=color:red>If you experience errors when you try to import the clusters, it may be that you need to modify the clusters file from the logs directory to include the new instance profile if it's not the same as the one in the old databricks account.</p>
 
-To make changes to a cluster name to match the new databricks account you must edit the clusters log file after export.  You do this by looking at the clusters file and identifying the old cluster instance profile which will include the old account number and the name of the instance profile.
+**To make changes to a cluster name to match the new databricks account**
+
+you must edit the clusters log file after export. You do this by looking at the clusters file and identifying the old cluster instance profile which will include the old account number and the name of the instance profile.
+
 OLD profile text from an AWS Databricks account:
-arn:aws:iam::111111111111:instance-profile/profileName
+`arn:aws:iam::111111111111:instance-profile/profileName`
+
 The account number (111111111111) and profileName need to be found and replaced to migrate to the new account which may have a different account number and instance profile.
 
-To modify the clusters.log file run this: 
+**To modify the clusters.log file run this sed operation**
+
+```bash
 sed -i 's/old-text/new-text/g' input.txt
+```
 https://unix.stackexchange.com/questions/32907/what-characters-do-i-need-to-escape-when-using-sed-in-a-sh-script
 
 ### Notebooks
+
 This section uses the [Workspace API](https://docs.databricks.com/dev-tools/api/latest/workspace.html)
 
 This part is a 3 part process. 
@@ -208,6 +224,7 @@ python import_db.py --profile NEW_DEMO --import-home example@foobar.com
 This will include notebooks, directories, and their corresponding ACLs. 
 
 ### Jobs
+
 This section uses the [Jobs API](https://docs.databricks.com/dev-tools/api/latest/jobs.html)  
 Job ACLs are exported and imported with this option.
 
@@ -233,6 +250,7 @@ python import_db.py --profile NEW_DEMO --unpause-all-jobs
 ```
 
 ### Hive Metastore
+
 This section uses an API to remotely run Spark commands on a cluster, this API is called 
 [Execution Context](https://docs.databricks.com/dev-tools/api/1.2/index.html#execution-context)
 
