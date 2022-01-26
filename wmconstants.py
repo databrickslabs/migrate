@@ -13,6 +13,7 @@ CLUSTER_OBJECT = "clusters"
 INSTANCE_POOL_OBJECT = "instance_pools"
 JOB_OBJECT = "jobs"
 SECRET_OBJECT = "secrets"
+MLFLOW_EXPERIMENT_OBJECT = "mlflow_experiments"
 # Migration pipeline placeholder constants
 MIGRATION_PIPELINE_OBJECT_TYPE = "tasks"
 
@@ -34,6 +35,7 @@ INSTANCE_POOLS = "instance_pools"
 JOBS = "jobs"
 METASTORE = "metastore"
 METASTORE_TABLE_ACLS = "metastore_table_acls"
+MLFLOW_EXPERIMENTS = "mlflow_experiments"
 
 TASK_OBJECTS = [
     INSTANCE_PROFILES,
@@ -48,4 +50,5 @@ TASK_OBJECTS = [
     JOBS,
     METASTORE,
     METASTORE_TABLE_ACLS,
+    MLFLOW_EXPERIMENTS
 ]

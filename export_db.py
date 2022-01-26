@@ -282,6 +282,11 @@ def main():
         end = timer()
         print("Complete User Export Time: " + str(timedelta(seconds=end - start)))
 
+    if args.mlflow_experiments:
+        print("Exporting MLflow experiments.")
+        mlflow_c = MLFlowClient(client_config, checkpoint_service)
+        mlflow_c.export_mlflow_experiments()
+
     if args.reset_exports:
         print('Request to clean up old export directory')
         start = timer()
