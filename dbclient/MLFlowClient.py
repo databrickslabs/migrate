@@ -26,8 +26,6 @@ class MLFlowClient:
         experiments_logfile = mlflow_experiments_dir + log_file
         with open(experiments_logfile, 'w') as fp:
             for experiment in experiments:
-                # TODO(kevin): do try catch on get_experiment call
-                experiment_metadata = self.client.get_experiment(experiment.experiment_id)
-                fp.write(json.dumps(dict(experiment_metadata)) + '\n')
+               fp.write(json.dumps(dict(experiment)) + '\n')
         end = timer()
         logging.info("Complete MLflow Experiments Export Time: " + str(timedelta(seconds=end - start)))
