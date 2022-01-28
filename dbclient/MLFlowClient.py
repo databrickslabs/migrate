@@ -22,6 +22,10 @@ class MLFlowClient:
         )
         os.makedirs(mlflow_experiments_dir, exist_ok=True)
         start = timer()
+        # We do not do any pagination since ST workspaces do not have that many experiments count.
+        # Max is ~6k experiments for the moment.
+        # Consider using pagination(https://www.mlflow.org/docs/latest/python_api/mlflow.tracking.html) if
+        # a workspace has explosive number of experiments. (e.g. 200K)
         experiments = self.client.list_experiments(view_type=ViewType.ALL)
         experiments_logfile = mlflow_experiments_dir + log_file
         with open(experiments_logfile, 'w') as fp:
