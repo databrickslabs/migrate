@@ -6,6 +6,7 @@ from datetime import timedelta
 import logging_utils
 import logging
 import os
+import concurrent.futures
 
 WS_LIST = "/workspace/list"
 WS_STATUS = "/workspace/get-status"
@@ -259,21 +260,49 @@ class WorkspaceClient(dbclient):
         with open(ws_log, "r") as fp:
             # notebook log metadata file now contains object_id to help w/ ACL exports
             # pull the path from the data to download the individual notebook contents
-            for notebook_data in fp:
-                notebook_path = json.loads(notebook_data).get('path', None).rstrip('\n')
-                dl_resp = self.download_notebook_helper(notebook_path, checkpoint_notebook_set, notebook_error_logger,
-                                                        export_dir=self.get_export_dir() + ws_dir)
-                if 'error' not in dl_resp:
-                    num_notebooks += 1
+            with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+                futures = {executor.submit(self.download_notebook_helper, notebook_data, checkpoint_notebook_set, notebook_error_logger, self.get_export_dir() + ws_dir): notebook_data for notebook_data in fp}
+                for future in concurrent.futures.as_completed(futures):
+                    # dl_resp = futures[future]
+                    dl_resp = future.result()
+            # for notebook_data in fp:
+            #     dl_resp = self.download_notebook_helper(notebook_data, checkpoint_notebook_set, notebook_error_logger,
+            #                                             export_dir=self.get_export_dir() + ws_dir)
+                    if 'error' not in dl_resp:
+                        num_notebooks += 1
         return num_notebooks
 
-    def download_notebook_helper(self, notebook_path, checkpoint_notebook_set, error_logger, export_dir='artifacts/'):
+# def throwOrSleep(n):
+#     if n % 2  == 0:
+#         time.sleep(2)
+#         print(f"done processing for {n}")
+#         return f"Successfully computed {n}"
+#     else:
+#         raise Exception(f"THrowing exception on {n}")
+#
+#
+# def run_in_parallel(fp):
+#     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+#         futures = {executor.submit(my_func, line): line for line in fp}
+#         # futures = {executor.submit(my_func, n): n for n in list}
+#         for future in concurrent.futures.as_completed(futures):
+#             result = futures[future]
+#             try:
+#                 print(future.result())
+#             except Exception as exc:
+#                 print(f"{result} generated an exception: {exc}")
+#
+# with open("kevin_testing/checkpoint/mlflow_experiments.log", "r") as fp:
+#     run_in_parallel(fp)
+
+    def download_notebook_helper(self, notebook_data, checkpoint_notebook_set, error_logger, export_dir='artifacts/'):
         """
         Helper function to download an individual notebook, or log the failure in the failure logfile
         :param notebook_path: an individual notebook path
         :param export_dir: directory to store all notebooks
         :return: return the notebook path that's successfully downloaded
         """
+        notebook_path = json.loads(notebook_data).get('path', None).rstrip('\n')
         if checkpoint_notebook_set.contains(notebook_path):
             return {'path': notebook_path}
         get_args = {'path': notebook_path, 'format': self.get_file_format()}
@@ -281,7 +310,7 @@ class WorkspaceClient(dbclient):
             logging.info("Downloading: {0}".format(get_args['path']))
         resp = self.get(WS_EXPORT, get_args)
         if resp.get('error', None):
-            err_msg = {'error': resp.get('error'), 'path': notebook_path}
+            err_msg = {'error': resp.get('erromigration_pipeline.pr'), 'path': notebook_path}
             logging_utils.log_reponse_error(error_logger, resp, err_msg)
             return err_msg
         nb_path = os.path.dirname(notebook_path)
@@ -373,14 +402,31 @@ class WorkspaceClient(dbclient):
                     libs_fp.write(json.dumps(y) + '\n')
             # log all directories to export permissions
             if folders:
+                # We intentionally don't do any parallel work here, because of the potential OOM risk due to
+                # the recursion invoke before
                 with open(workspace_dir_log, "a") as dir_fp:
-                    for f in folders:
-                        dir_path = f.get('path', None)
+                    def _helper(folder):
+                        dir_path = folder.get('path', None)
                         if not WorkspaceClient.is_user_trash(dir_path):
-                            dir_fp.write(json.dumps(f) + '\n')
-                            num_nbs += self.log_all_workspace_items(ws_path=dir_path,
-                                                                    workspace_log_file=workspace_log_file,
-                                                                    libs_log_file=libs_log_file)
+                            dir_fp.write(json.dumps(folder) + '\n')
+                            return self.log_all_workspace_items(ws_path=dir_path, workspace_log_file=workspace_log_file, libs_log_file=libs_log_file)
+
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+                        futures = {executor.submit(_helper, folder): folder for folder in folders}
+                        for future in concurrent.futures.as_completed(futures):
+                            num_nbs_plus = future.result()
+                            print(num_nbs_plus)
+                            if num_nbs_plus:
+                                num_nbs += num_nbs_plus
+
+                        # for f in folders:
+                        #     dir_path = f.get('path', None)
+                        #     if not WorkspaceClient.is_user_trash(dir_path):
+                        #         dir_fp.write(json.dumps(f) + '\n')
+                        #         num_nbs += executor.submit(self.log_all_workspace_items, dir_path, workspace_log_file, libs_log_file).result()
+                                # num_nbs += self.log_all_workspace_items(ws_path=dir_path,
+                                #                                         workspace_log_file=workspace_log_file,
+                                #                                         libs_log_file=libs_log_file)
         return num_nbs
 
     def get_obj_id_by_path(self, input_path):
