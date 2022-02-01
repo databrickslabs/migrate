@@ -260,7 +260,7 @@ class WorkspaceClient(dbclient):
         with open(ws_log, "r") as fp:
             # notebook log metadata file now contains object_id to help w/ ACL exports
             # pull the path from the data to download the individual notebook contents
-            with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                 futures = {executor.submit(self.download_notebook_helper, notebook_data, checkpoint_notebook_set, notebook_error_logger, self.get_export_dir() + ws_dir): notebook_data for notebook_data in fp}
                 for future in concurrent.futures.as_completed(futures):
                     # dl_resp = futures[future]
@@ -309,16 +309,24 @@ class WorkspaceClient(dbclient):
         if self.is_verbose():
             logging.info("Downloading: {0}".format(get_args['path']))
         resp = self.get(WS_EXPORT, get_args)
+        print("kevinnnnnnnnnnnnnn")
+        print(resp)
         if resp.get('error', None):
-            err_msg = {'error': resp.get('erromigration_pipeline.pr'), 'path': notebook_path}
+            err_msg = {'error': resp.get('error'), 'path': notebook_path}
             logging_utils.log_reponse_error(error_logger, resp, err_msg)
             return err_msg
+        if resp.get('error_code', None):
+            err_msg = {'error_code': resp.get('error_code'), 'path': notebook_path}
+            logging_utils.log_reponse_error(error_logger, resp, err_msg)
+            return err_msg
+
         nb_path = os.path.dirname(notebook_path)
         if nb_path != '/':
             # path is NOT empty, remove the trailing slash from export_dir
             save_path = export_dir[:-1] + nb_path + '/'
         else:
             save_path = export_dir
+
         save_filename = save_path + os.path.basename(notebook_path) + '.' + resp.get('file_type')
         # If the local path doesn't exist,we create it before we save the contents
         if not os.path.exists(save_path) and save_path:
@@ -411,7 +419,7 @@ class WorkspaceClient(dbclient):
                             dir_fp.write(json.dumps(folder) + '\n')
                             return self.log_all_workspace_items(ws_path=dir_path, workspace_log_file=workspace_log_file, libs_log_file=libs_log_file)
 
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                         futures = {executor.submit(_helper, folder): folder for folder in folders}
                         for future in concurrent.futures.as_completed(futures):
                             num_nbs_plus = future.result()
