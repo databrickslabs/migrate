@@ -33,8 +33,8 @@ class ThreadSafeWriterTest(unittest.TestCase):
         file_writer = ThreadSafeWriter(f2, "w")
         with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
             futures = {executor.submit(file_writer.write, str(data) + "\n"): data for data in list_to_write}
-            for future in concurrent.futures.as_completed(futures):
-                pass
+            concurrent.futures.wait(futures)
+
         file_writer.close()
 
         fp1 = open(f1, "r")

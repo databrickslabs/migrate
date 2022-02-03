@@ -55,7 +55,7 @@ def main():
             if not ws_c.is_source_file_format():
                 raise ValueError('Overwrite notebooks only supports the SOURCE format. See Rest API docs for details')
         # log notebooks and libraries
-        ws_c.import_all_workspace_items(archive_missing=args.archive_missing)
+        ws_c.import_all_workspace_items(archive_missing=args.archive_missing, num_parallel=args.num_parallel)
         end = timer()
         print("Complete Workspace Import Time: " + str(timedelta(seconds=end - start)))
 
@@ -79,7 +79,7 @@ def main():
         ws_c = WorkspaceClient(client_config, checkpoint_service)
         start = timer()
         # log notebooks and libraries
-        ws_c.import_workspace_acls()
+        ws_c.import_workspace_acls(num_parallel=args.num_parallel)
         end = timer()
         print("Complete Workspace acl Import Time: " + str(timedelta(seconds=end - start)))
 
