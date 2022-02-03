@@ -1,0 +1,51 @@
+import unittest
+import filecmp
+import os
+from thread_safe_writer import ThreadSafeWriter
+import concurrent.futures
+
+class ThreadSafeWriterTest(unittest.TestCase):
+    def test_write_with_thread_safe_writer(self):
+        f1 = "test/thread_safe_writer/test_file_1.log"
+        f2 = "test/thread_safe_writer/test_file_2.log"
+
+        list_to_write = [i for i in range(1000)]
+        with open(f1, "w") as write_fp:
+            for data in list_to_write:
+                write_fp.write(str(data) + "\n")
+
+        file_writer = ThreadSafeWriter(f2, "w")
+        for data in list_to_write:
+            file_writer.write(str(data) + "\n")
+        file_writer.close()
+        assert(filecmp.cmp(f1, f2))
+        os.remove(f1)
+        os.remove(f2)
+
+    def test_write_with_thread_safe_writer_multithread(self):
+        f1 = "test/thread_safe_writer/test_file_3.log"
+        f2 = "test/thread_safe_writer/test_file_4.log"
+        list_to_write = [1 for i in range(10000)]
+        with open(f1, "w") as write_fp:
+            for data in list_to_write:
+                write_fp.write(str(data) + "\n")
+
+        file_writer = ThreadSafeWriter(f2, "w")
+        with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+            futures = {executor.submit(file_writer.write, str(data) + "\n"): data for data in list_to_write}
+            for future in concurrent.futures.as_completed(futures):
+                pass
+        file_writer.close()
+
+        fp1 = open(f1, "r")
+        fp2 = open(f2, "r")
+        f1_lines = fp1.readlines()
+        f2_lines = fp2.readlines()
+        fp1.close()
+        fp2.close()
+
+        # since it is multi thread writing to the same file, the order is not guaranteed.
+        # hence we test the content equality by sorting and then comparing.
+        assert(f1_lines.sort() == f2_lines.sort())
+        os.remove(f1)
+        os.remove(f2)
