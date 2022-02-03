@@ -387,12 +387,12 @@ class WorkspaceClient(dbclient):
             for y in libraries:
                 libs_log_writer.write(json.dumps(y) + '\n')
             # log all directories to export permissions
-
+            if folders:
                 for f in folders:
                     dir_path = f.get('path', None)
                     if not WorkspaceClient.is_user_trash(dir_path):
                         dir_log_writer.write(json.dumps(f) + '\n')
-                        num_nbs += self.log_all_workspace_items(ws_path=ws_path,
+                        num_nbs += self.log_all_workspace_items(ws_path=dir_path,
                                                                 workspace_log_writer=workspace_log_writer,
                                                                 libs_log_writer=libs_log_writer,
                                                                 dir_log_writer=dir_log_writer)
