@@ -1,6 +1,7 @@
 import base64
 from dbclient import *
 import wmconstants
+from thread_safe_writer import ThreadSafeWriter
 from timeit import default_timer as timer
 from datetime import timedelta
 import logging_utils
@@ -284,6 +285,10 @@ class WorkspaceClient(dbclient):
             err_msg = {'error': resp.get('error'), 'path': notebook_path}
             logging_utils.log_reponse_error(error_logger, resp, err_msg)
             return err_msg
+        if resp.get('error_code', None):
+            err_msg = {'error_code': resp.get('error_code'), 'path': notebook_path}
+            logging_utils.log_reponse_error(error_logger, resp, err_msg)
+            return err_msg
         nb_path = os.path.dirname(notebook_path)
         if nb_path != '/':
             # path is NOT empty, remove the trailing slash from export_dir
@@ -330,8 +335,22 @@ class WorkspaceClient(dbclient):
         if os.path.exists(libs_log):
             os.remove(libs_log)
 
-    def log_all_workspace_items(self, ws_path='/', workspace_log_file='user_workspace.log',
-                                libs_log_file='libraries.log', dir_log_file='user_dirs.log'):
+    def log_all_workspace_items_entry(self, ws_path='/', workspace_log_file='user_workspace.log', libs_log_file='libraries.log', dir_log_file='user_dirs.log'):
+        workspace_log_writer = ThreadSafeWriter(self.get_export_dir() + workspace_log_file, "a")
+        libs_log_writer = ThreadSafeWriter(self.get_export_dir() + libs_log_file, "a")
+        dir_log_writer = ThreadSafeWriter(self.get_export_dir() + dir_log_file, "a")
+
+        try:
+            num_nbs = self.log_all_workspace_items(ws_path=ws_path, workspace_log_writer=workspace_log_writer,
+                                        libs_log_writer=libs_log_writer, dir_log_writer=dir_log_writer)
+        finally:
+            workspace_log_writer.close()
+            libs_log_writer.close()
+            dir_log_writer.close()
+
+        return num_nbs
+
+    def log_all_workspace_items(self, ws_path, workspace_log_writer, libs_log_writer, dir_log_writer):
         """
         Loop and log all workspace items to download them at a later time
         :param ws_path: root path to log all the items of the notebook workspace
@@ -341,9 +360,6 @@ class WorkspaceClient(dbclient):
         :return:
         """
         # define log file names for notebooks, folders, and libraries
-        workspace_log = self.get_export_dir() + workspace_log_file
-        workspace_dir_log = self.get_export_dir() + dir_log_file
-        libs_log = self.get_export_dir() + libs_log_file
         if ws_path == '/':
             # default is the root path
             get_args = {'path': '/'}
@@ -362,25 +378,24 @@ class WorkspaceClient(dbclient):
             # should be no notebooks, but lets filter and can check later
             notebooks = self.filter_workspace_items(items, 'NOTEBOOK')
             libraries = self.filter_workspace_items(items, 'LIBRARY')
-            with open(workspace_log, "a") as ws_fp, open(libs_log, "a") as libs_fp:
-                for x in notebooks:
-                    # notebook objects has path and object_id
-                    if self.is_verbose():
-                        logging.info("Saving path: {0}".format(x.get('path')))
-                    ws_fp.write(json.dumps(x) + '\n')
-                    num_nbs += 1
-                for y in libraries:
-                    libs_fp.write(json.dumps(y) + '\n')
+            for x in notebooks:
+                # notebook objects has path and object_id
+                if self.is_verbose():
+                    logging.info("Saving path: {0}".format(x.get('path')))
+                workspace_log_writer.write(json.dumps(x) + '\n')
+                num_nbs += 1
+            for y in libraries:
+                libs_log_writer.write(json.dumps(y) + '\n')
             # log all directories to export permissions
             if folders:
-                with open(workspace_dir_log, "a") as dir_fp:
-                    for f in folders:
-                        dir_path = f.get('path', None)
-                        if not WorkspaceClient.is_user_trash(dir_path):
-                            dir_fp.write(json.dumps(f) + '\n')
-                            num_nbs += self.log_all_workspace_items(ws_path=dir_path,
-                                                                    workspace_log_file=workspace_log_file,
-                                                                    libs_log_file=libs_log_file)
+                for f in folders:
+                    dir_path = f.get('path', None)
+                    if not WorkspaceClient.is_user_trash(dir_path):
+                        dir_log_writer.write(json.dumps(f) + '\n')
+                        num_nbs += self.log_all_workspace_items(ws_path=dir_path,
+                                                                workspace_log_writer=workspace_log_writer,
+                                                                libs_log_writer=libs_log_writer,
+                                                                dir_log_writer=dir_log_writer)
         return num_nbs
 
     def get_obj_id_by_path(self, input_path):
