@@ -234,10 +234,8 @@ def main():
 
     if args.mlflow_experiments:
         print("Importing MLflow experiments.")
-        # TODO(kevin): Once https://github.com/databrickslabs/migrate/pull/103 is merged, pass in
-        #              args.num_parallel
         mlflow_c = MLFlowClient(client_config, checkpoint_service)
-        mlflow_c.import_mlflow_experiments()
+        mlflow_c.import_mlflow_experiments(num_parallel=args.num_parallel)
 
     if args.get_repair_log:
         print("Finding partitioned tables to repair at {0}".format(now))
