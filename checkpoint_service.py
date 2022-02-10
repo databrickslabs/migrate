@@ -38,7 +38,6 @@ class CheckpointKeySet(AbstractCheckpointKeySet):
         """
         if key not in self._checkpoint_key_set:
             self._checkpoint_file_append_fp.write(str(key) + "\n")
-            self._checkpoint_file_append_fp.flush()
 
     def contains(self, key):
         """Checks if key exists in the checkpoint set"""
