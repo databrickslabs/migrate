@@ -55,7 +55,7 @@ def log_reponse_error(error_logger,
 def check_error(response, ignore_error_list=default_ignore_error_list):
     if type(response) is list:
         for resp in response:
-            if (_check_error_helper(resp, ignore_error_list)) return True
+            if (_check_error_helper(resp, ignore_error_list)): return True
         return False
     else:
         return _check_error_helper(response, ignore_error_list)
