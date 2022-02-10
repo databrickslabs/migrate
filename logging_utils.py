@@ -43,6 +43,9 @@ def log_reponse_error(error_logger,
                       response,
                       error_msg=None,
                       ignore_error_list=default_ignore_error_list):
+    """
+    Logs errors based on the response. Usually used when the response is the http response.
+    """
     if check_error(response, ignore_error_list):
         if error_msg:
             error_logger.error(error_msg)

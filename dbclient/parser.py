@@ -126,7 +126,7 @@ def get_export_parser():
                         help='log all the secret scopes')
 
     # get all mlflow experiments
-    parser.add_argument('--mlflow_experiments', action='store_true',
+    parser.add_argument('--mlflow-experiments', action='store_true',
                         help='log all the mlflow experiments')
 
     # get all metastore
@@ -302,9 +302,13 @@ def get_import_parser():
     parser.add_argument('--skip-failed', action='store_true', default=False,
                         help='Skip missing users that do not exist when importing user notebooks')
 
-    # get all secret scopes
+    # import all secret scopes
     parser.add_argument('--secrets', action='store_true',
                         help='Import all secret scopes')
+
+    # import all mlflow experiments
+    parser.add_argument('--mlflow-experiments', action='store_true',
+                        help='log all the mlflow experiments')
 
     # get azure logs
     parser.add_argument('--azure', action='store_true',
