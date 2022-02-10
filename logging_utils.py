@@ -62,5 +62,5 @@ def check_error(response, ignore_error_list=default_ignore_error_list):
 
 def _check_error_helper(response, ignore_error_list):
     return ('error_code' in response and response['error_code'] not in ignore_error_list) \
-           or ('error' in response and response['error'] not in ignore_error_list) \
-           or (response.get('resultType', None) == 'error' and 'already exists' not in response.get('summary', None))
+            or ('error' in response and response['error'] not in ignore_error_list) \
+            or (response.get('resultType', None) == 'error' and 'already exists' not in response.get('summary', None))
