@@ -92,7 +92,7 @@ class MLFlowClient:
         artifact_location when creating experiment objects.
         """
         if artifact_location == None or \
-                artifact_location.startswith("dbfs:/databricks/mlflow-tracking") or \
-                artifact_location.startswith("dbfs:/databricks/mlflow"):
+                artifact_location.startswith("dbfs:/databricks/mlflow-tracking/") or \
+                artifact_location.startswith("dbfs:/databricks/mlflow/"):
             return None
         return artifact_location
