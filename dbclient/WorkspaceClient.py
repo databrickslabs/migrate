@@ -157,7 +157,7 @@ class WorkspaceClient(dbclient):
                     num_of_users += 1
         return num_of_users
 
-    def export_user_home(self, username, local_export_dir):
+    def export_user_home(self, username, local_export_dir, num_parallel=4):
         """
         Export the provided user's home directory
         :param username: user's home directory to export
@@ -179,15 +179,21 @@ class WorkspaceClient(dbclient):
             print(f"Notebooks logged != downloaded. Check the failed download file at: {user_export_dir}")
         print(f"Exporting the notebook permissions for {username}")
         acl_notebooks_writer = ThreadSafeWriter("acl_notebooks.log", "w")
+        acl_notebooks_error_logger = logging_utils.get_error_logger(
+            wmconstants.WM_EXPORT, wmconstants.WORKSPACE_NOTEBOOK_ACL_OBJECT, self.get_export_dir())
         try:
-            self.log_acl_to_file('notebooks', 'user_workspace.log', acl_notebooks_writer, 'failed_acl_notebooks.log')
+            self.log_acl_to_file(
+                'notebooks', 'user_workspace.log', acl_notebooks_writer, acl_notebooks_error_logger, num_parallel)
         finally:
             acl_notebooks_writer.close()
 
         print(f"Exporting the directories permissions for {username}")
         acl_directories_writer = ThreadSafeWriter("acl_directories.log", "w")
+        acl_directories_error_logger = logging_utils.get_error_logger(
+            wmconstants.WM_EXPORT, wmconstants.WORKSPACE_DIRECTORY_ACL_OBJECT, self.get_export_dir())
         try:
-            self.log_acl_to_file('directories', 'user_dirs.log', acl_directories_writer, 'failed_acl_directories.log')
+            self.log_acl_to_file(
+                'directories', 'user_dirs.log', acl_directories_writer, acl_directories_error_logger, num_parallel)
         finally:
             acl_directories_writer.close()
         # reset the original export dir for other calls to this method using the same client
@@ -411,7 +417,7 @@ class WorkspaceClient(dbclient):
                                                             num_parallel=num_parallel)
 
                 with ThreadPoolExecutor(max_workers=num_parallel) as executor:
-                    futures = {executor.submit(_recurse_log_all_workspace_items, folder): folder for folder in folders}
+                    futures = [executor.submit(_recurse_log_all_workspace_items, folder) for folder in folders]
                     for future in concurrent.futures.as_completed(futures):
                         num_nbs_plus = future.result()
                         if num_nbs_plus:
@@ -449,7 +455,7 @@ class WorkspaceClient(dbclient):
 
         with open(read_log_path, 'r') as read_fp:
             with ThreadPoolExecutor(max_workers=num_parallel) as executor:
-                futures = {executor.submit(_acl_log_helper, json_data): json_data for json_data in read_fp}
+                futures = [executor.submit(_acl_log_helper, json_data) for json_data in read_fp]
                 concurrent.futures.wait(futures)
 
     def log_all_workspace_acls(self, workspace_log_file='user_workspace.log',
@@ -534,14 +540,14 @@ class WorkspaceClient(dbclient):
             wmconstants.WM_IMPORT, wmconstants.WORKSPACE_NOTEBOOK_ACL_OBJECT, self.get_export_dir())
         with open(notebook_acl_logs) as nb_acls_fp:
             with ThreadPoolExecutor(max_workers=num_parallel) as executor:
-                futures = {executor.submit(self.apply_acl_on_object, nb_acl_str, acl_notebooks_error_logger): nb_acl_str for nb_acl_str in nb_acls_fp}
+                futures = [executor.submit(self.apply_acl_on_object, nb_acl_str, acl_notebooks_error_logger) for nb_acl_str in nb_acls_fp]
                 concurrent.futures.wait(futures)
 
         acl_dir_error_logger = logging_utils.get_error_logger(
             wmconstants.WM_IMPORT, wmconstants.WORKSPACE_DIRECTORY_ACL_OBJECT, self.get_export_dir())
         with open(dir_acl_logs) as dir_acls_fp:
             with ThreadPoolExecutor(max_workers=num_parallel) as executor:
-                futures = {executor.submit(self.apply_acl_on_object, dir_acl_str, acl_dir_error_logger): dir_acl_str for dir_acl_str in dir_acls_fp}
+                futures = [executor.submit(self.apply_acl_on_object, dir_acl_str, acl_dir_error_logger) for dir_acl_str in dir_acls_fp]
                 concurrent.futures.wait(futures)
         print("Completed import ACLs of Notebooks and Directories")
 
@@ -696,10 +702,10 @@ class WorkspaceClient(dbclient):
                     checkpoint_notebook_set.write(ws_file_path)
 
             with ThreadPoolExecutor(max_workers=num_parallel) as executor:
-                futures = {executor.submit(_file_upload_helper, file): file for file in files}
+                futures = [executor.submit(_file_upload_helper, file) for file in files]
                 concurrent.futures.wait(futures)
 
 
         with ThreadPoolExecutor(max_workers=num_parallel) as executor:
-            futures = {executor.submit(_upload_all_files, walk[0], walk[1], walk[2]): walk for walk in self.walk(src_dir)}
+            futures = [executor.submit(_upload_all_files, walk[0], walk[1], walk[2]) for walk in self.walk(src_dir)]
             concurrent.futures.wait(futures)
