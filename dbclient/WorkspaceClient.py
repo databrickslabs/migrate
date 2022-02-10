@@ -278,7 +278,7 @@ class WorkspaceClient(dbclient):
             # notebook log metadata file now contains object_id to help w/ ACL exports
             # pull the path from the data to download the individual notebook contents
             with ThreadPoolExecutor(max_workers=num_parallel) as executor:
-                futures = {executor.submit(self.download_notebook_helper, notebook_data, checkpoint_notebook_set, notebook_error_logger, self.get_export_dir() + ws_dir): notebook_data for notebook_data in fp}
+                futures = [executor.submit(self.download_notebook_helper, notebook_data, checkpoint_notebook_set, notebook_error_logger, self.get_export_dir() + ws_dir) for notebook_data in fp]
                 for future in concurrent.futures.as_completed(futures):
                     dl_resp = future.result()
                     if 'error' not in dl_resp:
