@@ -65,7 +65,7 @@ def main():
         start = timer()
         # log notebooks and libraries
         ws_c.init_workspace_logfiles()
-        num_notebooks = ws_c.log_all_workspace_items_entry()
+        num_notebooks = ws_c.log_all_workspace_items_entry(num_parallel=args.num_parallel)
         print("Total number of notebooks logged: ", num_notebooks)
         end = timer()
         print("Complete Workspace Export Time: " + str(timedelta(seconds=end - start)))
@@ -75,7 +75,7 @@ def main():
         ws_c = WorkspaceClient(client_config, checkpoint_service)
         start = timer()
         # log notebooks and directory acls
-        ws_c.log_all_workspace_acls()
+        ws_c.log_all_workspace_acls(num_parallel=args.num_parallel)
         end = timer()
         print("Complete Workspace Permission Export Time: " + str(timedelta(seconds=end - start)))
 
@@ -84,7 +84,7 @@ def main():
         ws_c = WorkspaceClient(client_config, checkpoint_service)
         start = timer()
         # log notebooks and libraries
-        num_notebooks = ws_c.download_notebooks()
+        num_notebooks = ws_c.download_notebooks(num_parallel=args.num_parallel)
         print(f"Total number of notebooks downloaded: {num_notebooks}")
         end = timer()
         print("Complete Workspace Download Time: " + str(timedelta(seconds=end - start)))
