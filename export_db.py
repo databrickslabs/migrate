@@ -250,7 +250,7 @@ def main():
         ws_c = WorkspaceClient(client_config, checkpoint_service)
         start = timer()
         # log notebooks and directory acls
-        ws_c.export_top_level_folders()
+        ws_c.export_top_level_folders(args.num_parallel)
         end = timer()
         print("Complete Workspace Top Level Notebooks Export Time: " + str(timedelta(seconds=end - start)))
 
