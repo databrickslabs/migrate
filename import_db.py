@@ -232,6 +232,11 @@ def main():
         end = timer()
         # print("Complete Library Import Time: " + str(timedelta(seconds=end - start)))
 
+    if args.mlflow_experiments:
+        print("Importing MLflow experiments.")
+        mlflow_c = MLFlowClient(client_config, checkpoint_service)
+        mlflow_c.import_mlflow_experiments()
+
     if args.get_repair_log:
         print("Finding partitioned tables to repair at {0}".format(now))
         start = timer()
