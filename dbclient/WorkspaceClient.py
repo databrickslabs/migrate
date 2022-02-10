@@ -42,14 +42,23 @@ class WorkspaceClient(dbclient):
                                     non_users_dir))
         return dirs_and_nbs
 
-    def export_top_level_folders(self):
+    def export_top_level_folders(self, num_parallel=4):
         ls_tld = self.get_top_level_folders()
         logged_nb_count = 0
-        for tld_obj in ls_tld:
-            # obj has 3 keys, object_type, path, object_id
-            tld_path = tld_obj.get('path')
-            log_count = self.log_all_workspace_items(ws_path=tld_path)
-            logged_nb_count += log_count
+        workspace_log_writer = ThreadSafeWriter(self.get_export_dir() + 'user_workspace.log', "a")
+        libs_log_writer = ThreadSafeWriter(self.get_export_dir() + 'libraries.log', "a")
+        dir_log_writer = ThreadSafeWriter(self.get_export_dir() + 'user_dirs.log', "a")
+        try:
+            for tld_obj in ls_tld:
+                # obj has 3 keys, object_type, path, object_id
+                tld_path = tld_obj.get('path')
+                log_count = self.log_all_workspace_items(
+                    tld_path, workspace_log_writer, libs_log_writer, dir_log_writer, num_parallel)
+                logged_nb_count += log_count
+        finally:
+            workspace_log_writer.close()
+            libs_log_writer.close()
+            dir_log_writer.close()
         dl_nb_count = self.download_notebooks()
         print(f'Total logged notebooks: {logged_nb_count}')
         print(f'Total Downloaded notebooks: {dl_nb_count}')
@@ -169,7 +178,17 @@ class WorkspaceClient(dbclient):
         user_root = '/Users/' + username.rstrip().lstrip()
         self.set_export_dir(user_export_dir + '/{0}/'.format(username))
         print("Export path: {0}".format(self.get_export_dir()))
-        num_of_nbs = self.log_all_workspace_items(ws_path=user_root)
+        workspace_log_writer = ThreadSafeWriter(self.get_export_dir() + 'user_workspace.log', "a")
+        libs_log_writer = ThreadSafeWriter(self.get_export_dir() + 'libraries.log', "a")
+        dir_log_writer = ThreadSafeWriter(self.get_export_dir() + 'user_dirs.log', "a")
+        try:
+            num_of_nbs = self.log_all_workspace_items(
+                user_root, workspace_log_writer, libs_log_writer, dir_log_writer, num_parallel)
+        finally:
+            workspace_log_writer.close()
+            libs_log_writer.close()
+            dir_log_writer.close()
+
         if num_of_nbs == 0:
             raise ValueError('User does not have any notebooks in this path. Please verify the case of the email')
         num_of_nbs_dl = self.download_notebooks(ws_dir='user_artifacts/')

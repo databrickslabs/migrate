@@ -21,9 +21,6 @@ class MLFlowClient:
 
     def export_mlflow_experiments(self, log_file='mlflow_experiments.log', log_dir=None):
         mlflow_experiments_dir = log_dir if log_dir else self.export_dir
-        error_logger = logging_utils.get_error_logger(
-            wmconstants.WM_EXPORT, wmconstants.MLFLOW_EXPERIMENT_OBJECT, self.export_dir
-        )
         os.makedirs(mlflow_experiments_dir, exist_ok=True)
         start = timer()
         # We do not do any pagination since ST workspaces do not have that many experiments count.
