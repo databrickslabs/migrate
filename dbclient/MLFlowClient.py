@@ -7,7 +7,9 @@ import logging_utils
 import mlflow
 from mlflow.tracking import MlflowClient
 from mlflow.entities import ViewType
+from mlflow.exceptions import RestException
 import wmconstants
+from thread_safe_writer import ThreadSafeWriter
 
 class MLFlowClient:
     def __init__(self, configs, checkpoint_service):
@@ -33,3 +35,52 @@ class MLFlowClient:
                fp.write(json.dumps(dict(experiment)) + '\n')
         end = timer()
         logging.info("Complete MLflow Experiments Export Time: " + str(timedelta(seconds=end - start)))
+
+    def import_mlflow_experiments(self, log_file='mlflow_experiments.log', id_map_file='mlflow_experiments_id_map.log',
+                                  log_dir=None):
+        mlflow_experiments_dir = log_dir if log_dir else self.export_dir
+        experiments_logfile = mlflow_experiments_dir + log_file
+        experiments_id_map_file = mlflow_experiments_dir + id_map_file
+
+        error_logger = logging_utils.get_error_logger(
+            wmconstants.WM_IMPORT, wmconstants.MLFLOW_EXPERIMENT_OBJECT, self.export_dir
+        )
+        checkpoint_mlflow_experiments_set = self._checkpoint_service.get_checkpoint_key_set(
+            wmconstants.WM_IMPORT, wmconstants.MLFLOW_EXPERIMENT_OBJECT)
+        start = timer()
+
+        id_map_thread_safe_writer = ThreadSafeWriter(experiments_id_map_file, 'a')
+        with open(experiments_logfile, 'r') as fp:
+            for experiment_str in fp:
+                experiment = json.loads(experiment_str)
+                id = experiment.get('experiment_id')
+                if checkpoint_mlflow_experiments_set.contains(id):
+                    continue
+                artifact_location = self._cleanse_artifact_location(experiment.get('artifact_location', None))
+                name = experiment.get('name')
+                tags = experiment.get('tags', None)
+                dict_tags = dict(tags) if tags else None
+                try:
+                    new_id = self.client.create_experiment(name, artifact_location, dict_tags)
+                except RestException as error:
+                    logging.info(f"create experiment failed for id: {id}, name: {name}. Logging it to error file..")
+                    error_logger.error(error.json)
+                else:
+                    # save id -> new_id
+                    id_map_thread_safe_writer.write(json.dumps({"old_id": id, "new_id": new_id}) + "\n")
+
+                    # checkpoint the original id
+                    checkpoint_mlflow_experiments_set.write(id)
+        end = timer()
+        logging.info("Complete MLflow Experiments Import Time: " + str(timedelta(seconds=end - start)))
+
+    def _cleanse_artifact_location(self, artifact_location):
+        """
+        There are some paths that are not allowed to be artifact_location. In those cases, we should use None as the
+        artifact_location when creating experiment objects.
+        """
+        if artifact_location == None or \
+                artifact_location.startswith("dbfs:/databricks/mlflow-tracking") or \
+                artifact_location.startswith("dbfs:/databricks/mlflow"):
+            return None
+        return artifact_location
