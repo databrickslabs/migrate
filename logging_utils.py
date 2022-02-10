@@ -53,6 +53,14 @@ def log_reponse_error(error_logger,
         return False
 
 def check_error(response, ignore_error_list=default_ignore_error_list):
+    if type(response) is list:
+        for resp in response:
+            if (_check_error_helper(resp, ignore_error_list)) return True
+        return False
+    else:
+        return _check_error_helper(response, ignore_error_list)
+
+def _check_error_helper(response, ignore_error_list):
     return ('error_code' in response and response['error_code'] not in ignore_error_list) \
-            or ('error' in response and response['error'] not in ignore_error_list) \
-            or (response.get('resultType', None) == 'error' and 'already exists' not in response.get('summary', None))
+           or ('error' in response and response['error'] not in ignore_error_list) \
+           or (response.get('resultType', None) == 'error' and 'already exists' not in response.get('summary', None))
