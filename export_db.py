@@ -5,7 +5,6 @@ import os
 import shutil
 from checkpoint_service import CheckpointService
 import logging_utils
-from thread_safe_writer import ThreadSafeWriter
 
 # python 3.6
 def main():
@@ -65,7 +64,7 @@ def main():
         start = timer()
         # log notebooks and libraries
         ws_c.init_workspace_logfiles()
-        num_notebooks = ws_c.log_all_workspace_items_entry(num_parallel=args.num_parallel)
+        num_notebooks = ws_c.log_all_workspace_items_entry()
         print("Total number of notebooks logged: ", num_notebooks)
         end = timer()
         print("Complete Workspace Export Time: " + str(timedelta(seconds=end - start)))
@@ -250,7 +249,7 @@ def main():
         ws_c = WorkspaceClient(client_config, checkpoint_service)
         start = timer()
         # log notebooks and directory acls
-        ws_c.export_top_level_folders(args.num_parallel)
+        ws_c.export_top_level_folders()
         end = timer()
         print("Complete Workspace Top Level Notebooks Export Time: " + str(timedelta(seconds=end - start)))
 
