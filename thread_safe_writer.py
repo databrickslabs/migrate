@@ -1,4 +1,4 @@
-from queue import Queue, Empty
+from queue import Queue
 from threading import Thread
 
 class ThreadSafeWriter():
