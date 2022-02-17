@@ -1,5 +1,6 @@
-from queue import Queue, Empty
-from threading import Thread
+import threading
+
+global_lock = threading.Lock()
 
 class ThreadSafeWriter():
     """Class that ensures the thread-safe file write via the Synchronized Queue object.
@@ -14,23 +15,11 @@ class ThreadSafeWriter():
     """
     def __init__(self, *args):
         self.filewriter = open(*args)
-        self.queue = Queue()
-        self.finished = False
-        # Single thread of actually writing to a file.
-        Thread(name="ThreadSafeWriter", target=self.internal_writer).start()
 
     def write(self, data):
-        self.queue.put(data)
-
-    def internal_writer(self):
-        while not self.finished:
-            if not self.queue.empty():
-                data = self.queue.get(block=True)
-                self.filewriter.write(data)
-                self.filewriter.flush()
-                self.queue.task_done()
+        with global_lock:
+            self.filewriter.write(data)
 
     def close(self):
-        self.queue.join()
-        self.finished = True
         self.filewriter.close()
+        

@@ -5,6 +5,14 @@ from thread_safe_writer import ThreadSafeWriter
 import concurrent.futures
 
 class ThreadSafeWriterTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        os.makedirs('test/thread_safe_writer', exist_ok=True)
+
+    @classmethod
+    def tearDownClass(cls):
+        os.rmdir('test/thread_safe_writer')
+
     def test_write_with_thread_safe_writer(self):
         f1 = "test/thread_safe_writer/test_file_1.log"
         f2 = "test/thread_safe_writer/test_file_2.log"
@@ -25,7 +33,7 @@ class ThreadSafeWriterTest(unittest.TestCase):
     def test_write_with_thread_safe_writer_multithread(self):
         f1 = "test/thread_safe_writer/test_file_3.log"
         f2 = "test/thread_safe_writer/test_file_4.log"
-        list_to_write = [1 for i in range(10000)]
+        list_to_write = [i for i in range(10000)]
         with open(f1, "w") as write_fp:
             for data in list_to_write:
                 write_fp.write(str(data) + "\n")
