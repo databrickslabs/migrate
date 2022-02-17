@@ -5,6 +5,7 @@ Migration allows a Databricks organization to move resources between Databricks 
 to move between different cloud providers, or to move to different regions / accounts.
 
 Packaged is based on python 3.6 and DBR 6.x and 7.x releases.  
+python 3.7 or above is recommended if one is also exporting/importing MLflow objects.
 
 **Note:** Tools does not support windows currently since path resolution is different than mac / linux.  
 Support for Windows is work in progress to update all paths to use pathlib resolution. 
@@ -15,6 +16,7 @@ This package uses credentials from the
 **Pre-Requisites**
 To use this migration tool, you'll need:  
 * An environment running linux with python, pip, git, and the databricks CLI installed.
+    Run `python3 setup.py install`
 * Admin access to both the old and new databricks accounts.
 
 Generate Access Tokens for both the old and new databricks accounts
