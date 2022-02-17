@@ -321,11 +321,11 @@ class WorkspaceClient(dbclient):
         if resp.get('error', None):
             resp['path'] = notebook_path
             logging_utils.log_reponse_error(error_logger, resp)
-            return err_msg
+            return resp
         if resp.get('error_code', None):
             resp['path'] = notebook_path
             logging_utils.log_reponse_error(error_logger, resp)
-            return err_msg
+            return resp
         nb_path = os.path.dirname(notebook_path)
         if nb_path != '/':
             # path is NOT empty, remove the trailing slash from export_dir
