@@ -125,6 +125,10 @@ def get_export_parser():
     parser.add_argument('--secrets', action='store_true',
                         help='log all the secret scopes')
 
+    # get all mlflow experiments
+    parser.add_argument('--mlflow-experiments', action='store_true',
+                        help='log all the mlflow experiments')
+
     # get all metastore
     parser.add_argument('--metastore-unicode', action='store_true',
                         help='log all the metastore table definitions including unicode characters')
@@ -215,6 +219,9 @@ def get_export_parser():
 
     parser.add_argument('--use-checkpoint', action='store_true',
                         help='use checkpointing to restart from previous state')
+
+    parser.add_argument('--num-parallel', type=int, default=4, help='Number of parallel threads to use to '
+                                                                          'export/import')
     return parser
 
 
@@ -295,9 +302,13 @@ def get_import_parser():
     parser.add_argument('--skip-failed', action='store_true', default=False,
                         help='Skip missing users that do not exist when importing user notebooks')
 
-    # get all secret scopes
+    # import all secret scopes
     parser.add_argument('--secrets', action='store_true',
                         help='Import all secret scopes')
+
+    # import all mlflow experiments
+    parser.add_argument('--mlflow-experiments', action='store_true',
+                        help='log all the mlflow experiments')
 
     # get azure logs
     parser.add_argument('--azure', action='store_true',
@@ -333,6 +344,9 @@ def get_import_parser():
 
     parser.add_argument('--use-checkpoint', action='store_true',
                         help='use checkpointing to restart from previous state')
+
+    parser.add_argument('--num-parallel', type=int, default=4, help='Number of parallel threads to use to '
+                                                                          'export/import')
     return parser
 
 
@@ -384,6 +398,7 @@ def build_client_config(profile, url, token, args):
         config['export_dir'] = 'azure_logs/'
 
     config['use_checkpoint'] = args.use_checkpoint
+    config['num_parallel'] = args.num_parallel
     return config
 
 
@@ -462,5 +477,8 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
 
     parser.add_argument('--skip-tasks', nargs='+', type=str, action=ValidateSkipTasks, default=[],
                         help='List of tasks to skip from the pipeline.')
+
+    parser.add_argument('--num-parallel', type=int, default=4, help='Number of parallel threads to use to '
+                                                                          'export/import')
 
     return parser

@@ -7,6 +7,7 @@ from datetime import timedelta
 from timeit import default_timer as timer
 import logging
 import logging_utils
+import re
 from dbclient import *
 
 

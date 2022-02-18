@@ -9,4 +9,5 @@ from .WorkspaceClient import WorkspaceClient
 from .HiveClient import HiveClient
 from .SecretsClient import SecretsClient
 from .TableACLsClient import TableACLsClient
+from .MLFlowClient import MLFlowClient
 from .parser import *

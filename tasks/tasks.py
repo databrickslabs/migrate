@@ -101,7 +101,7 @@ class WorkspaceItemLogExportTask(AbstractTask):
         ws_c = WorkspaceClient(self.client_config, self.checkpoint_service)
         # log notebooks and libraries
         ws_c.init_workspace_logfiles()
-        num_notebooks = ws_c.log_all_workspace_items()
+        num_notebooks = ws_c.log_all_workspace_items_entry()
         print("Total number of notebooks logged: ", num_notebooks)
 
 
@@ -119,7 +119,7 @@ class WorkspaceACLExportTask(AbstractTask):
     def run(self):
         ws_c = WorkspaceClient(self.client_config, self.checkpoint_service)
         # log notebooks and directory acls
-        ws_c.log_all_workspace_acls()
+        ws_c.log_all_workspace_acls(num_parallel=self.client_config["num_parallel"])
 
 
 class NotebookExportTask(AbstractTask):
@@ -135,7 +135,7 @@ class NotebookExportTask(AbstractTask):
 
     def run(self):
         ws_c = WorkspaceClient(self.client_config, self.checkpoint_service)
-        num_notebooks = ws_c.download_notebooks()
+        num_notebooks = ws_c.download_notebooks(num_parallel=self.client_config["num_parallel"])
         print(f"Total number of notebooks downloaded: {num_notebooks}")
 
 
@@ -152,7 +152,7 @@ class WorkspaceACLImportTask(AbstractTask):
 
     def run(self):
         ws_c = WorkspaceClient(self.client_config, self.checkpoint_service)
-        ws_c.import_workspace_acls()
+        ws_c.import_workspace_acls(num_parallel=self.client_config["num_parallel"])
 
 
 class NotebookImportTask(AbstractTask):
@@ -174,7 +174,8 @@ class NotebookImportTask(AbstractTask):
             if not ws_c.is_source_file_format():
                 raise ValueError(
                     'Overwrite notebooks only supports the SOURCE format. See Rest API docs for details')
-        ws_c.import_all_workspace_items(archive_missing=self.args.archive_missing)
+        ws_c.import_all_workspace_items(archive_missing=self.args.archive_missing,
+                                        num_parallel=self.client_config["num_parallel"])
 
 
 class ClustersExportTask(AbstractTask):

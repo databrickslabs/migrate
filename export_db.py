@@ -64,7 +64,7 @@ def main():
         start = timer()
         # log notebooks and libraries
         ws_c.init_workspace_logfiles()
-        num_notebooks = ws_c.log_all_workspace_items()
+        num_notebooks = ws_c.log_all_workspace_items_entry()
         print("Total number of notebooks logged: ", num_notebooks)
         end = timer()
         print("Complete Workspace Export Time: " + str(timedelta(seconds=end - start)))
@@ -74,7 +74,7 @@ def main():
         ws_c = WorkspaceClient(client_config, checkpoint_service)
         start = timer()
         # log notebooks and directory acls
-        ws_c.log_all_workspace_acls()
+        ws_c.log_all_workspace_acls(num_parallel=args.num_parallel)
         end = timer()
         print("Complete Workspace Permission Export Time: " + str(timedelta(seconds=end - start)))
 
@@ -83,7 +83,7 @@ def main():
         ws_c = WorkspaceClient(client_config, checkpoint_service)
         start = timer()
         # log notebooks and libraries
-        num_notebooks = ws_c.download_notebooks()
+        num_notebooks = ws_c.download_notebooks(num_parallel=args.num_parallel)
         print(f"Total number of notebooks downloaded: {num_notebooks}")
         end = timer()
         print("Complete Workspace Download Time: " + str(timedelta(seconds=end - start)))
@@ -281,6 +281,11 @@ def main():
         jobs_c.log_job_configs(users_list=user_names)
         end = timer()
         print("Complete User Export Time: " + str(timedelta(seconds=end - start)))
+
+    if args.mlflow_experiments:
+        print("Exporting MLflow experiments.")
+        mlflow_c = MLFlowClient(client_config, checkpoint_service)
+        mlflow_c.export_mlflow_experiments()
 
     if args.reset_exports:
         print('Request to clean up old export directory')

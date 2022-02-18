@@ -1,6 +1,7 @@
 import os
 from abc import ABC, abstractmethod
 import logging
+from thread_safe_writer import ThreadSafeWriter
 
 class AbstractCheckpointKeySet(ABC):
     """Abstract base class for checkpoint read and write."""
@@ -23,7 +24,8 @@ class CheckpointKeySet(AbstractCheckpointKeySet):
         :param checkpoint_file: file to read / write object keys for checkpointing
         """
         self._checkpoint_file = checkpoint_file
-        self._checkpoint_file_append_fp = open(checkpoint_file, 'a+')
+        # By using ThreadSafeWriter, checkpointer is also thread-safe.
+        self._checkpoint_file_append_fp = ThreadSafeWriter(checkpoint_file, 'a')
         self._checkpoint_key_set = set()
         self._restore_from_checkpoint_file()
 
@@ -36,7 +38,6 @@ class CheckpointKeySet(AbstractCheckpointKeySet):
         """
         if key not in self._checkpoint_key_set:
             self._checkpoint_file_append_fp.write(str(key) + "\n")
-            self._checkpoint_file_append_fp.flush()
 
     def contains(self, key):
         """Checks if key exists in the checkpoint set"""
