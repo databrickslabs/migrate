@@ -4,7 +4,6 @@ from datetime import timedelta
 from timeit import default_timer as timer
 import logging
 import logging_utils
-import mlflow
 from mlflow.tracking import MlflowClient
 from mlflow.entities import ViewType
 from mlflow.exceptions import RestException
@@ -88,7 +87,7 @@ class MLFlowClient:
         There are some paths that are not allowed to be artifact_location. In those cases, we should use None as the
         artifact_location when creating experiment objects.
         """
-        if artifact_location == None or \
+        if artifact_location is None or \
                 artifact_location.startswith("dbfs:/databricks/mlflow-tracking/") or \
                 artifact_location.startswith("dbfs:/databricks/mlflow/"):
             return None

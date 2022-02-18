@@ -42,7 +42,7 @@ class WorkspaceClient(dbclient):
                                     non_users_dir))
         return dirs_and_nbs
 
-    def export_top_level_folders(self, num_parallel=4):
+    def export_top_level_folders(self):
         ls_tld = self.get_top_level_folders()
         logged_nb_count = 0
         workspace_log_writer = ThreadSafeWriter(self.get_export_dir() + 'user_workspace.log', "a")
@@ -53,7 +53,7 @@ class WorkspaceClient(dbclient):
                 # obj has 3 keys, object_type, path, object_id
                 tld_path = tld_obj.get('path')
                 log_count = self.log_all_workspace_items(
-                    tld_path, workspace_log_writer, libs_log_writer, dir_log_writer, num_parallel)
+                    tld_path, workspace_log_writer, libs_log_writer, dir_log_writer)
                 logged_nb_count += log_count
         finally:
             workspace_log_writer.close()
@@ -166,7 +166,7 @@ class WorkspaceClient(dbclient):
                     num_of_users += 1
         return num_of_users
 
-    def export_user_home(self, username, local_export_dir, num_parallel=4):
+    def export_user_home(self, username, local_export_dir):
         """
         Export the provided user's home directory
         :param username: user's home directory to export
@@ -183,7 +183,7 @@ class WorkspaceClient(dbclient):
         dir_log_writer = ThreadSafeWriter(self.get_export_dir() + 'user_dirs.log', "a")
         try:
             num_of_nbs = self.log_all_workspace_items(
-                user_root, workspace_log_writer, libs_log_writer, dir_log_writer, num_parallel)
+                user_root, workspace_log_writer, libs_log_writer, dir_log_writer)
         finally:
             workspace_log_writer.close()
             libs_log_writer.close()
@@ -321,11 +321,11 @@ class WorkspaceClient(dbclient):
         if resp.get('error', None):
             resp['path'] = notebook_path
             logging_utils.log_reponse_error(error_logger, resp)
-            return err_msg
+            return resp
         if resp.get('error_code', None):
             resp['path'] = notebook_path
             logging_utils.log_reponse_error(error_logger, resp)
-            return err_msg
+            return resp
         nb_path = os.path.dirname(notebook_path)
         if nb_path != '/':
             # path is NOT empty, remove the trailing slash from export_dir
@@ -372,14 +372,14 @@ class WorkspaceClient(dbclient):
         if os.path.exists(libs_log):
             os.remove(libs_log)
 
-    def log_all_workspace_items_entry(self, ws_path='/', workspace_log_file='user_workspace.log', libs_log_file='libraries.log', dir_log_file='user_dirs.log', num_parallel=4):
+    def log_all_workspace_items_entry(self, ws_path='/', workspace_log_file='user_workspace.log', libs_log_file='libraries.log', dir_log_file='user_dirs.log'):
         workspace_log_writer = ThreadSafeWriter(self.get_export_dir() + workspace_log_file, "a")
         libs_log_writer = ThreadSafeWriter(self.get_export_dir() + libs_log_file, "a")
         dir_log_writer = ThreadSafeWriter(self.get_export_dir() + dir_log_file, "a")
 
         try:
             num_nbs = self.log_all_workspace_items(ws_path=ws_path, workspace_log_writer=workspace_log_writer,
-                                        libs_log_writer=libs_log_writer, dir_log_writer=dir_log_writer, num_parallel=num_parallel)
+                                        libs_log_writer=libs_log_writer, dir_log_writer=dir_log_writer)
         finally:
             workspace_log_writer.close()
             libs_log_writer.close()
@@ -387,7 +387,7 @@ class WorkspaceClient(dbclient):
 
         return num_nbs
 
-    def log_all_workspace_items(self, ws_path, workspace_log_writer, libs_log_writer, dir_log_writer, num_parallel):
+    def log_all_workspace_items(self, ws_path, workspace_log_writer, libs_log_writer, dir_log_writer):
         """
         Loop and log all workspace items to download them at a later time
         :param ws_path: root path to log all the items of the notebook workspace
@@ -432,15 +432,12 @@ class WorkspaceClient(dbclient):
                         return self.log_all_workspace_items(ws_path=dir_path,
                                                             workspace_log_writer=workspace_log_writer,
                                                             libs_log_writer=libs_log_writer,
-                                                            dir_log_writer=dir_log_writer,
-                                                            num_parallel=num_parallel)
+                                                            dir_log_writer=dir_log_writer)
 
-                with ThreadPoolExecutor(max_workers=num_parallel) as executor:
-                    futures = [executor.submit(_recurse_log_all_workspace_items, folder) for folder in folders]
-                    for future in concurrent.futures.as_completed(futures):
-                        num_nbs_plus = future.result()
-                        if num_nbs_plus:
-                            num_nbs += num_nbs_plus
+                for folder in folders:
+                    num_nbs_plus = _recurse_log_all_workspace_items(folder)
+                    if num_nbs_plus:
+                        num_nbs += num_nbs_plus
 
         return num_nbs
 
