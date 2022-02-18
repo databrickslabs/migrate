@@ -72,6 +72,10 @@ def build_export_pipeline(client_config, checkpoint_service, args) -> Pipeline:
     """
     skip_tasks = args.skip_tasks
 
+    source_info_file = os.path.join(client_config['export_dir'], "source_info.txt")
+    with open(source_info_file, 'w') as f:
+        f.write(client_config['url'])
+
     completed_pipeline_steps = checkpoint_service.get_checkpoint_key_set(
         wmconstants.WM_EXPORT, wmconstants.MIGRATION_PIPELINE_OBJECT_TYPE)
     pipeline = Pipeline(client_config['export_dir'], completed_pipeline_steps, args.dry_run)
@@ -103,6 +107,13 @@ def build_import_pipeline(client_config, checkpoint_service, args) -> Pipeline:
                                                               -> import_metastore -> import_metastore_table_acls
     """
     skip_tasks = args.skip_tasks
+
+    source_info_file = os.path.join(client_config['export_dir'], "source_info.txt")
+    with open(source_info_file, 'r') as f:
+        source_url = f.readline()
+        confirm = input(f"Import from `{source_url}` into `{client_config['url']}`? (y/N) ")
+        if confirm.lower() not in ["y", "yes"]:
+            raise RuntimeError("User aborted import pipeline. Exiting..")
 
     completed_pipeline_steps = checkpoint_service.get_checkpoint_key_set(
         wmconstants.WM_IMPORT, wmconstants.MIGRATION_PIPELINE_OBJECT_TYPE)
