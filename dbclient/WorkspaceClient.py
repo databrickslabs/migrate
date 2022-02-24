@@ -178,6 +178,7 @@ class WorkspaceClient(dbclient):
         user_root = '/Users/' + username.rstrip().lstrip()
         self.set_export_dir(user_export_dir + '/{0}/'.format(username))
         print("Export path: {0}".format(self.get_export_dir()))
+        os.makedirs(self.get_export_dir(), exist_ok=False)
         workspace_log_writer = ThreadSafeWriter(self.get_export_dir() + 'user_workspace.log', "a")
         libs_log_writer = ThreadSafeWriter(self.get_export_dir() + 'libraries.log', "a")
         dir_log_writer = ThreadSafeWriter(self.get_export_dir() + 'user_dirs.log', "a")
