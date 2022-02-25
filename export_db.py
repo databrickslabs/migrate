@@ -259,7 +259,7 @@ def main():
         ws_c = WorkspaceClient(client_config, checkpoint_service)
         start = timer()
         # log notebooks and libraries
-        ws_c.export_user_home(username, 'user_exports')
+        ws_c.export_user_home(username, 'user_exports', num_parallel=args.num_parallel)
         end = timer()
         print("Complete User Export Time: " + str(timedelta(seconds=end - start)))
 
@@ -275,7 +275,7 @@ def main():
         for username in user_names:
             is_user_home_empty = ws_c.is_user_home_empty(username)
             if not is_user_home_empty:
-                ws_c.export_user_home(username, 'user_exports')
+                ws_c.export_user_home(username, 'user_exports', num_parallel=args.num_parallel)
         print('Exporting users jobs:')
         jobs_c = JobsClient(client_config)
         jobs_c.log_job_configs(users_list=user_names)
