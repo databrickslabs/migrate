@@ -22,6 +22,8 @@ def get_error_logger(action_type, object_type, log_dir):
     logger = logging.getLogger("workspace_migration")
 
     failed_log_file = get_error_log_file(action_type, object_type, log_dir)
+    os.makedirs(_get_log_dir(log_dir), exist_ok=True)
+
     error_handler = logging.FileHandler(failed_log_file, 'w+')
     error_handler.setLevel(logging.ERROR)
 

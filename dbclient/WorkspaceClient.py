@@ -166,7 +166,7 @@ class WorkspaceClient(dbclient):
                     num_of_users += 1
         return num_of_users
 
-    def export_user_home(self, username, local_export_dir):
+    def export_user_home(self, username, local_export_dir, num_parallel=4):
         """
         Export the provided user's home directory
         :param username: user's home directory to export
@@ -178,7 +178,7 @@ class WorkspaceClient(dbclient):
         user_root = '/Users/' + username.rstrip().lstrip()
         self.set_export_dir(user_export_dir + '/{0}/'.format(username))
         print("Export path: {0}".format(self.get_export_dir()))
-        os.makedirs(self.get_export_dir(), exist_ok=False)
+        os.makedirs(self.get_export_dir(), exist_ok=True)
         workspace_log_writer = ThreadSafeWriter(self.get_export_dir() + 'user_workspace.log', "a")
         libs_log_writer = ThreadSafeWriter(self.get_export_dir() + 'libraries.log', "a")
         dir_log_writer = ThreadSafeWriter(self.get_export_dir() + 'user_dirs.log', "a")
