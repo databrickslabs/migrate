@@ -520,6 +520,12 @@ class WorkspaceClient(dbclient):
         # the object_type
         object_type = object_acl.get('object_type', None)
         obj_path = object_acl['path']
+
+        # We cannot modify '/Shared' directory's ACL
+        if obj_path == "/Shared" and object_type == "directory":
+            logging.info("We cannot modify /Shared directory's ACL. Skipping..")
+            return
+
         if self.is_user_ws_item(obj_path):
             ws_user = self.get_user(obj_path)
             if not self.does_user_exist(ws_user):
