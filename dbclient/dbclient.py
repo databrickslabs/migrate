@@ -34,7 +34,7 @@ class dbclient:
     Rest API Wrapper for Databricks APIs
     """
     # set of http error codes to throw an exception if hit. Handles client and auth errors
-    http_error_codes = [401]
+    http_error_codes = [401, 429]
 
     def __init__(self, configs):
         self._profile = configs['profile']
