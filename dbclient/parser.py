@@ -129,6 +129,10 @@ def get_export_parser():
     parser.add_argument('--mlflow-experiments', action='store_true',
                         help='log all the mlflow experiments')
 
+    # get all mlflow experiments
+    parser.add_argument('--mlflow-runs', action='store_true',
+                        help='log all the mlflow runs')
+
     # get all metastore
     parser.add_argument('--metastore-unicode', action='store_true',
                         help='log all the metastore table definitions including unicode characters')

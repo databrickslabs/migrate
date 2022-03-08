@@ -17,9 +17,8 @@ setuptools.setup(
     install_requires=[
           'cron-descriptor',
           'mlflow-skinny',
-          'sqlparse',
-          'requests'
-      ],
+          'sqlparse'
+    ],
     py_modules=["export_db","import_db","test_connection","migration_pipeline"],
     classifiers=[
         "Programming Language :: Python :: 3",

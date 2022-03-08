@@ -287,6 +287,11 @@ def main():
         mlflow_c = MLFlowClient(client_config, checkpoint_service)
         mlflow_c.export_mlflow_experiments()
 
+    if args.mlflow_runs:
+        print("Exporting MLflow runs.")
+        mlflow_c = MLFlowClient(client_config, checkpoint_service)
+        mlflow_c.export_mlflow_runs(num_parallel=args.num_parallel)
+
     if args.reset_exports:
         print('Request to clean up old export directory')
         start = timer()
