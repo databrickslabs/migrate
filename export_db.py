@@ -51,7 +51,7 @@ def main():
         print("Complete Group Export Time: " + str(timedelta(seconds=end - start)))
         # log the instance profiles
         if scim_c.is_aws():
-            cl_c = ClustersClient(client_config)
+            cl_c = ClustersClient(client_config, checkpoint_service)
             print("Start instance profile logging ...")
             start = timer()
             cl_c.log_instance_profiles()
@@ -102,7 +102,7 @@ def main():
 
     if args.clusters:
         print("Export the cluster configs at {0}".format(now))
-        cl_c = ClustersClient(client_config)
+        cl_c = ClustersClient(client_config, checkpoint_service)
         start = timer()
         # log the cluster json
         cl_c.log_cluster_configs()
@@ -119,7 +119,7 @@ def main():
     if args.jobs:
         print("Export the jobs configs at {0}".format(now))
         start = timer()
-        jobs_c = JobsClient(client_config)
+        jobs_c = JobsClient(client_config, checkpoint_service)
         # log job configs
         jobs_c.log_job_configs()
         end = timer()
@@ -128,7 +128,7 @@ def main():
     if args.pause_all_jobs:
         print("Pause all current jobs {0}".format(now))
         start = timer()
-        jobs_c = JobsClient(client_config)
+        jobs_c = JobsClient(client_config, checkpoint_service)
         # log job configs
         jobs_c.pause_all_jobs()
         end = timer()
@@ -137,7 +137,7 @@ def main():
     if args.unpause_all_jobs:
         print("Unpause all current jobs {0}".format(now))
         start = timer()
-        jobs_c = JobsClient(client_config)
+        jobs_c = JobsClient(client_config, checkpoint_service)
         # log job configs
         jobs_c.pause_all_jobs(False)
         end = timer()
@@ -160,7 +160,7 @@ def main():
     if args.table_acls:
         print("Export the table ACLs configs at {0}".format(now))
         start = timer()
-        table_acls_c = TableACLsClient(client_config)
+        table_acls_c = TableACLsClient(client_config, checkpoint_service)
         if args.database is not None:
             # export table ACLs only for a single database
             notebook_exit_value = table_acls_c.export_table_acls(db_name=args.database)
@@ -184,7 +184,7 @@ def main():
             return
         print("Export the secret scopes configs at {0}".format(now))
         start = timer()
-        sc = SecretsClient(client_config)
+        sc = SecretsClient(client_config, checkpoint_service)
         # log job configs
         sc.log_all_secrets(args.cluster_name)
         sc.log_all_secrets_acls()
@@ -194,7 +194,7 @@ def main():
     if args.mounts:
         print("Export the mount configs at {0}".format(now))
         start = timer()
-        dbfs_c = DbfsClient(client_config)
+        dbfs_c = DbfsClient(client_config, checkpoint_service)
         # log job configs
         dbfs_c.export_dbfs_mounts()
         end = timer()
@@ -277,7 +277,7 @@ def main():
             if not is_user_home_empty:
                 ws_c.export_user_home(username, 'user_exports', num_parallel=args.num_parallel)
         print('Exporting users jobs:')
-        jobs_c = JobsClient(client_config)
+        jobs_c = JobsClient(client_config, checkpoint_service)
         jobs_c.log_job_configs(users_list=user_names)
         end = timer()
         print("Complete User Export Time: " + str(timedelta(seconds=end - start)))
