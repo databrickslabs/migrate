@@ -473,7 +473,10 @@ class WorkspaceClient(dbclient):
         with open(read_log_path, 'r') as read_fp:
             with ThreadPoolExecutor(max_workers=num_parallel) as executor:
                 futures = [executor.submit(_acl_log_helper, json_data) for json_data in read_fp]
-                concurrent.futures.wait(futures)
+                results = concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
+                for result in results.done:
+                    if result.exception() is not None:
+                        raise result.exception()
 
     def log_all_workspace_acls(self, workspace_log_file='user_workspace.log',
                                dir_log_file='user_dirs.log',
@@ -564,14 +567,20 @@ class WorkspaceClient(dbclient):
         with open(notebook_acl_logs) as nb_acls_fp:
             with ThreadPoolExecutor(max_workers=num_parallel) as executor:
                 futures = [executor.submit(self.apply_acl_on_object, nb_acl_str, acl_notebooks_error_logger) for nb_acl_str in nb_acls_fp]
-                concurrent.futures.wait(futures)
+                results = concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
+                for result in results.done:
+                    if result.exception() is not None:
+                        raise result.exception()
 
         acl_dir_error_logger = logging_utils.get_error_logger(
             wmconstants.WM_IMPORT, wmconstants.WORKSPACE_DIRECTORY_ACL_OBJECT, self.get_export_dir())
         with open(dir_acl_logs) as dir_acls_fp:
             with ThreadPoolExecutor(max_workers=num_parallel) as executor:
                 futures = [executor.submit(self.apply_acl_on_object, dir_acl_str, acl_dir_error_logger) for dir_acl_str in dir_acls_fp]
-                concurrent.futures.wait(futures)
+                results = concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
+                for result in results.done:
+                    if result.exception() is not None:
+                        raise result.exception()
         print("Completed import ACLs of Notebooks and Directories")
 
     def get_current_users(self):
@@ -726,9 +735,14 @@ class WorkspaceClient(dbclient):
 
             with ThreadPoolExecutor(max_workers=num_parallel) as executor:
                 futures = [executor.submit(_file_upload_helper, file) for file in files]
-                concurrent.futures.wait(futures)
-
+                results = concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
+                for result in results.done:
+                    if result.exception() is not None:
+                        raise result.exception()
 
         with ThreadPoolExecutor(max_workers=num_parallel) as executor:
             futures = [executor.submit(_upload_all_files, walk[0], walk[1], walk[2]) for walk in self.walk(src_dir)]
-            concurrent.futures.wait(futures)
+            results = concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
+            for result in results.done:
+                if result.exception() is not None:
+                    raise result.exception()
