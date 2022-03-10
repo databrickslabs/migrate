@@ -274,7 +274,7 @@ class ClustersClient(dbclient):
                     if 'cluster_id' in cluster_conf:
                         checkpoint_cluster_configs_set.write(cluster_conf['cluster_id'])
                 else:
-                    logging_utils.log_response_error(error_logger, cluster_resp)
+                    logging_utils.log_reponse_error(error_logger, cluster_resp)
                     print(cluster_resp)
 
         # TODO: May be put it into a separate step to make it more rerunnable.
@@ -297,7 +297,7 @@ class ClustersClient(dbclient):
                     raise ValueError(error_message)
                 api = f'/preview/permissions/clusters/{cid}'
                 resp = self.put(api, acl_args)
-                if not logging_utils.log_response_error(error_logger, resp):
+                if not logging_utils.log_reponse_error(error_logger, resp):
                     if 'object_id' in data:
                         checkpoint_cluster_configs_set.write(data['object_id'])
                 print(resp)
