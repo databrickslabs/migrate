@@ -89,7 +89,7 @@ def build_export_pipeline(client_config, checkpoint_service, args) -> Pipeline:
     export_clusters = pipeline.add_task(ClustersExportTask(client_config, args, checkpoint_service, wmconstants.CLUSTERS in skip_tasks), [export_secrets])
     export_instance_pools = pipeline.add_task(InstancePoolsExportTask(client_config, args, checkpoint_service, wmconstants.INSTANCE_POOLS in skip_tasks), [export_clusters])
     export_jobs = pipeline.add_task(JobsExportTask(client_config, args, checkpoint_service, wmconstants.JOBS in skip_tasks), [export_instance_pools])
-    export_metastore = pipeline.add_task(MetastoreExportTask(client_config, checkpoint_service, args, checkpoint_service, wmconstants.METASTORE in skip_tasks), [export_groups])
+    export_metastore = pipeline.add_task(MetastoreExportTask(client_config, checkpoint_service, args, wmconstants.METASTORE in skip_tasks), [export_groups])
     export_metastore_table_acls = pipeline.add_task(MetastoreTableACLExportTask(client_config, args, checkpoint_service, wmconstants.METASTORE_TABLE_ACLS in skip_tasks), [export_metastore])
     # FinishExport task is never skipped
     finish_export = pipeline.add_task(FinishExportTask(client_config),
