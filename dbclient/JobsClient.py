@@ -73,6 +73,8 @@ class JobsClient(ClustersClient):
             resp = self.post('/jobs/update', update_args)
             if not logging_utils.log_reponse_error(error_logger, resp):
                 checkpoint_job_configs_set.write(job_name)
+            else:
+                raise RuntimeError("Import job has failed. Refer to the previous log messages to investigate.")
 
     def log_job_configs(self, users_list=[], log_file='jobs.log', acl_file='acl_jobs.log'):
         """
@@ -173,9 +175,13 @@ class JobsClient(ClustersClient):
                     if not logging_utils.log_reponse_error(error_logger, create_resp_retry):
                         if 'job_id' in job_conf:
                             checkpoint_job_configs_set.write(job_conf["job_id"])
+                    else:
+                        raise RuntimeError("Import job has failed. Refer to the previous log messages to investigate.")
+
                 else:
                     if 'job_id' in job_conf:
                         checkpoint_job_configs_set.write(job_conf["job_id"])
+
 
         # update the jobs with their ACLs
         with open(acl_jobs_log, 'r') as acl_fp:
@@ -193,6 +199,8 @@ class JobsClient(ClustersClient):
                 acl_resp = self.patch(api, acl_create_args)
                 if not logging_utils.log_reponse_error(error_logger, acl_resp) and 'object_id' in acl_conf:
                     checkpoint_job_configs_set.write(acl_conf['object_id'])
+                else:
+                    raise RuntimeError("Import job has failed. Refer to the previous log messages to investigate.")
         # update the imported job names
         self.update_imported_job_names(error_logger, checkpoint_job_configs_set)
 
