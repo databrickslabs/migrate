@@ -222,6 +222,11 @@ def get_export_parser():
 
     parser.add_argument('--num-parallel', type=int, default=4, help='Number of parallel threads to use to '
                                                                           'export/import')
+
+    parser.add_argument('--retry-total', type=int, default=3, help='Total number or retries when making calls to Databricks API')
+
+    parser.add_argument('--retry-backoff', type=float, default=1.0, help='Backoff factor to apply between retry attempts when making calls to Databricks API')
+    
     return parser
 
 
@@ -347,6 +352,11 @@ def get_import_parser():
 
     parser.add_argument('--num-parallel', type=int, default=4, help='Number of parallel threads to use to '
                                                                           'export/import')
+
+    parser.add_argument('--retry-total', type=int, default=3, help='Total number or retries when making calls to Databricks API')
+
+    parser.add_argument('--retry-backoff', type=float, default=1.0, help='Backoff factor to apply between retry attempts when making calls to Databricks API')
+
     return parser
 
 
