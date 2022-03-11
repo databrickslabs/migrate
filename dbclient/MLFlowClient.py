@@ -160,7 +160,6 @@ class MLFlowClient:
                     futures = [executor.submit(self._create_experiment, experiment_str, id_map_thread_safe_writer, mlflow_experiments_checkpointer, error_logger) for experiment_str in fp]
                     concurrent.futures.wait(futures)
                     propagate_exceptions(futures)
-
         finally:
             id_map_thread_safe_writer.close()
 
