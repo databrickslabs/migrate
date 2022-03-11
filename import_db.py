@@ -27,7 +27,7 @@ def main():
 
     checkpoint_service = CheckpointService(client_config)
     if client_config['debug']:
-        print(url, token)
+        print(url)
     now = str(datetime.now())
 
     if args.users:
