@@ -4,6 +4,7 @@ from datetime import timedelta
 from timeit import default_timer as timer
 import logging
 import logging_utils
+from threading_utils import propagate_exceptions
 from mlflow.tracking import MlflowClient
 from mlflow.entities import ViewType
 from mlflow.exceptions import RestException
@@ -54,6 +55,7 @@ class MLFlowClient:
                 with ThreadPoolExecutor(max_workers=num_parallel) as executor:
                     futures = [executor.submit(self._create_experiment, experiment_str, id_map_thread_safe_writer, mlflow_experiments_checkpointer, error_logger) for experiment_str in fp]
                     concurrent.futures.wait(futures)
+                    propagate_exceptions(futures)
         finally:
             id_map_thread_safe_writer.close()
 
