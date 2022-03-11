@@ -1,11 +1,14 @@
 import json
 import os
 import requests
+from requests.adapters import HTTPAdapter
 import fileinput
 import re
 from dbclient import parser
 import time
 import requests.packages.urllib3
+from requests.packages.urllib3 import Retry
+import threading
 import logging_utils
 import logging
 
@@ -33,8 +36,11 @@ class dbclient:
     """
     Rest API Wrapper for Databricks APIs
     """
-    # set of http error codes to throw an exception if hit. Handles client and auth errors
-    http_error_codes = [401, 429]
+    # set of http error codes to retry
+    http_retry_codes = [429, 503]
+    # set of http error codes to throw an exception if hit. Handles client and auth errors.
+    # Also include the retry error codes in case all retry attempts fail.
+    http_error_codes = [401, 500, 502, 504] + http_retry_codes
 
     def __init__(self, configs):
         self._profile = configs['profile']
@@ -49,6 +55,11 @@ class dbclient:
         self._verify_ssl = configs['verify_ssl']
         self._file_format = configs['file_format']
         self._is_overwrite_notebook = configs['overwrite_notebooks']
+        self._local = threading.local()
+        self._retry_total = configs['retry_total']
+        self._retry_backoff = configs['retry_backoff']
+        if configs['debug']:
+            logging.getLogger("urllib3").setLevel(logging.DEBUG)
         if self._verify_ssl:
             # set these env variables if skip SSL verification is enabled
             os.environ['REQUESTS_CA_BUNDLE'] = ""
@@ -103,7 +114,7 @@ class dbclient:
         if self._url[-4:] != '.com' and self._url[-4:] != '.net':
             print("Hostname should end in '.com'")
             return -1
-        results = requests.get(self._url + '/api/2.0/clusters/spark-versions', headers=self._token,
+        results = self.req_session().get(self._url + '/api/2.0/clusters/spark-versions', headers=self._token,
                                verify=self._verify_ssl)
         http_status_code = results.status_code
         if http_status_code != 200:
@@ -146,6 +157,24 @@ class dbclient:
         else:
             return False
 
+    def req_session(self):
+        """
+        Creates one new request session per thread with retry adapater
+        """
+        if not hasattr(self._local, "session"):
+            adapter = HTTPAdapter(max_retries=Retry(
+                total=self._retry_total, 
+                backoff_factor=self._retry_backoff,
+                status_forcelist=self.http_retry_codes,
+                allowed_methods=frozenset({'DELETE', 'GET', 'HEAD', 'OPTIONS', 'PATCH', 'POST', 'PUT', 'TRACE' }),
+                raise_on_status=False
+                ))
+            session = requests.Session()
+            session.mount('https://', adapter)
+            session.mount('http://', adapter)
+            self._local.session = session
+        return self._local.session
+
     def get(self, endpoint, json_params=None, version='2.0', print_json=False):
         if version:
             ver = version
@@ -154,9 +183,9 @@ class dbclient:
             if self.is_verbose():
                 print("Get: {0}".format(full_endpoint))
             if json_params:
-                raw_results = requests.get(full_endpoint, headers=self._token, params=json_params, verify=self._verify_ssl)
+                raw_results = self.req_session().get(full_endpoint, headers=self._token, params=json_params, verify=self._verify_ssl)
             else:
-                raw_results = requests.get(full_endpoint, headers=self._token, verify=self._verify_ssl)
+                raw_results = self.req_session().get(full_endpoint, headers=self._token, verify=self._verify_ssl)
 
             if self._should_retry_with_new_token(raw_results):
                 continue
@@ -184,16 +213,16 @@ class dbclient:
             if json_params:
                 if http_type == 'post':
                     if files_json:
-                        raw_results = requests.post(full_endpoint, headers=self._token,
+                        raw_results = self.req_session().post(full_endpoint, headers=self._token,
                                                     data=json_params, files=files_json, verify=self._verify_ssl)
                     else:
-                        raw_results = requests.post(full_endpoint, headers=self._token,
+                        raw_results = self.req_session().post(full_endpoint, headers=self._token,
                                                     json=json_params, verify=self._verify_ssl)
                 if http_type == 'put':
-                    raw_results = requests.put(full_endpoint, headers=self._token,
+                    raw_results = self.req_session().put(full_endpoint, headers=self._token,
                                                json=json_params, verify=self._verify_ssl)
                 if http_type == 'patch':
-                    raw_results = requests.patch(full_endpoint, headers=self._token,
+                    raw_results = self.req_session().patch(full_endpoint, headers=self._token,
                                                  json=json_params, verify=self._verify_ssl)
             else:
                 print("Must have a payload in json_args param.")
