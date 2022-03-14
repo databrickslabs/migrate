@@ -82,6 +82,51 @@ class MLFlowClientTest(unittest.TestCase):
         assert(dict(run.data.tags) == fetched_run_tags)
 
 
+    def test_save_run_data_to_sql_multiple_times(self):
+        # Input data
+        run = self._generate_run(1, {})
+
+        for _ in range(10):
+            con = sqlite3.connect(MLFLOW_TEST_FILE, timeout=10)
+            with con:
+                con.execute('''
+                  DROP TABLE IF EXISTS runs
+                ''')
+                con.execute('''
+                  CREATE TABLE runs (id TEXT UNIQUE, start_time INT, run_obj TEXT)
+                ''')
+                self._insert_run_data(run)
+                cur = con.execute('''
+                  SELECT * FROM runs
+                ''')
+            con.close()
+
+        con = sqlite3.connect(MLFLOW_TEST_FILE, timeout=10)
+        with con:
+            self._insert_run_data(run)
+            cur = con.execute('''
+              SELECT * FROM runs
+            ''')
+        fetched_run = cur.fetchone()
+        con.close()
+
+        fetched_run_id = fetched_run[0]
+        fetched_start_time = fetched_run[1]
+        fetched_run_obj = json.loads(fetched_run[2])
+
+        fetched_run_info = fetched_run_obj['info']
+        fetched_run_metrics = fetched_run_obj['metrics']
+        fetched_run_params = fetched_run_obj['params']
+        fetched_run_tags = fetched_run_obj['tags']
+
+        assert(run.info.run_id == fetched_run_id)
+        assert(run.info.start_time == fetched_start_time)
+        assert(dict(run.info) == fetched_run_info)
+        assert(dict(run.data.metrics) == fetched_run_metrics)
+        assert(dict(run.data.params) == fetched_run_params)
+        assert(dict(run.data.tags) == fetched_run_tags)
+
+
     def test_parallel_save_run_data_to_sql(self):
         con = sqlite3.connect(MLFLOW_TEST_FILE, timeout=10)
         with con:

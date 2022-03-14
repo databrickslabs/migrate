@@ -25,7 +25,6 @@ class MLFlowClient:
         Exports the Mlflow run objects. This can be run only after export_mlflow_experiments is complete.
         Unlike other objects, we save the data into sqlite tables, given the possible scale of runs objects.
         """
-        print(f"num_parallel: {num_parallel}")
         experiments_logfile = self.export_dir + experiment_log
         mlflow_runs_checkpointer = self._checkpoint_service.get_checkpoint_key_set(
             wmconstants.WM_EXPORT, wmconstants.MLFLOW_RUNS
@@ -141,7 +140,7 @@ class MLFlowClient:
         logging.info("Complete MLflow Experiments Export Time: " + str(timedelta(seconds=end - start)))
 
     def import_mlflow_experiments(self, log_file='mlflow_experiments.log', id_map_file='mlflow_experiments_id_map.log',
-                                  log_dir=None, num_parallel=6):
+                                  log_dir=None, num_parallel=4):
         mlflow_experiments_dir = log_dir if log_dir else self.export_dir
         experiments_logfile = mlflow_experiments_dir + log_file
         experiments_id_map_file = mlflow_experiments_dir + id_map_file
