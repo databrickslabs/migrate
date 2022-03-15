@@ -150,6 +150,9 @@ class JobsClient(ClustersClient):
         with open(jobs_log, 'r') as fp:
             for line in fp:
                 job_conf = json.loads(line)
+                # need to do str(...), otherwise the job_id is recognized as integer which becomes
+                # str vs int which never matches.
+                # (in which case, the checkpoint never recognizes that the job_id is already checkpointed)
                 if 'job_id' in job_conf and checkpoint_job_configs_set.contains(str(job_conf['job_id'])):
                     continue
                 job_creator = job_conf.get('creator_user_name', '')
