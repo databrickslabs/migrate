@@ -8,6 +8,10 @@ from dbclient import *
 
 
 class ClustersClient(dbclient):
+    def __init__(self, configs, checkpoint_service):
+        super().__init__(configs)
+        self._checkpoint_service = checkpoint_service
+
     create_configs = {'num_workers',
                       'autoscale',
                       'cluster_name',
@@ -230,10 +234,16 @@ class ClustersClient(dbclient):
             return
         current_cluster_names = set([x.get('cluster_name', None) for x in self.get_cluster_list(False)])
         old_2_new_policy_ids = self.get_new_policy_id_dict()  # dict of {old_id : new_id}
+        error_logger = logging_utils.get_error_logger(
+            wmconstants.WM_IMPORT, wmconstants.CLUSTER_OBJECT, self.get_export_dir())
+        checkpoint_cluster_configs_set = self._checkpoint_service.get_checkpoint_key_set(
+            wmconstants.WM_IMPORT, wmconstants.CLUSTER_OBJECT)
         # get instance pool id mappings
         with open(cluster_log, 'r') as fp:
             for line in fp:
                 cluster_conf = json.loads(line)
+                if 'cluster_id' in cluster_conf and checkpoint_cluster_configs_set.contains(cluster_conf['cluster_id']):
+                    continue
                 cluster_name = cluster_conf['cluster_name']
                 if cluster_name in current_cluster_names:
                     logging.info("Cluster already exists, skipping: {0}".format(cluster_name))
@@ -261,7 +271,10 @@ class ClustersClient(dbclient):
                     stop_resp = self.post('/clusters/delete', {'cluster_id': cluster_resp['cluster_id']})
                     if 'pinned_by_user_name' in cluster_conf:
                         pin_resp = self.post('/clusters/pin', {'cluster_id': cluster_resp['cluster_id']})
+                    if 'cluster_id' in cluster_conf:
+                        checkpoint_cluster_configs_set.write(cluster_conf['cluster_id'])
                 else:
+                    logging_utils.log_reponse_error(error_logger, cluster_resp)
                     print(cluster_resp)
 
         # TODO: May be put it into a separate step to make it more rerunnable.
@@ -272,6 +285,8 @@ class ClustersClient(dbclient):
         with open(acl_cluster_log, 'r') as acl_fp:
             for x in acl_fp:
                 data = json.loads(x)
+                if 'object_id' in data and checkpoint_cluster_configs_set.contains(data['object_id']):
+                    continue
                 cluster_name = data['cluster_name']
                 print(f'Applying acl for {cluster_name}')
                 acl_args = {'access_control_list' : self.build_acl_args(data['access_control_list'])}
@@ -282,6 +297,9 @@ class ClustersClient(dbclient):
                     raise ValueError(error_message)
                 api = f'/preview/permissions/clusters/{cid}'
                 resp = self.put(api, acl_args)
+                if not logging_utils.log_reponse_error(error_logger, resp):
+                    if 'object_id' in data:
+                        checkpoint_cluster_configs_set.write(data['object_id'])
                 print(resp)
 
     def _log_cluster_ids_and_original_creators(
@@ -362,27 +380,39 @@ class ClustersClient(dbclient):
         acl_policies_log = self.get_export_dir() + acl_log_file
         error_logger = logging_utils.get_error_logger(
             wmconstants.WM_IMPORT, wmconstants.CLUSTER_OBJECT, self.get_export_dir())
+        checkpoint_cluster_policies_set = self._checkpoint_service.get_checkpoint_key_set(
+            wmconstants.WM_IMPORT, wmconstants.CLUSTER_OBJECT
+        )
         # create the policies
         if os.path.exists(policies_log):
             with open(policies_log, 'r') as policy_fp:
                 for p in policy_fp:
                     policy_conf = json.loads(p)
+                    if 'policy_id' in policy_conf and checkpoint_cluster_policies_set.contains(policy_conf['policy_id']):
+                        continue
                     # when creating the policy, we only need `name` and `definition` fields
                     create_args = {'name': policy_conf['name'],
                                    'definition': policy_conf['definition']}
                     resp = self.post('/policies/clusters/create', create_args)
                     ignore_error_list = ['INVALID_PARAMETER_VALUE']
-                    logging_utils.log_reponse_error(error_logger, resp, ignore_error_list=ignore_error_list)
+                    if not logging_utils.log_reponse_error(error_logger, resp, ignore_error_list=ignore_error_list):
+                        if 'policy_id' in policy_conf:
+                            checkpoint_cluster_policies_set.write(policy_conf['policy_id'])
+
             # ACLs are created by using the `access_control_list` key
             with open(acl_policies_log, 'r') as acl_fp:
                 id_map = self.get_policy_id_by_name_dict()
                 for x in acl_fp:
                     p_acl = json.loads(x)
+                    if 'object_id' in p_acl and checkpoint_cluster_policies_set.contains(p_acl['object_id']):
+                        continue
                     acl_create_args = {'access_control_list': self.build_acl_args(p_acl['access_control_list'])}
                     policy_id = id_map[p_acl['name']]
                     api = f'/permissions/cluster-policies/{policy_id}'
                     resp = self.put(api, acl_create_args)
-                    logging_utils.log_reponse_error(error_logger, resp)
+                    if not logging_utils.log_reponse_error(error_logger, resp):
+                        if 'object_id' in p_acl:
+                            checkpoint_cluster_policies_set.write(p_acl['object_id'])
         else:
             logging.info('Skipping cluster policies as no log file exists')
 
