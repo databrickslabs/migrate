@@ -14,7 +14,7 @@ from dbclient import *
 class HiveClient(ClustersClient):
 
     def __init__(self, configs, checkpoint_service):
-        super().__init__(configs)
+        super().__init__(configs, checkpoint_service)
         self._checkpoint_service = checkpoint_service
 
     @staticmethod

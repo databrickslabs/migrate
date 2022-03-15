@@ -56,7 +56,7 @@ class JobsClient(ClustersClient):
             job_ids[job['settings']['name']] = job['job_id']
         return job_ids
 
-    def update_imported_job_names(self, error_logger):
+    def update_imported_job_names(self, error_logger, checkpoint_job_configs_set):
         # loop through and update the job names to remove the custom delimiter + job_id suffix
         current_jobs_list = self.get_jobs_list()
         for job in current_jobs_list:
@@ -64,12 +64,17 @@ class JobsClient(ClustersClient):
             job_name = job['settings']['name']
             # job name was set to `old_job_name:::{job_id}` to support duplicate job names
             # we need to parse the old job name and update the current jobs
+            if checkpoint_job_configs_set.contains(job_name):
+                continue
             old_job_name = job_name.split(':::')[0]
             new_settings = {'name': old_job_name}
             update_args = {'job_id': job_id, 'new_settings': new_settings}
-            logging.info('Updating job name:', update_args)
+            logging.info(f'Updating job name: {update_args}')
             resp = self.post('/jobs/update', update_args)
-            logging_utils.log_reponse_error(error_logger, resp)
+            if not logging_utils.log_reponse_error(error_logger, resp):
+                checkpoint_job_configs_set.write(job_name)
+            else:
+                raise RuntimeError("Import job has failed. Refer to the previous log messages to investigate.")
 
     def log_job_configs(self, users_list=[], log_file='jobs.log', acl_file='acl_jobs.log'):
         """
@@ -116,6 +121,8 @@ class JobsClient(ClustersClient):
         # get an old cluster id to new cluster id mapping object
         cluster_mapping = self.get_cluster_id_mapping()
         old_2_new_policy_ids = self.get_new_policy_id_dict()  # dict { old_policy_id : new_policy_id }
+        checkpoint_job_configs_set = self._checkpoint_service.get_checkpoint_key_set(
+            wmconstants.WM_IMPORT, wmconstants.JOB_OBJECT)
 
         def adjust_ids_for_cluster(settings): #job_settings or task_settings
             if 'existing_cluster_id' in settings:
@@ -143,6 +150,11 @@ class JobsClient(ClustersClient):
         with open(jobs_log, 'r') as fp:
             for line in fp:
                 job_conf = json.loads(line)
+                # need to do str(...), otherwise the job_id is recognized as integer which becomes
+                # str vs int which never matches.
+                # (in which case, the checkpoint never recognizes that the job_id is already checkpointed)
+                if 'job_id' in job_conf and checkpoint_job_configs_set.contains(str(job_conf['job_id'])):
+                    continue
                 job_creator = job_conf.get('creator_user_name', '')
                 job_settings = job_conf['settings']
                 job_schedule = job_settings.get('schedule', None)
@@ -159,16 +171,28 @@ class JobsClient(ClustersClient):
                 logging.info("Current Job Name: {0}".format(job_conf['settings']['name']))
                 # creator can be none if the user is no longer in the org. see our docs page
                 create_resp = self.post('/jobs/create', job_settings)
-                if logging_utils.log_reponse_error(error_logger, create_resp):
+                if logging_utils.check_error(create_resp):
                     logging.info("Resetting job to use default cluster configs due to expired configurations.")
                     job_settings['new_cluster'] = self.get_jobs_default_cluster_conf()
                     create_resp_retry = self.post('/jobs/create', job_settings)
-                    logging_utils.log_reponse_error(error_logger, create_resp_retry)
+                    if not logging_utils.log_reponse_error(error_logger, create_resp_retry):
+                        if 'job_id' in job_conf:
+                            checkpoint_job_configs_set.write(job_conf["job_id"])
+                    else:
+                        raise RuntimeError("Import job has failed. Refer to the previous log messages to investigate.")
+
+                else:
+                    if 'job_id' in job_conf:
+                        checkpoint_job_configs_set.write(job_conf["job_id"])
+
+
         # update the jobs with their ACLs
         with open(acl_jobs_log, 'r') as acl_fp:
             job_id_by_name = self.get_job_id_by_name()
             for line in acl_fp:
                 acl_conf = json.loads(line)
+                if 'object_id' in acl_conf and checkpoint_job_configs_set.contains(acl_conf['object_id']):
+                    continue
                 current_job_id = job_id_by_name[acl_conf['job_name']]
                 job_path = f'jobs/{current_job_id}'  # contains `/jobs/{job_id}` path
                 api = f'/preview/permissions/{job_path}'
@@ -176,9 +200,12 @@ class JobsClient(ClustersClient):
                 acl_perms = self.build_acl_args(acl_conf['access_control_list'], True)
                 acl_create_args = {'access_control_list': acl_perms}
                 acl_resp = self.patch(api, acl_create_args)
-                logging_utils.log_reponse_error(error_logger, acl_resp)
+                if not logging_utils.log_reponse_error(error_logger, acl_resp) and 'object_id' in acl_conf:
+                    checkpoint_job_configs_set.write(acl_conf['object_id'])
+                else:
+                    raise RuntimeError("Import job has failed. Refer to the previous log messages to investigate.")
         # update the imported job names
-        self.update_imported_job_names(error_logger)
+        self.update_imported_job_names(error_logger, checkpoint_job_configs_set)
 
     def pause_all_jobs(self, pause=True):
         job_list = self.get_jobs_list()

@@ -35,7 +35,7 @@ def main():
         scim_c = ScimClient(client_config)
         if client_config['is_aws']:
             print("Start import of instance profiles first to ensure they exist...")
-            cl_c = ClustersClient(client_config)
+            cl_c = ClustersClient(client_config, checkpoint_service)
             start = timer()
             cl_c.import_instance_profiles()
             end = timer()
@@ -85,7 +85,7 @@ def main():
 
     if args.clusters:
         print("Import all cluster configs at {0}".format(now))
-        cl_c = ClustersClient(client_config)
+        cl_c = ClustersClient(client_config, checkpoint_service)
         if client_config['is_aws']:
             print("Start import of instance profiles ...")
             start = timer()
@@ -111,7 +111,7 @@ def main():
     if args.jobs:
         print("Importing the jobs configs at {0}".format(now))
         start = timer()
-        jobs_c = JobsClient(client_config)
+        jobs_c = JobsClient(client_config, checkpoint_service)
         jobs_c.import_job_configs()
         end = timer()
         print("Complete Jobs Export Time: " + str(timedelta(seconds=end - start)))
@@ -137,7 +137,7 @@ def main():
     if args.table_acls:
         print("Importing table acls configs at {0}".format(now))
         start = timer()
-        table_acls_c = TableACLsClient(client_config)
+        table_acls_c = TableACLsClient(client_config, checkpoint_service)
         # log table ACLS configs
         notebook_exit_value = table_acls_c.import_table_acls()
         end = timer()
@@ -146,7 +146,7 @@ def main():
     if args.secrets:
         print("Import secret scopes configs at {0}".format(now))
         start = timer()
-        sc = SecretsClient(client_config)
+        sc = SecretsClient(client_config, checkpoint_service)
         sc.import_all_secrets()
         end = timer()
         print("Complete Secrets Import Time: " + str(timedelta(seconds=end - start)))
@@ -154,7 +154,7 @@ def main():
     if args.pause_all_jobs:
         print("Pause all current jobs {0}".format(now))
         start = timer()
-        jobs_c = JobsClient(client_config)
+        jobs_c = JobsClient(client_config, checkpoint_service)
         # log job configs
         jobs_c.pause_all_jobs()
         end = timer()
@@ -163,7 +163,7 @@ def main():
     if args.unpause_all_jobs:
         print("Unpause all current jobs {0}".format(now))
         start = timer()
-        jobs_c = JobsClient(client_config)
+        jobs_c = JobsClient(client_config, checkpoint_service)
         # log job configs
         jobs_c.pause_all_jobs(False)
         end = timer()
@@ -172,7 +172,7 @@ def main():
     if args.delete_all_jobs:
         print("Delete all current jobs {0}".format(now))
         start = timer()
-        jobs_c = JobsClient(client_config)
+        jobs_c = JobsClient(client_config, checkpoint_service)
         url = jobs_c.get_url()
         response = prompt_for_input(f'\nPlease confirm that you would like to delete jobs from {url} [yes/no]:')
         if response:
@@ -219,7 +219,7 @@ def main():
                 raise ValueError('Overwrite notebooks only supports the SOURCE format. See Rest API docs for details')
         for username in user_names:
             ws_c.import_user_home(username, 'user_exports')
-        jobs_c = JobsClient(client_config)
+        jobs_c = JobsClient(client_config, checkpoint_service)
         # this will only import the groups jobs since we're filtering the jobs during the export process
         print('Importing the groups members jobs:')
         jobs_c.import_job_configs()
