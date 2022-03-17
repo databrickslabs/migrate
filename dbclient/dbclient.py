@@ -37,10 +37,17 @@ class dbclient:
     Rest API Wrapper for Databricks APIs
     """
     # set of http error codes to retry
-    http_retry_codes = [429, 503]
+    # 429: Too Many Requests
+    # 503: Service Unavailable
+    # 504: Gateway Timeout
+    http_retry_codes = [429, 503, 504]
+
     # set of http error codes to throw an exception if hit. Handles client and auth errors.
     # Also include the retry error codes in case all retry attempts fail.
-    http_error_codes = [401, 500, 502, 504] + http_retry_codes
+    # 401: Unauthorized
+    # 500: Internal Server Error
+    # 502: Bad Gateway
+    http_error_codes = [401, 500, 502] + http_retry_codes
 
     def __init__(self, configs):
         self._profile = configs['profile']
