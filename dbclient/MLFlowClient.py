@@ -6,7 +6,7 @@ import logging
 import logging_utils
 from threading_utils import propagate_exceptions
 from mlflow.tracking import MlflowClient
-from mlflow.entities import ViewType
+from mlflow.entities import ViewType, Metric, Param, RunTag
 from mlflow.exceptions import RestException
 import wmconstants
 from thread_safe_writer import ThreadSafeWriter
@@ -57,11 +57,10 @@ class MLFlowClient:
     # Later we may consume the exported runs as the following
     def import_mlflow_runs(...):
         con = sqlite3.connect(log_sql_file, check_same_thread=False)
-        cur = con.cursor()
-
+        
         # Later, we might enforce start_time > xxx
-        cur.execute("SELECT * FROM runs")
-        runs = cur.fetchmany(1000)
+        cur = con.execute("SELECT * FROM runs")
+        runs = cur.fetchmany(10000)
         while(len(runs) > 0):
             # parallelize here
             for run in runs:
@@ -69,10 +68,12 @@ class MLFlowClient:
                 start_time = run[1]
 
                 run_obj = json.loads(run[2])
-                info = run_object['info']
-                metrics = run_object['metrics']
-                params = run_object['params']
-                tags = run_object['tags']
+                info = run_obj['info']
+                metrics = run_obj['metrics']
+                params = run_obj['params']
+                tags = run_obj['tags']
+                
+            runs = cur.fetchmany(10000)
     '''
 
 
@@ -109,6 +110,7 @@ class MLFlowClient:
         if not is_there_exception:
             checkpointer.write(experiment_id)
 
+
     @classmethod
     def _save_run_data_to_sql(cls, con, run):
         run_id = run.info.run_id
@@ -139,6 +141,7 @@ class MLFlowClient:
         end = timer()
         logging.info("Complete MLflow Experiments Export Time: " + str(timedelta(seconds=end - start)))
 
+
     def import_mlflow_experiments(self, log_file='mlflow_experiments.log', id_map_file='mlflow_experiments_id_map.log',
                                   log_dir=None, num_parallel=4):
         mlflow_experiments_dir = log_dir if log_dir else self.export_dir
@@ -166,6 +169,7 @@ class MLFlowClient:
         end = timer()
         logging.info("Complete MLflow Experiments Import Time: " + str(timedelta(seconds=end - start)))
 
+
     def _create_experiment(self, experiment_str, id_map_writer, checkpointer, error_logger):
         experiment = json.loads(experiment_str)
         id = experiment.get('experiment_id')
@@ -179,14 +183,27 @@ class MLFlowClient:
             new_id = self.client.create_experiment(name, artifact_location, dict_tags)
             logging.info(f"Successfully created experiment with name: {name}. id: {new_id}")
         except RestException as error:
-            logging.info(f"create experiment failed for id: {id}, name: {name}. Logging it to error file..")
-            error_logger.error(error.json)
+            # If the resource already exists, then we can consider it successful and checkpoint it.
+            if error.json['error_code'] == 'RESOURCE_ALREADY_EXISTS':
+                logging.info(error.json['message'] + f" Trying to get the experiment_id of the existing experiment: {name}.")
+                try:
+                    new_id = self.client.get_experiment_by_name(name).experiment_id
+                    # save id -> new_id
+                    id_map_writer.write(json.dumps({"old_id": id, "new_id": new_id}) + "\n")
+                    checkpointer.write(id)
+                except RestException as error:
+                    logging.info(f"create experiment failed for id: {id}, name: {name}. Logging it to error file..")
+                    error_logger.error(error.json)
+            else:
+                logging.info(f"create experiment failed for id: {id}, name: {name}. Logging it to error file..")
+                error_logger.error(error.json)
         else:
             # save id -> new_id
             id_map_writer.write(json.dumps({"old_id": id, "new_id": new_id}) + "\n")
 
             # checkpoint the original id
             checkpointer.write(id)
+
 
     def _cleanse_artifact_location(self, artifact_location):
         """
@@ -198,3 +215,113 @@ class MLFlowClient:
                 artifact_location.startswith("dbfs:/databricks/mlflow/"):
             return None
         return artifact_location
+
+
+    def import_mlflow_runs(self, log_sql_file='mlflow_runs.db', experiment_id_map_log='mlflow_experiments_id_map.log', num_parallel=4):
+        """
+        Imports the Mlflow run objects. This can be run only after import_mlflow_experiments is complete.
+        :param log_sql_file: sqlite db file where mlflow run objects are stored.
+        :param experiment_log:
+        :param num_parallel:
+        :return:
+        """
+        experiment_id_map = self._load_experiment_id_map(self.export_dir + experiment_id_map_log)
+        mlflow_runs_file = self.export_dir + log_sql_file
+
+        error_logger = logging_utils.get_error_logger(
+            wmconstants.WM_IMPORT, wmconstants.MLFLOW_RUN_OBJECT, self.export_dir
+        )
+        mlflow_runs_checkpointer = self._checkpoint_service.get_checkpoint_key_map(
+        wmconstants.WM_IMPORT, wmconstants.MLFLOW_RUN_OBJECT)
+
+        con = sqlite3.connect(mlflow_runs_file)
+        cur = con.execute("SELECT * FROM runs")
+        runs = cur.fetchmany(10000)
+        while(len(runs) > 0):
+            # parallelize
+            for run in runs:
+                run_id = run[0]
+                start_time = run[1]
+                run_obj = json.loads(run[2])
+
+                # Create run
+                self._create_run_and_log(mlflow_runs_file, run_id, start_time, run_obj, experiment_id_map, error_logger, mlflow_runs_checkpointer)
+
+            runs = cur.fetchmany(10000)
+        con.close()
+
+
+    def _create_run_and_log(self, mlflow_runs_file, run_id, start_time, run_obj, experiment_id_map, error_logger, checkpointer):
+        """
+        If "mlflow.parentRunId" does not exist in tags, create the run and then log metrics, params, and tags
+        If exists in tags, recursively call _create_run on the parent run_id object.
+        :return: 
+        """
+        if checkpointer.contains(run_id):
+            return checkpointer.get(run_id)
+        experiment_id = run_obj['info']['experiment_id']
+        if experiment_id not in experiment_id_map:
+            message = (f"Run: {run_id} originally belongs to experiment_id {experiment_id}, but {experiment_id} "
+                            f"does not exist in mlflow_experiments_id_map.log. Make sure the experiment is correctly "
+                            f"imported before importing runs.")
+            error_logger.error(message)
+            return None
+
+        imported_experiment_id = experiment_id_map[run_obj['info']['experiment_id']]
+        tags = run_obj['tags']
+        metrics = run_obj['metrics']
+        params = run_obj['params']
+        if "mlflow.parentRunId" in tags:
+            parent_run_id = tags["mlflow.parentRunId"]
+            con = sqlite3.connect(mlflow_runs_file)
+            cur = con.execute("SELECT * FROM runs WHERE id=(?)", parent_run_id)
+            parent_run = cur.fetchone()
+            con.close()
+
+            parent_run_id = parent_run[0]
+            parent_start_time = parent_run[1]
+            parent_run_obj = json.loads(parent_run[2])
+
+            new_parent_run_id = self._create_run_and_log(mlflow_runs_file, parent_run_id, parent_start_time, parent_run_obj)
+            if not new_parent_run_id:
+                message = (f"Run: {run_id} failed to be imported as its parent run failed to be imported.")
+                error_logger.error(message)
+                return None
+            tags["mlflow.parentRunId"] = new_parent_run_id
+
+        new_run_id = self._create_run_and_log_helper(imported_experiment_id, start_time, metrics, params, tags)
+        checkpointer.write(run_id, new_run_id)
+        return new_run_id
+
+
+    def _create_run_and_log_helper(self, experiment_id, start_time, metrics, params, tags):
+        run = self.client.create_run(experiment_id, start_time=start_time, tags={})
+        run_id = run.info.run_id
+        metrics_obj = [Metric(key, val, start_time, step=0) for key, val in metrics.items()]
+        params_obj = [Param(key, val) for key, val in params.items()]
+
+        # We filter out the following tags for the imported runs.
+        DENY_LIST_TAGS = [
+            "mlflow.databricks.notebookID", "mlflow.databricks.notebookRevisionID", "mlflow.databricks.webappURL",
+            "mlflow.databricks.runURL", "mlflow.databricks.cluster.id", "mlflow.databricks.workspaceURL",
+            "mlflow.databricks.workspaceID", "mlflow.databricks.notebook.commandID", "mlflow.databricks.shellJobID",
+            "mlflow.databricks.shellJobRunID", "mlflow.databricks.jobID", "mlflow.databricks.jobRunID",
+            "mlflow.databricks.jobType", "mlflow.databricks.jobTypeInfo",
+            "mlflow.log-model.history", "mlflow.user"
+        ]
+        tags_obj = [RunTag(key, val) for key, val in tags.items() if key not in DENY_LIST_TAGS]
+
+        self.client.log_batch(run_id, metrics_obj, params_obj, tags_obj)
+        return run_id
+
+
+    def _load_experiment_id_map(self, experiment_id_map_log):
+        id_map = {}
+        # Parallelize this operation if this is too slow.
+        with open(experiment_id_map_log, 'r') as fp:
+            # str = {"old_id": "xxxxxxxxx", "new_id": "xxxxxxxx"}
+            for single_id_map_str in fp:
+                single_id_map = json.loads(single_id_map_str)
+                id_map[single_id_map["old_id"]] = single_id_map["new_id"]
+        return id_map
+
