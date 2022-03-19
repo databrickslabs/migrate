@@ -1,6 +1,7 @@
 import os
 from abc import ABC, abstractmethod
 import logging
+import json
 from thread_safe_writer import ThreadSafeWriter
 
 class AbstractCheckpointKeySet(ABC):
@@ -9,6 +10,18 @@ class AbstractCheckpointKeySet(ABC):
     @abstractmethod
     def write(self, key):
         """Writes key into checkpoint file."""
+        pass
+
+    @abstractmethod
+    def contains(self, key):
+        """Checks if key exists in checkpoint"""
+        pass
+
+class AbstractCheckpointKeyMap(ABC):
+    """Abstract base class for checkpoint read and write."""
+    @abstractmethod
+    def write(self, key):
+        """Writes key and value into checkpoint file."""
         pass
 
     @abstractmethod
@@ -56,6 +69,44 @@ class CheckpointKeySet(AbstractCheckpointKeySet):
     def __del__(self):
         self._checkpoint_file_append_fp.close()
 
+
+class CheckpointKeyMap(AbstractCheckpointKeyMap):
+    """Deals with checkpoint read and write. Unlike CheckpointKeySet, it also saves the value.
+    Useful when the corresponding value is needed later.
+    """
+    def __init__(self, checkpoint_file):
+        """
+        :param checkpoint_file: file to read / write object keys for checkpointing
+        """
+        self._checkpoint_file = checkpoint_file
+        self._checkpoint_key_map = {}
+        self._checkpoint_file_append_fp = ThreadSafeWriter(checkpoint_file, 'a')
+        self._restore_from_checkpoint_file()
+
+    def write(self, key, value):
+        if key not in self._checkpoint_key_map:
+            self._checkpoint_file_append_fp.write(json.dumps({"key": str(key), "value": str(value)}) + "\n")
+
+    def contains(self, key):
+        exists = key in self._checkpoint_key_map
+        if exists:
+            logging.info(f"{key} found in checkpoint")
+        return exists
+
+    def get(self, key):
+        return self._checkpoint_key_map[key]
+
+    def _restore_from_checkpoint_file(self):
+        if os.path.exists(self._checkpoint_file):
+            with open(self._checkpoint_file, 'r') as read_fp:
+                for single_key_value_map_str in read_fp:
+                    single_key_value_map = json.loads(single_key_value_map_str)
+                    self._checkpoint_key_map[single_key_value_map["key"]] = single_key_value_map["value"]
+
+    def __del__(self):
+        self._checkpoint_file_append_fp.close()
+
+
 class DisabledCheckpointKeySet(AbstractCheckpointKeySet):
     """Class used to denote disabled checkpointing."""
 
@@ -64,6 +115,17 @@ class DisabledCheckpointKeySet(AbstractCheckpointKeySet):
 
     def contains(self, key):
         return False
+
+
+class DisabledCheckpointKeyMap(AbstractCheckpointKeyMap):
+    def write(self, key, value):
+        pass
+
+    def contains(self, key):
+        return False
+
+    def get(self, key):
+        raise KeyError("Checkpoint is disabled")
 
 
 class CheckpointService():
@@ -88,3 +150,9 @@ class CheckpointService():
         else:
             return DisabledCheckpointKeySet()
 
+    def get_checkpoint_key_map(self, action_type, object_type):
+        if self._checkpoint_enabled:
+            checkpoint_file = f"{self._checkpoint_dir}/{action_type}_{object_type}.log"
+            return CheckpointKeyMap(checkpoint_file)
+        else:
+            return DisabledCheckpointKeyMap()
