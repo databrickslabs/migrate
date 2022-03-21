@@ -2,6 +2,8 @@ import os
 from abc import ABC, abstractmethod
 import logging
 import json
+import threading
+import time
 from thread_safe_writer import ThreadSafeWriter
 
 class AbstractCheckpointKeySet(ABC):
@@ -84,8 +86,27 @@ class CheckpointKeyMap(AbstractCheckpointKeyMap):
         self._restore_from_checkpoint_file()
 
     def write(self, key, value):
-        if key not in self._checkpoint_key_map:
+        if key not in self._checkpoint_key_map or "IN_USE_BY" in self._checkpoint_key_map[key]:
+            self._checkpoint_key_map[key] = value
             self._checkpoint_file_append_fp.write(json.dumps({"key": str(key), "value": str(value)}) + "\n")
+
+    def check_contains_or_mark_in_use(self, key):
+        """
+        If the key_map does not have the key set yet, mark the key to be used, and return False.
+        If the key_map has the key set,
+           if the value is "IN_USE_BY_XXX" wait for the result to be ready.
+           if the value is not "IN_USE_BY_XXX" return True (self.contains(key))
+        """
+        in_use_str = f"IN_USE_BY_{threading.get_ident()}"
+        # setdefault is thread safe, so only one thread can successfully set the value for the key.
+        result = self._checkpoint_key_map.setdefault(key, in_use_str)
+        if result == in_use_str:
+            return False
+        else:
+            while "IN_USE_BY" in self._checkpoint_key_map[key]:
+                logging.info(f"Waiting for {key} result to be available..")
+                time.sleep(2)
+            return self.contains(key)
 
     def contains(self, key):
         exists = key in self._checkpoint_key_map

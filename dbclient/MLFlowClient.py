@@ -54,6 +54,8 @@ class MLFlowClient:
         logging.info("Complete MLflow Runs Export Time: " + str(timedelta(seconds=end - start)))
 
 
+
+
     '''
     # Later we may consume the exported runs as the following
     def import_mlflow_runs(...):
@@ -240,23 +242,28 @@ class MLFlowClient:
         mlflow_runs_checkpointer = self._checkpoint_service.get_checkpoint_key_map(
         wmconstants.WM_IMPORT, wmconstants.MLFLOW_RUN_OBJECT)
 
+        start = timer()
+
         con = sqlite3.connect(mlflow_runs_file)
         cur = con.execute("SELECT * FROM runs")
         runs = cur.fetchmany(10000)
         while(len(runs) > 0):
             # parallelize
-            for run in runs:
-                run_id = run[0]
-                start_time = run[1]
-                run_obj = json.loads(run[2])
-
-                # Create run
-                self._create_run_and_log(mlflow_runs_file, run_id, start_time, run_obj, experiment_id_map, error_logger, mlflow_runs_checkpointer)
+            with ThreadPoolExecutor(max_workers=num_parallel) as executor:
+                # run_id = run[0]
+                # start_time = run[1]
+                # run_obj = json.loads(run[2])
+                futures = [executor.submit(self._create_run_and_log, mlflow_runs_file, run[0], run[1], json.loads(run[2]), experiment_id_map, error_logger, mlflow_runs_checkpointer) for run in runs]
+                results = concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
+                for result in results.done:
+                    if result.exception() is not None:
+                        raise result.exception()
 
             runs = cur.fetchmany(10000)
         shutil.copy(mlflow_runs_checkpointer.get_file_path(), self.export_dir + run_id_map_log)
         con.close()
-
+        end = timer()
+        logging.info("Complete MLflow Runs Import Time: " + str(timedelta(end - start)))
 
     def _create_run_and_log(self, mlflow_runs_file, run_id, start_time, run_obj, experiment_id_map, error_logger, checkpointer):
         """
@@ -264,7 +271,7 @@ class MLFlowClient:
         If exists in tags, recursively call _create_run on the parent run_id object.
         :return: 
         """
-        if checkpointer.contains(run_id):
+        if checkpointer.check_contains_or_mark_in_use(run_id):
             return checkpointer.get(run_id)
         experiment_id = run_obj['info']['experiment_id']
         if experiment_id not in experiment_id_map:
@@ -281,7 +288,7 @@ class MLFlowClient:
         if "mlflow.parentRunId" in tags:
             parent_run_id = tags["mlflow.parentRunId"]
             con = sqlite3.connect(mlflow_runs_file)
-            cur = con.execute("SELECT * FROM runs WHERE id=(?)", parent_run_id)
+            cur = con.execute("SELECT * FROM runs WHERE id=?", [parent_run_id])
             parent_run = cur.fetchone()
             con.close()
 
@@ -289,7 +296,7 @@ class MLFlowClient:
             parent_start_time = parent_run[1]
             parent_run_obj = json.loads(parent_run[2])
 
-            new_parent_run_id = self._create_run_and_log(mlflow_runs_file, parent_run_id, parent_start_time, parent_run_obj)
+            new_parent_run_id = self._create_run_and_log(mlflow_runs_file, parent_run_id, parent_start_time, parent_run_obj, experiment_id_map, error_logger, checkpointer)
             if not new_parent_run_id:
                 message = (f"Run: {run_id} failed to be imported as its parent run failed to be imported.")
                 error_logger.error(message)
@@ -315,7 +322,7 @@ class MLFlowClient:
             "mlflow.databricks.workspaceID", "mlflow.databricks.notebook.commandID", "mlflow.databricks.shellJobID",
             "mlflow.databricks.shellJobRunID", "mlflow.databricks.jobID", "mlflow.databricks.jobRunID",
             "mlflow.databricks.jobType", "mlflow.databricks.jobTypeInfo",
-            "mlflow.log-model.history", "mlflow.user"
+            "mlflow.log-model.history", "mlflow.user", "mlflow.rootRunId"
         ]
         tags_obj = [RunTag(key, val) for key, val in tags.items() if key not in DENY_LIST_TAGS]
 
