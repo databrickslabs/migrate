@@ -61,3 +61,11 @@ def check_error(response, ignore_error_list=default_ignore_error_list):
     return ('error_code' in response and response['error_code'] not in ignore_error_list) \
             or ('error' in response and response['error'] not in ignore_error_list) \
             or (response.get('resultType', None) == 'error' and 'already exists' not in response.get('summary', None))
+
+
+
+def raise_if_failed_task_file_exists(failed_task_log, task_name):
+    if os.path.exists(failed_task_log) and os.path.getsize(failed_task_log) > 0:
+        msg = f'{task_name} has failures. Refer to {failed_task_log} to see failures. Terminating pipeline.'
+        logging.info(msg)
+        raise RuntimeError(msg)
