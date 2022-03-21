@@ -5,6 +5,7 @@ from timeit import default_timer as timer
 import logging
 import logging_utils
 from threading_utils import propagate_exceptions
+import shutil
 from mlflow.tracking import MlflowClient
 from mlflow.entities import ViewType, Metric, Param, RunTag
 from mlflow.exceptions import RestException
@@ -218,7 +219,7 @@ class MLFlowClient:
         return artifact_location
 
 
-    def import_mlflow_runs(self, log_sql_file='mlflow_runs.db', experiment_id_map_log='mlflow_experiments_id_map.log', num_parallel=4):
+    def import_mlflow_runs(self, log_sql_file='mlflow_runs.db', experiment_id_map_log='mlflow_experiments_id_map.log', run_id_map_log='mlflow_runs_id_map.log', num_parallel=4):
         """
         Imports the Mlflow run objects. This can be run only after import_mlflow_experiments is complete.
         :param log_sql_file: sqlite db file where mlflow run objects are stored.
@@ -232,7 +233,7 @@ class MLFlowClient:
         error_logger = logging_utils.get_error_logger(
             wmconstants.WM_IMPORT, wmconstants.MLFLOW_RUN_OBJECT, self.export_dir
         )
-        assert self._checkpoint_service.checkpoint_enabled, "import_mlflow_runs requires checkpoint to be enabled. If " \
+        assert self._checkpoint_service.checkpoint_enabled, "import_mlflow_runs requires --use-checkpoint to be enabled. If " \
                                                             " you need to actually rerun, remove the corresponding " \
                                                             "checkpoint file. e.g. logs/checkpoint/import_mlflow_runs.log"
 
@@ -253,6 +254,7 @@ class MLFlowClient:
                 self._create_run_and_log(mlflow_runs_file, run_id, start_time, run_obj, experiment_id_map, error_logger, mlflow_runs_checkpointer)
 
             runs = cur.fetchmany(10000)
+        shutil.copy(mlflow_runs_checkpointer.get_file_path(), self.export_dir + run_id_map_log)
         con.close()
 
 
