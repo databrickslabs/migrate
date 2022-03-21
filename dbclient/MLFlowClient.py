@@ -185,9 +185,10 @@ class MLFlowClient:
         except RestException as error:
             # If the resource already exists, then we can consider it successful and checkpoint it.
             if error.json['error_code'] == 'RESOURCE_ALREADY_EXISTS':
-                logging.info(error.json['message'] + f" Trying to get the experiment_id of the existing experiment: {name}.")
+                logging.info(error.json['message'] + f" Trying to get the experiment_id of the existing experiment: {name}...")
                 try:
                     new_id = self.client.get_experiment_by_name(name).experiment_id
+                    logging.info(f"Successfully retrieved an id: {new_id} for experiment: {name} in the target workspace.")
                     # save id -> new_id
                     id_map_writer.write(json.dumps({"old_id": id, "new_id": new_id}) + "\n")
                     checkpointer.write(id)
@@ -231,6 +232,10 @@ class MLFlowClient:
         error_logger = logging_utils.get_error_logger(
             wmconstants.WM_IMPORT, wmconstants.MLFLOW_RUN_OBJECT, self.export_dir
         )
+        assert self._checkpoint_service.checkpoint_enabled, "import_mlflow_runs requires checkpoint to be enabled. If " \
+                                                            " you need to actually rerun, remove the corresponding " \
+                                                            "checkpoint file. e.g. logs/checkpoint/import_mlflow_runs.log"
+
         mlflow_runs_checkpointer = self._checkpoint_service.get_checkpoint_key_map(
         wmconstants.WM_IMPORT, wmconstants.MLFLOW_RUN_OBJECT)
 
@@ -290,6 +295,7 @@ class MLFlowClient:
             tags["mlflow.parentRunId"] = new_parent_run_id
 
         new_run_id = self._create_run_and_log_helper(imported_experiment_id, start_time, metrics, params, tags)
+        logging.info(f"Successfully imported run: {run_id} into target workspace as {new_run_id}")
         checkpointer.write(run_id, new_run_id)
         return new_run_id
 
