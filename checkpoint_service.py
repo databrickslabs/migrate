@@ -96,6 +96,9 @@ class CheckpointKeyMap(AbstractCheckpointKeyMap):
     def get(self, key):
         return self._checkpoint_key_map[key]
 
+    def get_file_path(self):
+        return self._checkpoint_file
+
     def _restore_from_checkpoint_file(self):
         if os.path.exists(self._checkpoint_file):
             with open(self._checkpoint_file, 'r') as read_fp:
