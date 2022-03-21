@@ -2,6 +2,7 @@ import unittest
 import filecmp
 import os
 from thread_safe_writer import ThreadSafeWriter
+from threading_utils import propagate_exceptions
 import concurrent.futures
 
 class ThreadSafeWriterTest(unittest.TestCase):
@@ -42,6 +43,7 @@ class ThreadSafeWriterTest(unittest.TestCase):
         with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
             futures = [executor.submit(file_writer.write, str(data) + "\n") for data in list_to_write]
             concurrent.futures.wait(futures)
+            propagate_exceptions(futures)
 
         file_writer.close()
 
