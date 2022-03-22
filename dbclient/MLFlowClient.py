@@ -216,7 +216,6 @@ class MLFlowClient:
         # TODO(kevin): make this configurable later
         runs = cur.fetchmany(10000)
         while(len(runs) > 0):
-            # parallelize
             with ThreadPoolExecutor(max_workers=num_parallel) as executor:
                 # run_id = run[0]
                 # start_time = run[1]
