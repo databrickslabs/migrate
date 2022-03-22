@@ -74,7 +74,7 @@ class CheckpointKeySet(AbstractCheckpointKeySet):
 
 class CheckpointKeyMap(AbstractCheckpointKeyMap):
     """Deals with checkpoint read and write. Unlike CheckpointKeySet, it also saves the value.
-    Useful when the corresponding value is needed later.
+    Useful when the corresponding value is needed.
     """
     def __init__(self, checkpoint_file):
         """
@@ -90,12 +90,14 @@ class CheckpointKeyMap(AbstractCheckpointKeyMap):
             self._checkpoint_key_map[key] = value
             self._checkpoint_file_append_fp.write(json.dumps({"key": str(key), "value": str(value)}) + "\n")
 
-    def check_contains_or_mark_in_use(self, key):
+    def check_contains_otherwise_mark_in_use(self, key):
         """
-        If the key_map does not have the key set yet, mark the key to be used, and return False.
-        If the key_map has the key set,
-           if the value is "IN_USE_BY_XXX" wait for the result to be ready.
+        If the key_map does not have the key value yet, mark the key to be IN_USE_BY_$THREAD_ID, and return False.
+        If the key_map has the key value,
+           if the value is "IN_USE_BY_XXX" wait for the result to be ready and return True (self.contains(key))
            if the value is not "IN_USE_BY_XXX" return True (self.contains(key))
+
+        This method is thread-safe since map.setdefault(key, value) is thread-safe
         """
         in_use_str = f"IN_USE_BY_{threading.get_ident()}"
         # setdefault is thread safe, so only one thread can successfully set the value for the key.
@@ -143,13 +145,19 @@ class DisabledCheckpointKeySet(AbstractCheckpointKeySet):
 
 class DisabledCheckpointKeyMap(AbstractCheckpointKeyMap):
     def write(self, key, value):
-        pass
+        raise NotImplementedError("Checkpoint is disabled")
 
     def contains(self, key):
         return False
 
+    def check_contains_or_mark_in_use(self, key):
+        raise NotImplementedError("Checkpoint is disabled")
+
     def get(self, key):
-        raise KeyError("Checkpoint is disabled")
+        raise NotImplementedError("Checkpoint is disabled")
+
+    def get_file_path(self):
+        raise NotImplementedError("Checkpoint is disabled")
 
 
 class CheckpointService():
