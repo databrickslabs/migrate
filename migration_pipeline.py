@@ -49,7 +49,7 @@ def build_pipeline(args) -> Pipeline:
     logging_utils.set_default_logging(client_config['export_dir'])
     if client_config['debug']:
         logging_utils.set_default_logging(client_config['export_dir'], logging.DEBUG)
-        logging.info(url, token)
+        logging.info(url)
 
     checkpoint_service = CheckpointService(client_config)
     if args.export_pipeline:
