@@ -221,10 +221,8 @@ class MLFlowClient:
                 # start_time = run[1]
                 # run_obj = json.loads(run[2])
                 futures = [executor.submit(self._create_run_and_log, mlflow_runs_file, run[0], run[1], json.loads(run[2]), experiment_id_map, error_logger, mlflow_runs_checkpointer) for run in runs]
-                results = concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
-                for result in results.done:
-                    if result.exception() is not None:
-                        raise result.exception()
+                concurrent.futures.wait(futures)
+                propagate_exceptions(futures)
 
             runs = cur.fetchmany(10000)
         shutil.copy(mlflow_runs_checkpointer.get_file_path(), self.export_dir + run_id_map_log)
