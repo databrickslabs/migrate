@@ -187,6 +187,7 @@ class JobsClient(ClustersClient):
 
 
         # update the jobs with their ACLs
+        admin_user_name = self.whoami()
         with open(acl_jobs_log, 'r') as acl_fp:
             job_id_by_name = self.get_job_id_by_name()
             for line in acl_fp:
@@ -197,7 +198,7 @@ class JobsClient(ClustersClient):
                 job_path = f'jobs/{current_job_id}'  # contains `/jobs/{job_id}` path
                 api = f'/preview/permissions/{job_path}'
                 # get acl permissions for jobs
-                acl_perms = self.build_acl_args(acl_conf['access_control_list'], True)
+                acl_perms = self.build_acl_args(acl_conf['access_control_list'], True, admin_user_name)
                 acl_create_args = {'access_control_list': acl_perms}
                 acl_resp = self.patch(api, acl_create_args)
                 if not logging_utils.log_reponse_error(error_logger, acl_resp) and 'object_id' in acl_conf:

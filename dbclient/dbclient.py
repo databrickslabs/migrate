@@ -287,7 +287,7 @@ class dbclient:
         user_name = self.get('/preview/scim/v2/Me').get('userName')
         return user_name
 
-    def build_acl_args(self, full_acl_list, is_jobs=False):
+    def build_acl_args(self, full_acl_list, is_jobs=False, admin_user_name=None):
         """
         Take the ACL json and return a json that corresponds to the proper input with permission level one level higher
         { 'acl': [ { (user_name, group_name): {'permission_level': '*'}, ... ] }
@@ -312,9 +312,11 @@ class dbclient:
                         current_owner = member.get('group_name')
 
         if is_jobs:
-            me = self.whoami()
-            if current_owner != me:
-                update_admin = {'user_name': self.whoami(),
+            # set current_owner to admin if current_owner is empty
+            # current_owner is empty when original job owner is obsolete user
+            current_owner = current_owner or admin_user_name
+            if current_owner != admin_user_name:
+                update_admin = {'user_name': admin_user_name,
                                 'permission_level': 'CAN_MANAGE'}
                 acls_list.append(update_admin)
         return acls_list
