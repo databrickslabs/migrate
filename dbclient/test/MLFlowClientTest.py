@@ -210,7 +210,7 @@ class MLFlowClientTest(unittest.TestCase):
         checkpointer = CheckpointKeyMap("dbclient/test/test_ml_run_import_checkpoint_temp.log")
         mlflow_client._create_run_and_log_helper = MagicMock()
         with concurrent.futures.ThreadPoolExecutor(max_workers=30) as executor:
-            futures = [executor.submit(mlflow_client._create_run_and_log(mlflow_client, "", run.info.run_id, run.info.start_time, self._run_to_dict(run), experiment_id_map, "", error_logger, checkpointer)) for run in runs]
+            futures = [executor.submit(mlflow_client._create_run_and_log(mlflow_client, "", run.info.run_id, run.info.start_time, self._run_to_dict(run), experiment_id_map, "", error_logger, checkpointer, checkpointer)) for run in runs]
             concurrent.futures.wait(futures)
 
         assert(mlflow_client._create_run_and_log_helper.call_count == unique_num_runs)
