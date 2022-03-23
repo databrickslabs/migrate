@@ -68,7 +68,7 @@ class MLFlowClient:
             try:
                 runs = self.client.search_runs(experiment_id, run_view_type=ViewType.ACTIVE_ONLY, max_results=3000, page_token=token)
             except RestException as error:
-                logging.info(f"search runs failed for id: {experiment_id}. Logging it to error file...")
+                logging.error(f"search runs failed for id: {experiment_id}. Logging it to error file...")
                 error_logger.error(error.json)
                 is_there_exception = True
             else:
@@ -211,6 +211,12 @@ class MLFlowClient:
         mlflow_runs_checkpointer = self._checkpoint_service.get_checkpoint_key_map(
             wmconstants.WM_IMPORT, wmconstants.MLFLOW_RUN_OBJECT)
 
+        # This checkpointer is used to checkpoint individual steps for more optimal checkpointing.
+        # e.g. checkpoint run_creation, log_batch, and artifact download_upload separately
+        mlflow_runs_steps_checkpointer = self._checkpoint_service.get_checkpoint_key_map(
+            wmconstants.WM_IMPORT, wmconstants.MLFLOW_RUN_OBJECT + "_steps"
+        )
+
         start = timer()
 
         con = sqlite3.connect(mlflow_runs_file)
@@ -222,7 +228,7 @@ class MLFlowClient:
                 # run_id = run[0]
                 # start_time = run[1]
                 # run_obj = json.loads(run[2])
-                futures = [executor.submit(self._create_run_and_log, src_client, mlflow_runs_file, run[0], run[1], json.loads(run[2]), experiment_id_map, self.export_dir + ml_run_artifacts_dir, error_logger, mlflow_runs_checkpointer) for run in runs]
+                futures = [executor.submit(self._create_run_and_log, src_client, mlflow_runs_file, run[0], run[1], json.loads(run[2]), experiment_id_map, self.export_dir + ml_run_artifacts_dir, error_logger, mlflow_runs_checkpointer, mlflow_runs_steps_checkpointer) for run in runs]
                 concurrent.futures.wait(futures)
                 propagate_exceptions(futures)
 
@@ -232,7 +238,7 @@ class MLFlowClient:
         end = timer()
         logging.info("Complete MLflow Runs Import Time: " + str(timedelta(end - start)))
 
-    def _create_run_and_log(self, src_client, mlflow_runs_file, run_id, start_time, run_obj, experiment_id_map, ml_run_artifacts_dir, error_logger, checkpointer):
+    def _create_run_and_log(self, src_client, mlflow_runs_file, run_id, start_time, run_obj, experiment_id_map, ml_run_artifacts_dir, error_logger, checkpointer, steps_checkpointer):
         """
         If "mlflow.parentRunId" does not exist in tags, create the run and then log metrics, params, and tags
         If exists in tags, recursively call _create_run on the parent run object.
@@ -263,20 +269,33 @@ class MLFlowClient:
             parent_start_time = parent_run[1]
             parent_run_obj = json.loads(parent_run[2])
 
-            new_parent_run_id = self._create_run_and_log(src_client, mlflow_runs_file, parent_run_id, parent_start_time, parent_run_obj, experiment_id_map, ml_run_artifacts_dir, error_logger, checkpointer)
+            new_parent_run_id = self._create_run_and_log(src_client, mlflow_runs_file, parent_run_id, parent_start_time, parent_run_obj, experiment_id_map, ml_run_artifacts_dir, error_logger, checkpointer, steps_checkpointer)
             if not new_parent_run_id:
                 message = (f"Run: {run_id} failed to be imported as its parent run failed to be imported.")
                 error_logger.error(message)
                 return None
             tags["mlflow.parentRunId"] = new_parent_run_id
 
-        new_run_id = self._create_run_and_log_helper(src_client, imported_experiment_id, run_id, start_time, metrics, params, tags, ml_run_artifacts_dir)
-        logging.info(f"Successfully imported run: {run_id} into target workspace as {new_run_id}")
-        checkpointer.write(run_id, new_run_id)
-        return new_run_id
+        try:
+            new_run_id = self._create_run_and_log_helper(src_client, imported_experiment_id, run_id, start_time, metrics, params, tags, ml_run_artifacts_dir, steps_checkpointer)
+        except RestException as error:
+            logging.error(f"Importing runs failed for run_id: {run_id}. Logging it to the error file...")
+            error_logger.error(error.json)
+        else:
+            logging.info(f"Successfully imported run: {run_id} into target workspace as {new_run_id}")
+            checkpointer.write(run_id, new_run_id)
+            return new_run_id
 
-    def _create_run_and_log_helper(self, src_client, experiment_id, run_id, start_time, metrics, params, tags, ml_run_artifacts_dir):
+    def _create_run_and_log_helper(self, src_client, experiment_id, run_id, start_time, metrics, params, tags, ml_run_artifacts_dir, steps_checkpointer):
+        creation_checkpoint_key = run_id + "_create_run"
+        log_batch_checkpoint_key = run_id + "_log_batch"
+        run_artifacts_checkpoint_key = run_id + "_artifacts"
+
+        # if not steps_checkpointer.contains(creation_checkpoint_key):
         run = self.client.create_run(experiment_id, start_time=start_time, tags={})
+            # steps_checkpointer.write(creation_checkpoint_key, run.info.run_id)
+
+        # new_run_id = steps_checkpointer.get(run_id)
         new_run_id = run.info.run_id
         metrics_obj = [Metric(key, val, start_time, step=0) for key, val in metrics.items()]
         params_obj = [Param(key, val) for key, val in params.items()]
@@ -292,12 +311,17 @@ class MLFlowClient:
         ]
         tags_obj = [RunTag(key, val) for key, val in tags.items() if key not in DENY_LIST_TAGS]
 
+        # if not steps_checkpointer.contains(log_batch_checkpoint_key):
         self.client.log_batch(new_run_id, metrics_obj, params_obj, tags_obj)
-        self.download_and_upload_run_artifacts(src_client, run_id, new_run_id, ml_run_artifacts_dir)
+            # steps_checkpointer.write(log_batch_checkpoint_key, new_run_id)
 
-        return run_id
+        # if not steps_checkpointer.contains(run_artifacts_checkpoint_key):
+        self._download_and_upload_run_artifacts(src_client, run_id, new_run_id, ml_run_artifacts_dir)
+            # steps_checkpointer.write(run_artifacts_checkpoint_key, new_run_id)
 
-    def download_and_upload_run_artifacts(self, src_client, old_run_id, new_run_id, ml_run_artifacts_dir):
+        return new_run_id
+
+    def _download_and_upload_run_artifacts(self, src_client, old_run_id, new_run_id, ml_run_artifacts_dir):
         # Download artifacts into temp directory: ml_run_artifacts/$run_id_temp and then upload to the destination
         # workspace. After uploading, remove the temp dir along with the artifacts.
         temp_artifact_dir = ml_run_artifacts_dir + old_run_id + "_temp/"
@@ -312,6 +336,7 @@ class MLFlowClient:
 
         logging.info(f"Uploading run artifacts for run_id: {old_run_id} -> {new_run_id}")
         self.client.log_artifacts(new_run_id, temp_artifact_dir)
+        error_logger.error(error.json)
         shutil.rmtree(temp_artifact_dir)
 
     def _load_experiment_id_map(self, experiment_id_map_log):
