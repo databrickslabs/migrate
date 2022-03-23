@@ -14,12 +14,89 @@ from thread_safe_writer import ThreadSafeWriter
 import concurrent
 from concurrent.futures import ThreadPoolExecutor
 import sqlite3
+from dbclient import *
 
-class MLFlowClient:
+class MLFlowClient(dbclient):
     def __init__(self, configs, checkpoint_service):
+        super().__init__(configs)
         self._checkpoint_service = checkpoint_service
         self.export_dir = configs['export_dir']
         self.client = MlflowClient(f"databricks://{configs['profile']}")
+
+    def export_mlflow_experiments_acls(self, experiment_log='mlflow_experiments.log', acl_log_file='mlflow_experiments_acls.log', num_parallel=4):
+        """
+        Export all experiments' permissions of already exported experiment objects logged in experiment_log file.
+        :return: writes the result to acl_log_file
+        """
+        experiments_logfile = self.export_dir + experiment_log
+        acl_log_file_writer = ThreadSafeWriter(self.export_dir + acl_log_file, 'a')
+        error_logger = logging_utils.get_error_logger(
+            wmconstants.WM_EXPORT, wmconstants.MLFLOW_EXPERIMENT_PERMISSION_OBJECT, self.get_export_dir())
+        checkpoint_key_set = self._checkpoint_service.get_checkpoint_key_set(
+            wmconstants.WM_EXPORT, wmconstants.MLFLOW_EXPERIMENT_PERMISSION_OBJECT)
+
+        start = timer()
+        try:
+            with open(experiments_logfile, 'r') as fp:
+                with ThreadPoolExecutor(max_workers=num_parallel) as executor:
+                    futures = [executor.submit(self._get_mlflow_experiment_acls, acl_log_file_writer, experiment_str, checkpoint_key_set, error_logger) for experiment_str in fp]
+                    concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
+                    propagate_exceptions(futures)
+        finally:
+            acl_log_file_writer.close()
+        end = timer()
+        logging.info("Complete MLflow Experiments Permissions Export Time: " + str(timedelta(seconds=end - start)))
+
+    def import_mlflow_experiments_acls(self, acl_log='mlflow_experiments_acls.log', experiment_id_map_log='mlflow_experiments_id_map.log', num_parallel=4):
+        """
+        Import all experiments' permissions which are already exported in acl_log file. Finds out the new_experiment_id
+        by looking up experiment_id_map_log file.
+
+        While the permissions are persisted, the original creator (tagged as Created By label) is not persisted.
+        The creator will always be set as the caller of this script.
+        """
+        experiment_id_map = self._load_experiment_id_map(self.export_dir + experiment_id_map_log)
+        acl_log_file = self.get_export_dir() + acl_log
+        error_logger = logging_utils.get_error_logger(
+            wmconstants.WM_IMPORT, wmconstants.MLFLOW_EXPERIMENT_PERMISSION_OBJECT, self.get_export_dir())
+        checkpoint_key_set = self._checkpoint_service.get_checkpoint_key_set(
+            wmconstants.WM_IMPORT, wmconstants.MLFLOW_EXPERIMENT_PERMISSION_OBJECT)
+        start = timer()
+        with open(acl_log_file, 'r') as fp:
+            with ThreadPoolExecutor(max_workers=num_parallel) as executor:
+                futures = [executor.submit(self._put_mlflow_experiment_acl, acl_str, experiment_id_map, checkpoint_key_set, error_logger) for acl_str in fp]
+                concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
+                propagate_exceptions(futures)
+        end = timer()
+        logging.info("Complete MLflow Experiments Permissions Import Time: " + str(timedelta(seconds=end - start)))
+
+    def _put_mlflow_experiment_acl(self, acl_str, experiment_id_map, checkpoint_key_set, error_logger):
+        acl_obj = json.loads(acl_str)
+        experiment_id = acl_obj["object_id"].split("/")[-1]
+        if checkpoint_key_set.contains(experiment_id):
+            return
+        new_experiment_id = experiment_id_map[experiment_id]
+        acl_create_args = {'access_control_list': self.build_acl_args(acl_obj['access_control_list'], True)}
+        resp = self.put(f'/permissions/experiments/{new_experiment_id}', acl_create_args)
+        if not logging_utils.log_reponse_error(error_logger, resp):
+            checkpoint_key_set.write(experiment_id)
+
+    def _get_mlflow_experiment_acls(self, acl_log_file_writer, experiment_str, checkpoint_key_set, error_logger):
+        experiment_obj = json.loads(experiment_str)
+        experiment_id = experiment_obj.get('experiment_id')
+        experiment_type = experiment_obj.get('tags').get('mlflow.experimentType')
+        if checkpoint_key_set.contains(experiment_id):
+            return
+        if experiment_type != "MLFLOW_EXPERIMENT":
+            logging.info(f"Experiment {experiment_id}'s experimentType is {experiment_type}. Only "
+                         "MLFLOW_EXPERIMENT type's permissions are exported. Skipping...")
+            return
+        logging.info(f"Exporting ACLs for experiment_id: {experiment_id}.")
+        perms = self.get(f"/permissions/experiments/{experiment_id}", do_not_throw=True)
+        if not logging_utils.log_reponse_error(error_logger, perms):
+            acl_log_file_writer.write(json.dumps(perms) + '\n')
+            checkpoint_key_set.write(experiment_id)
+            logging.info(f"Successfully exported ACLs for experiment_id: {experiment_id}.")
 
     def export_mlflow_runs(self, log_sql_file='mlflow_runs.db', experiment_log='mlflow_experiments.log', num_parallel=4):
         """
@@ -134,7 +211,7 @@ class MLFlowClient:
             with open(experiments_logfile, 'r') as fp:
                 with ThreadPoolExecutor(max_workers=num_parallel) as executor:
                     futures = [executor.submit(self._create_experiment, experiment_str, id_map_thread_safe_writer, mlflow_experiments_checkpointer, error_logger) for experiment_str in fp]
-                    concurrent.futures.wait(futures)
+                    concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
                     propagate_exceptions(futures)
         finally:
             id_map_thread_safe_writer.close()

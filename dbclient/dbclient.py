@@ -182,7 +182,7 @@ class dbclient:
             self._local.session = session
         return self._local.session
 
-    def get(self, endpoint, json_params=None, version='2.0', print_json=False):
+    def get(self, endpoint, json_params=None, version='2.0', print_json=False, do_not_throw=False):
         if version:
             ver = version
         while True:
@@ -198,7 +198,7 @@ class dbclient:
                 continue
 
             http_status_code = raw_results.status_code
-            if http_status_code in dbclient.http_error_codes:
+            if http_status_code in dbclient.http_error_codes and not do_not_throw:
                 raise Exception("Error: GET request failed with code {}\n{}".format(http_status_code, raw_results.text))
             results = raw_results.json()
             if logging_utils.check_error(results):
@@ -298,7 +298,12 @@ class dbclient:
         acls_list = []
         current_owner = ''
         for member in full_acl_list:
-            permissions = member.get('all_permissions')[0].get('permission_level')
+            all_permissions = member.get('all_permissions')[0]
+
+            if all_permissions.get('inherited'):
+                logging.info("Skipping inherited permissions..")
+                continue
+            permissions = all_permissions.get('permission_level')
             if 'user_name' in member:
                 acls_list.append({'user_name': member.get('user_name'),
                                   'permission_level': permissions})
