@@ -239,6 +239,13 @@ def main():
         failed_task_log = logging_utils.get_error_log_file(wmconstants.WM_IMPORT, wmconstants.MLFLOW_EXPERIMENT_OBJECT, client_config['export_dir'])
         logging_utils.raise_if_failed_task_file_exists(failed_task_log, "MLflow Runs Import.")
 
+    if args.mlflow_experiments_permissions:
+        print("Importing MLflow experiment permissions.")
+        mlflow_c = MLFlowClient(client_config, checkpoint_service)
+        mlflow_c.import_mlflow_experiments_acls(num_parallel=args.num_parallel)
+        failed_task_log = logging_utils.get_error_log_file(wmconstants.WM_IMPORT, wmconstants.MLFLOW_EXPERIMENT_PERMISSION_OBJECT, client_config['export_dir'])
+        logging_utils.raise_if_failed_task_file_exists(failed_task_log, "MLflow Experiments Permissions Import.")
+
     if args.mlflow_runs:
         print("Importing MLflow runs.")
         mlflow_c = MLFlowClient(client_config, checkpoint_service)
@@ -248,6 +255,7 @@ def main():
         mlflow_c.import_mlflow_runs(src_client_config, num_parallel=args.num_parallel)
         failed_task_log = logging_utils.get_error_log_file(wmconstants.WM_IMPORT, wmconstants.MLFLOW_RUN_OBJECT, client_config['export_dir'])
         logging_utils.raise_if_failed_task_file_exists(failed_task_log, "MLflow Runs Import.")
+
 
     if args.get_repair_log:
         print("Finding partitioned tables to repair at {0}".format(now))
