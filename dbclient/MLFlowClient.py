@@ -188,14 +188,16 @@ class MLFlowClient:
             return None
         return artifact_location
 
-    def import_mlflow_runs(self, log_sql_file='mlflow_runs.db', experiment_id_map_log='mlflow_experiments_id_map.log', run_id_map_log='mlflow_runs_id_map.log', num_parallel=4):
+    def import_mlflow_runs(self, src_client_config, log_sql_file='mlflow_runs.db', experiment_id_map_log='mlflow_experiments_id_map.log', run_id_map_log='mlflow_runs_id_map.log', ml_run_artifacts_dir='ml_run_artifacts/', num_parallel=4):
         """
         Imports the Mlflow run objects. This can be run only after import_mlflow_experiments is complete.
         Input files are mlflow_runs.db, mlflow_experiments_id_map.log
         Outputs mlflow_runs_id_map.log which has the map of old_run_id -> new_run_id after imports.
         """
+        src_client = MlflowClient(f"databricks://{src_client_config['profile']}")
         experiment_id_map = self._load_experiment_id_map(self.export_dir + experiment_id_map_log)
         mlflow_runs_file = self.export_dir + log_sql_file
+        os.makedirs(self.export_dir + ml_run_artifacts_dir, exist_ok=True)
 
         error_logger = logging_utils.get_error_logger(
             wmconstants.WM_IMPORT, wmconstants.MLFLOW_RUN_OBJECT, self.export_dir
@@ -220,7 +222,7 @@ class MLFlowClient:
                 # run_id = run[0]
                 # start_time = run[1]
                 # run_obj = json.loads(run[2])
-                futures = [executor.submit(self._create_run_and_log, mlflow_runs_file, run[0], run[1], json.loads(run[2]), experiment_id_map, error_logger, mlflow_runs_checkpointer) for run in runs]
+                futures = [executor.submit(self._create_run_and_log, src_client, mlflow_runs_file, run[0], run[1], json.loads(run[2]), experiment_id_map, self.export_dir + ml_run_artifacts_dir, error_logger, mlflow_runs_checkpointer) for run in runs]
                 concurrent.futures.wait(futures)
                 propagate_exceptions(futures)
 
@@ -230,7 +232,7 @@ class MLFlowClient:
         end = timer()
         logging.info("Complete MLflow Runs Import Time: " + str(timedelta(end - start)))
 
-    def _create_run_and_log(self, mlflow_runs_file, run_id, start_time, run_obj, experiment_id_map, error_logger, checkpointer):
+    def _create_run_and_log(self, src_client, mlflow_runs_file, run_id, start_time, run_obj, experiment_id_map, ml_run_artifacts_dir, error_logger, checkpointer):
         """
         If "mlflow.parentRunId" does not exist in tags, create the run and then log metrics, params, and tags
         If exists in tags, recursively call _create_run on the parent run object.
@@ -261,21 +263,21 @@ class MLFlowClient:
             parent_start_time = parent_run[1]
             parent_run_obj = json.loads(parent_run[2])
 
-            new_parent_run_id = self._create_run_and_log(mlflow_runs_file, parent_run_id, parent_start_time, parent_run_obj, experiment_id_map, error_logger, checkpointer)
+            new_parent_run_id = self._create_run_and_log(src_client, mlflow_runs_file, parent_run_id, parent_start_time, parent_run_obj, experiment_id_map, ml_run_artifacts_dir, error_logger, checkpointer)
             if not new_parent_run_id:
                 message = (f"Run: {run_id} failed to be imported as its parent run failed to be imported.")
                 error_logger.error(message)
                 return None
             tags["mlflow.parentRunId"] = new_parent_run_id
 
-        new_run_id = self._create_run_and_log_helper(imported_experiment_id, start_time, metrics, params, tags)
+        new_run_id = self._create_run_and_log_helper(src_client, imported_experiment_id, run_id, start_time, metrics, params, tags, ml_run_artifacts_dir)
         logging.info(f"Successfully imported run: {run_id} into target workspace as {new_run_id}")
         checkpointer.write(run_id, new_run_id)
         return new_run_id
 
-    def _create_run_and_log_helper(self, experiment_id, start_time, metrics, params, tags):
+    def _create_run_and_log_helper(self, src_client, experiment_id, run_id, start_time, metrics, params, tags, ml_run_artifacts_dir):
         run = self.client.create_run(experiment_id, start_time=start_time, tags={})
-        run_id = run.info.run_id
+        new_run_id = run.info.run_id
         metrics_obj = [Metric(key, val, start_time, step=0) for key, val in metrics.items()]
         params_obj = [Param(key, val) for key, val in params.items()]
 
@@ -290,8 +292,27 @@ class MLFlowClient:
         ]
         tags_obj = [RunTag(key, val) for key, val in tags.items() if key not in DENY_LIST_TAGS]
 
-        self.client.log_batch(run_id, metrics_obj, params_obj, tags_obj)
+        self.client.log_batch(new_run_id, metrics_obj, params_obj, tags_obj)
+        self.download_and_upload_run_artifacts(src_client, run_id, new_run_id, ml_run_artifacts_dir)
+
         return run_id
+
+    def download_and_upload_run_artifacts(self, src_client, old_run_id, new_run_id, ml_run_artifacts_dir):
+        # Download artifacts into temp directory: ml_run_artifacts/$run_id_temp and then upload to the destination
+        # workspace. After uploading, remove the temp dir along with the artifacts.
+        temp_artifact_dir = ml_run_artifacts_dir + old_run_id + "_temp/"
+        shutil.rmtree(temp_artifact_dir, ignore_errors=True)
+        os.makedirs(temp_artifact_dir)
+        artifacts = src_client.list_artifacts(old_run_id)
+        if len(artifacts) == 0:
+            return
+
+        logging.info(f"Downloading run artifacts for run_id: {old_run_id}")
+        src_client.download_artifacts(old_run_id, "", temp_artifact_dir)
+
+        logging.info(f"Uploading run artifacts for run_id: {old_run_id} -> {new_run_id}")
+        self.client.log_artifacts(new_run_id, temp_artifact_dir)
+        shutil.rmtree(temp_artifact_dir)
 
     def _load_experiment_id_map(self, experiment_id_map_log):
         id_map = {}
