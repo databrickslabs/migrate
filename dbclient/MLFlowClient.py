@@ -229,7 +229,7 @@ class MLFlowClient:
                 # start_time = run[1]
                 # run_obj = json.loads(run[2])
                 futures = [executor.submit(self._create_run_and_log, src_client, mlflow_runs_file, run[0], run[1], json.loads(run[2]), experiment_id_map, self.export_dir + ml_run_artifacts_dir, error_logger, mlflow_runs_checkpointer, mlflow_runs_steps_checkpointer) for run in runs]
-                concurrent.futures.wait(futures)
+                concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
                 propagate_exceptions(futures)
 
             runs = cur.fetchmany(10000)
@@ -239,13 +239,26 @@ class MLFlowClient:
         logging.info("Complete MLflow Runs Import Time: " + str(timedelta(end - start)))
 
     def _create_run_and_log(self, src_client, mlflow_runs_file, run_id, start_time, run_obj, experiment_id_map, ml_run_artifacts_dir, error_logger, checkpointer, steps_checkpointer):
+        if checkpointer.check_contains_otherwise_mark_in_use(run_id):
+            return checkpointer.get(run_id)
+        try:
+            self._create_run_and_log_after_checkpointer(src_client, mlflow_runs_file, run_id, start_time, run_obj, experiment_id_map, ml_run_artifacts_dir, error_logger, checkpointer, steps_checkpointer)
+        # Upon failure, always release the lock on the run_id key in checkpointer to avoid blocking other threads.
+        except RestException as error:
+            logging.error(f"Importing runs failed for run_id: {run_id}. Logging it to the error file...")
+            error_logger.error(error.json)
+            checkpointer.remove(run_id)
+            return None
+        except Exception as error:
+            checkpointer.remove(run_id)
+            raise error
+
+    def _create_run_and_log_after_checkpointer(self, src_client, mlflow_runs_file, run_id, start_time, run_obj, experiment_id_map, ml_run_artifacts_dir, error_logger, checkpointer, steps_checkpointer):
         """
         If "mlflow.parentRunId" does not exist in tags, create the run and then log metrics, params, and tags
         If exists in tags, recursively call _create_run on the parent run object.
         :return: id of the newly imported run
         """
-        if checkpointer.check_contains_otherwise_mark_in_use(run_id):
-            return checkpointer.get(run_id)
         experiment_id = run_obj['info']['experiment_id']
         if experiment_id not in experiment_id_map:
             message = (f"Run: {run_id} originally belongs to experiment_id {experiment_id}, but {experiment_id} "
@@ -273,30 +286,26 @@ class MLFlowClient:
             if not new_parent_run_id:
                 message = (f"Run: {run_id} failed to be imported as its parent run failed to be imported.")
                 error_logger.error(message)
+                checkpointer.remove(run_id)
                 return None
             tags["mlflow.parentRunId"] = new_parent_run_id
 
-        try:
-            new_run_id = self._create_run_and_log_helper(src_client, imported_experiment_id, run_id, start_time, metrics, params, tags, ml_run_artifacts_dir, steps_checkpointer)
-        except RestException as error:
-            logging.error(f"Importing runs failed for run_id: {run_id}. Logging it to the error file...")
-            error_logger.error(error.json)
-        else:
-            logging.info(f"Successfully imported run: {run_id} into target workspace as {new_run_id}")
-            checkpointer.write(run_id, new_run_id)
-            return new_run_id
+        new_run_id = self._create_run_and_log_helper(src_client, imported_experiment_id, run_id, start_time, metrics, params, tags, ml_run_artifacts_dir, steps_checkpointer)
+
+        logging.info(f"Successfully imported run: {run_id} into target workspace as {new_run_id}")
+        checkpointer.write(run_id, new_run_id)
+        return new_run_id
 
     def _create_run_and_log_helper(self, src_client, experiment_id, run_id, start_time, metrics, params, tags, ml_run_artifacts_dir, steps_checkpointer):
         creation_checkpoint_key = run_id + "_create_run"
         log_batch_checkpoint_key = run_id + "_log_batch"
         run_artifacts_checkpoint_key = run_id + "_artifacts"
 
-        # if not steps_checkpointer.contains(creation_checkpoint_key):
-        run = self.client.create_run(experiment_id, start_time=start_time, tags={})
-            # steps_checkpointer.write(creation_checkpoint_key, run.info.run_id)
+        if not steps_checkpointer.contains(creation_checkpoint_key):
+            run = self.client.create_run(experiment_id, start_time=start_time, tags={})
+            steps_checkpointer.write(creation_checkpoint_key, run.info.run_id)
 
-        # new_run_id = steps_checkpointer.get(run_id)
-        new_run_id = run.info.run_id
+        new_run_id = steps_checkpointer.get(creation_checkpoint_key)
         metrics_obj = [Metric(key, val, start_time, step=0) for key, val in metrics.items()]
         params_obj = [Param(key, val) for key, val in params.items()]
 
@@ -311,13 +320,13 @@ class MLFlowClient:
         ]
         tags_obj = [RunTag(key, val) for key, val in tags.items() if key not in DENY_LIST_TAGS]
 
-        # if not steps_checkpointer.contains(log_batch_checkpoint_key):
-        self.client.log_batch(new_run_id, metrics_obj, params_obj, tags_obj)
-            # steps_checkpointer.write(log_batch_checkpoint_key, new_run_id)
+        if not steps_checkpointer.contains(log_batch_checkpoint_key):
+            self.client.log_batch(new_run_id, metrics_obj, params_obj, tags_obj)
+            steps_checkpointer.write(log_batch_checkpoint_key, new_run_id)
 
-        # if not steps_checkpointer.contains(run_artifacts_checkpoint_key):
-        self._download_and_upload_run_artifacts(src_client, run_id, new_run_id, ml_run_artifacts_dir)
-            # steps_checkpointer.write(run_artifacts_checkpoint_key, new_run_id)
+        if not steps_checkpointer.contains(run_artifacts_checkpoint_key):
+            self._download_and_upload_run_artifacts(src_client, run_id, new_run_id, ml_run_artifacts_dir)
+            steps_checkpointer.write(run_artifacts_checkpoint_key, new_run_id)
 
         return new_run_id
 
@@ -336,7 +345,6 @@ class MLFlowClient:
 
         logging.info(f"Uploading run artifacts for run_id: {old_run_id} -> {new_run_id}")
         self.client.log_artifacts(new_run_id, temp_artifact_dir)
-        error_logger.error(error.json)
         shutil.rmtree(temp_artifact_dir)
 
     def _load_experiment_id_map(self, experiment_id_map_log):

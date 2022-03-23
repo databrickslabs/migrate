@@ -105,9 +105,9 @@ class CheckpointKeyMap(AbstractCheckpointKeyMap):
         if result == in_use_str:
             return False
         else:
-            while "IN_USE_BY" in self._checkpoint_key_map[key]:
+            while key in self._checkpoint_key_map and "IN_USE_BY" in self._checkpoint_key_map[key]:
                 logging.info(f"Waiting for {key} result to be available..")
-                time.sleep(2)
+                time.sleep(5)
             return self.contains(key)
 
     def contains(self, key):
@@ -115,6 +115,10 @@ class CheckpointKeyMap(AbstractCheckpointKeyMap):
         if exists:
             logging.info(f"{key} found in checkpoint")
         return exists
+
+    def remove(self, key):
+        if key in self._checkpoint_key_map:
+            self._checkpoint_key_map.pop(key)
 
     def get(self, key):
         return self._checkpoint_key_map[key]
