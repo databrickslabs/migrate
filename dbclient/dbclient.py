@@ -300,7 +300,8 @@ class dbclient:
         for member in full_acl_list:
             all_permissions = member.get('all_permissions')[0]
 
-            if all_permissions.get('inheritance'):
+            if all_permissions.get('inherited'):
+                logging.info("Skipping inherited permissions..")
                 continue
             permissions = all_permissions.get('permission_level')
             if 'user_name' in member:
