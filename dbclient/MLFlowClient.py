@@ -162,6 +162,11 @@ class MLFlowClient:
                     new_id = self.client.get_experiment_by_name(name).experiment_id
                     logging.info(f"Successfully retrieved an id: {new_id} for experiment: {name} in the target workspace.")
                     # save id -> new_id
+                    if dict_tags and dict_tags.get("mlflow.experimentType") == "NOTEBOOK":
+                        for (key, value) in self._cleanse_tags(dict_tags).items():
+                            logging.info(f"Setting tags for experiment: {name} since it's a notebook experiment.")
+                            self.client.set_experiment_tag(new_id, key, value)
+                            logging.info(f"Successfully set the tags for experiment: {name}.")
                     id_map_writer.write(json.dumps({"old_id": id, "new_id": new_id}) + "\n")
                     checkpointer.write(id)
                 except RestException as error:
@@ -187,6 +192,9 @@ class MLFlowClient:
                 artifact_location.startswith("dbfs:/databricks/mlflow/"):
             return None
         return artifact_location
+
+    def _cleanse_tags(self, tags_map):
+        return dict(filter(lambda key_value: not key_value[0].startswith("mlflow."), tags_map.items()))
 
     def import_mlflow_runs(self, src_client_config, log_sql_file='mlflow_runs.db', experiment_id_map_log='mlflow_experiments_id_map.log', run_id_map_log='mlflow_runs_id_map.log', ml_run_artifacts_dir='ml_run_artifacts/', num_parallel=4):
         """
