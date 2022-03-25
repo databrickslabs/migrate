@@ -1,6 +1,6 @@
 import os
 import json
-from datetime import timedelta
+from datetime import timedelta, datetime
 from timeit import default_timer as timer
 import logging
 import logging_utils
@@ -98,7 +98,7 @@ class MLFlowClient(dbclient):
             checkpoint_key_set.write(experiment_id)
             logging.info(f"Successfully exported ACLs for experiment_id: {experiment_id}.")
 
-    def export_mlflow_runs(self, log_sql_file='mlflow_runs.db', experiment_log='mlflow_experiments.log', num_parallel=4):
+    def export_mlflow_runs(self, start_date, log_sql_file='mlflow_runs.db', experiment_log='mlflow_experiments.log', num_parallel=4):
         """
         Exports the Mlflow run objects. This can be run only after export_mlflow_experiments is complete.
         Unlike other objects, we save the data into sqlite tables, given the possible scale of runs objects.
@@ -107,7 +107,6 @@ class MLFlowClient(dbclient):
         mlflow_runs_checkpointer = self._checkpoint_service.get_checkpoint_key_set(
             wmconstants.WM_EXPORT, wmconstants.MLFLOW_RUNS
         )
-
         start = timer()
         con = sqlite3.connect(self.export_dir + log_sql_file)
         with con:
@@ -119,9 +118,11 @@ class MLFlowClient(dbclient):
         error_logger = logging_utils.get_error_logger(
             wmconstants.WM_EXPORT, wmconstants.MLFLOW_RUN_OBJECT, self.export_dir
         )
+        start_date = start_date if start_date else datetime.now() - timedelta(days=30)
+        start_time_epoch_ms = start_date.timestamp() * 1000
         with open(experiments_logfile, 'r') as fp:
             with ThreadPoolExecutor(max_workers=num_parallel) as executor:
-                futures = [executor.submit(self._export_runs_in_an_experiment, log_sql_file, experiment_str, mlflow_runs_checkpointer, error_logger) for experiment_str in fp]
+                futures = [executor.submit(self._export_runs_in_an_experiment, start_time_epoch_ms, log_sql_file, experiment_str, mlflow_runs_checkpointer, error_logger) for experiment_str in fp]
                 results = concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
                 for result in results.done:
                     if result.exception() is not None:
@@ -130,7 +131,7 @@ class MLFlowClient(dbclient):
         end = timer()
         logging.info("Complete MLflow Runs Export Time: " + str(timedelta(seconds=end - start)))
 
-    def _export_runs_in_an_experiment(self, log_sql_file, experiment_str, checkpointer, error_logger):
+    def _export_runs_in_an_experiment(self, start_time_in_ms, log_sql_file, experiment_str, checkpointer, error_logger):
         experiment_id = json.loads(experiment_str).get('experiment_id')
         logging.info("Working on runs for experiment_id: " + experiment_id)
         # We checkpoint by experiment_id
@@ -139,11 +140,12 @@ class MLFlowClient(dbclient):
         page_continue = True
         token = None
         is_there_exception = False
+
         # Unlike experiments which usually don't have too much number of data,
         # we must do page_token handling for runs.
         while page_continue:
             try:
-                runs = self.client.search_runs(experiment_id, run_view_type=ViewType.ACTIVE_ONLY, max_results=3000, page_token=token)
+                runs = self.client.search_runs(experiment_id, filter_string=f"attributes.start_time >= {start_time_in_ms}", run_view_type=ViewType.ACTIVE_ONLY, max_results=3000, page_token=token)
             except RestException as error:
                 logging.error(f"search runs failed for id: {experiment_id}. Logging it to error file...")
                 error_logger.error(error.json)
