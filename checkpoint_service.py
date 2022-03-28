@@ -98,6 +98,9 @@ class CheckpointKeyMap(AbstractCheckpointKeyMap):
            if the value is not "IN_USE_BY_XXX" return True (self.contains(key))
 
         This method is thread-safe since map.setdefault(key, value) is thread-safe
+        The thread that calls this method and gets False (meaning, the value wasn't there and thus this thread is using
+        this key) must set the value of this key subsequently to make sure other threads do not wait for this key
+        forever.
         """
         in_use_str = f"IN_USE_BY_{threading.get_ident()}"
         # setdefault is thread safe, so only one thread can successfully set the value for the key.
@@ -154,7 +157,7 @@ class DisabledCheckpointKeyMap(AbstractCheckpointKeyMap):
     def contains(self, key):
         return False
 
-    def check_contains_or_mark_in_use(self, key):
+    def check_contains_otherwise_mark_in_use(self, key):
         raise NotImplementedError("Checkpoint is disabled")
 
     def get(self, key):

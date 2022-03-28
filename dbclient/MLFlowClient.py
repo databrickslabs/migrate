@@ -344,16 +344,18 @@ class MLFlowClient:
         temp_artifact_dir = ml_run_artifacts_dir + old_run_id + "_temp/"
         shutil.rmtree(temp_artifact_dir, ignore_errors=True)
         os.makedirs(temp_artifact_dir)
-        artifacts = src_client.list_artifacts(old_run_id)
-        if len(artifacts) == 0:
-            return
+        try:
+            artifacts = src_client.list_artifacts(old_run_id)
+            if len(artifacts) == 0:
+                return
 
-        logging.info(f"Downloading run artifacts for run_id: {old_run_id}")
-        src_client.download_artifacts(old_run_id, "", temp_artifact_dir)
+            logging.info(f"Downloading run artifacts for run_id: {old_run_id}")
+            src_client.download_artifacts(old_run_id, "", temp_artifact_dir)
 
-        logging.info(f"Uploading run artifacts for run_id: {old_run_id} -> {new_run_id}")
-        self.client.log_artifacts(new_run_id, temp_artifact_dir)
-        shutil.rmtree(temp_artifact_dir)
+            logging.info(f"Uploading run artifacts for run_id: {old_run_id} -> {new_run_id}")
+            self.client.log_artifacts(new_run_id, temp_artifact_dir)
+        finally:
+            shutil.rmtree(temp_artifact_dir)
 
     def _load_experiment_id_map(self, experiment_id_map_log):
         id_map = {}
