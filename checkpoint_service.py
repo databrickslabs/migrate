@@ -1,6 +1,9 @@
 import os
 from abc import ABC, abstractmethod
 import logging
+import json
+import threading
+import time
 from thread_safe_writer import ThreadSafeWriter
 
 class AbstractCheckpointKeySet(ABC):
@@ -9,6 +12,18 @@ class AbstractCheckpointKeySet(ABC):
     @abstractmethod
     def write(self, key):
         """Writes key into checkpoint file."""
+        pass
+
+    @abstractmethod
+    def contains(self, key):
+        """Checks if key exists in checkpoint"""
+        pass
+
+class AbstractCheckpointKeyMap(ABC):
+    """Abstract base class for checkpoint read and write."""
+    @abstractmethod
+    def write(self, key):
+        """Writes key and value into checkpoint file."""
         pass
 
     @abstractmethod
@@ -56,6 +71,75 @@ class CheckpointKeySet(AbstractCheckpointKeySet):
     def __del__(self):
         self._checkpoint_file_append_fp.close()
 
+
+class CheckpointKeyMap(AbstractCheckpointKeyMap):
+    """Deals with checkpoint read and write. Unlike CheckpointKeySet, it also saves the value.
+    Useful when the corresponding value is needed.
+    """
+    def __init__(self, checkpoint_file):
+        """
+        :param checkpoint_file: file to read / write object keys for checkpointing
+        """
+        self._checkpoint_file = checkpoint_file
+        self._checkpoint_key_map = {}
+        self._checkpoint_file_append_fp = ThreadSafeWriter(checkpoint_file, 'a')
+        self._restore_from_checkpoint_file()
+
+    def write(self, key, value):
+        if key not in self._checkpoint_key_map or "IN_USE_BY" in self._checkpoint_key_map[key]:
+            self._checkpoint_key_map[key] = value
+            self._checkpoint_file_append_fp.write(json.dumps({"key": str(key), "value": str(value)}) + "\n")
+
+    def check_contains_otherwise_mark_in_use(self, key):
+        """
+        If the key_map does not have the key value yet, mark the key to be IN_USE_BY_$THREAD_ID, and return False.
+        If the key_map has the key value,
+           if the value is "IN_USE_BY_XXX" wait for the result to be ready and return True (self.contains(key))
+           if the value is not "IN_USE_BY_XXX" return True (self.contains(key))
+
+        This method is thread-safe since map.setdefault(key, value) is thread-safe
+        The thread that calls this method and gets False (meaning, the value wasn't there and thus this thread is using
+        this key) must set the value of this key subsequently to make sure other threads do not wait for this key
+        forever.
+        """
+        in_use_str = f"IN_USE_BY_{threading.get_ident()}"
+        # setdefault is thread safe, so only one thread can successfully set the value for the key.
+        result = self._checkpoint_key_map.setdefault(key, in_use_str)
+        if result == in_use_str:
+            return False
+        else:
+            while key in self._checkpoint_key_map and "IN_USE_BY" in self._checkpoint_key_map[key]:
+                logging.info(f"Waiting for {key} result to be available..")
+                time.sleep(5)
+            return self.contains(key)
+
+    def contains(self, key):
+        exists = key in self._checkpoint_key_map
+        if exists:
+            logging.info(f"{key} found in checkpoint")
+        return exists
+
+    def remove(self, key):
+        if key in self._checkpoint_key_map:
+            self._checkpoint_key_map.pop(key)
+
+    def get(self, key):
+        return self._checkpoint_key_map[key]
+
+    def get_file_path(self):
+        return self._checkpoint_file
+
+    def _restore_from_checkpoint_file(self):
+        if os.path.exists(self._checkpoint_file):
+            with open(self._checkpoint_file, 'r') as read_fp:
+                for single_key_value_map_str in read_fp:
+                    single_key_value_map = json.loads(single_key_value_map_str)
+                    self._checkpoint_key_map[single_key_value_map["key"]] = single_key_value_map["value"]
+
+    def __del__(self):
+        self._checkpoint_file_append_fp.close()
+
+
 class DisabledCheckpointKeySet(AbstractCheckpointKeySet):
     """Class used to denote disabled checkpointing."""
 
@@ -64,6 +148,23 @@ class DisabledCheckpointKeySet(AbstractCheckpointKeySet):
 
     def contains(self, key):
         return False
+
+
+class DisabledCheckpointKeyMap(AbstractCheckpointKeyMap):
+    def write(self, key, value):
+        raise NotImplementedError("Checkpoint is disabled")
+
+    def contains(self, key):
+        return False
+
+    def check_contains_otherwise_mark_in_use(self, key):
+        raise NotImplementedError("Checkpoint is disabled")
+
+    def get(self, key):
+        raise NotImplementedError("Checkpoint is disabled")
+
+    def get_file_path(self):
+        raise NotImplementedError("Checkpoint is disabled")
 
 
 class CheckpointService():
@@ -88,3 +189,9 @@ class CheckpointService():
         else:
             return DisabledCheckpointKeySet()
 
+    def get_checkpoint_key_map(self, action_type, object_type):
+        if self._checkpoint_enabled:
+            checkpoint_file = f"{self._checkpoint_dir}/{action_type}_{object_type}.log"
+            return CheckpointKeyMap(checkpoint_file)
+        else:
+            return DisabledCheckpointKeyMap()

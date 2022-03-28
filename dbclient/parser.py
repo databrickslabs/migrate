@@ -129,7 +129,7 @@ def get_export_parser():
     parser.add_argument('--mlflow-experiments', action='store_true',
                         help='log all the mlflow experiments')
 
-    # get all mlflow experiments
+    # get all mlflow runs
     parser.add_argument('--mlflow-runs', action='store_true',
                         help='log all the mlflow runs')
 
@@ -317,7 +317,11 @@ def get_import_parser():
 
     # import all mlflow experiments
     parser.add_argument('--mlflow-experiments', action='store_true',
-                        help='log all the mlflow experiments')
+                        help='Import all the mlflow experiments')
+
+    # import all mlflow runs
+    parser.add_argument('--mlflow-runs', action='store_true',
+                        help='Import all the mlflow runs')
 
     # get azure logs
     parser.add_argument('--azure', action='store_true',
@@ -325,6 +329,10 @@ def get_import_parser():
     #
     parser.add_argument('--profile', action='store', default='DEFAULT',
                         help='Profile to parse the credentials')
+
+    # Source workspace's profile. Necessary for importing mlflow runs objects
+    parser.add_argument('--src-profile', action='store', default=None,
+                        help='Source Profile to parse the credentials')
 
     parser.add_argument('--single-user', action='store',
                         help='User\'s email to export their user identity and entitlements')
