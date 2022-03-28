@@ -321,7 +321,5 @@ def main():
         print("Completed cleanup: " + str(timedelta(seconds=end - start)))
 
 
-
-
 if __name__ == '__main__':
     main()
