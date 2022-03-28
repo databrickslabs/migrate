@@ -129,6 +129,10 @@ def get_export_parser():
     parser.add_argument('--mlflow-experiments', action='store_true',
                         help='log all the mlflow experiments')
 
+    # get all mlflow experiments permissions
+    parser.add_argument('--mlflow-experiments-permissions', action='store_true',
+                        help='log all the mlflow experiments permissions')
+
     # get all mlflow runs
     parser.add_argument('--mlflow-runs', action='store_true',
                         help='log all the mlflow runs')
@@ -318,6 +322,10 @@ def get_import_parser():
     # import all mlflow experiments
     parser.add_argument('--mlflow-experiments', action='store_true',
                         help='Import all the mlflow experiments')
+
+    # import all mlflow experiments permissions
+    parser.add_argument('--mlflow-experiments-permissions', action='store_true',
+                        help='Import all the mlflow experiments permissions')
 
     # import all mlflow runs
     parser.add_argument('--mlflow-runs', action='store_true',

@@ -143,7 +143,6 @@ class MLFlowClientTest(unittest.TestCase):
         assert(dict(run.data.params) == fetched_run_params)
         assert(dict(run.data.tags) == fetched_run_tags)
 
-
     def test_parallel_save_run_data_to_sql(self):
         con = sqlite3.connect(MLFLOW_TEST_FILE, timeout=10)
         with con:
@@ -188,7 +187,6 @@ class MLFlowClientTest(unittest.TestCase):
             assert(dict(runs_dict[id].data.params) == fetched_run_params)
             assert(dict(runs_dict[id].data.tags) == fetched_run_tags)
 
-
     def test_create_run_and_log_thread_safety(self):
         checkpoint_service = MagicMock()
         mlflow_client = MLFlowClient(TEST_CONFIG, checkpoint_service)
@@ -217,5 +215,91 @@ class MLFlowClientTest(unittest.TestCase):
 
         os.remove("dbclient/test/test_ml_run_import_checkpoint_temp.log")
 
-
     # TODO(kevin): Add more unit tests later
+    def test_export_mlflow_experiment_acls_skip(self):
+        checkpoint_service = MagicMock()
+        checkpoint_key_set = MagicMock()
+        checkpoint_key_set.contains = MagicMock(return_value=False)
+        mlflow_client = MLFlowClient(TEST_CONFIG, checkpoint_service)
+        mlflow_client.get = MagicMock()
+        experiment_str = json.dumps({
+            "experiment_id": "experiment_id_test",
+            "tags": {
+                "mlflow.experimentType": "NOTEBOOK"
+            }
+        })
+        mlflow_client._get_mlflow_experiment_acls(None, experiment_str, checkpoint_key_set, None)
+        # because experimentType != MLFLOW_EXPERIMENT, it doesn't export permissions
+        assert(mlflow_client.get.call_count == 0)
+
+    def test_export_mlflow_experiment_acls(self):
+        checkpoint_service = MagicMock()
+        checkpoint_key_set = MagicMock()
+        checkpoint_key_set.contains = MagicMock(return_value=False)
+        mlflow_client = MLFlowClient(TEST_CONFIG, checkpoint_service)
+        experiment_id = "experiment_id_test_2"
+        experiment_str2 = json.dumps({
+            "experiment_id": experiment_id,
+            "tags": {
+                "mlflow.experimentType": "MLFLOW_EXPERIMENT"
+            }
+        })
+        perm_response = {
+            "object_id": experiment_id,
+            "object_type": "mlflowExperiment",
+            "http_status_code": 200
+        }
+        mlflow_client.get = MagicMock(return_value=perm_response)
+        error_logger = MagicMock()
+        error_logger.error = MagicMock()
+        acl_log_file_writer = MagicMock()
+        acl_log_file_writer.write = MagicMock()
+        checkpoint_key_set.write = MagicMock()
+        mlflow_client._get_mlflow_experiment_acls(acl_log_file_writer, experiment_str2, checkpoint_key_set, error_logger)
+        acl_log_file_writer.write.assert_called_with(json.dumps(perm_response) + '\n')
+        checkpoint_key_set.write.assert_called_with(experiment_id)
+
+    def test_put_mlflow_experiment_acl(self):
+        checkpoint_service = MagicMock()
+        checkpoint_key_set = MagicMock()
+        checkpoint_key_set.contains = MagicMock(return_value=False)
+        checkpoint_key_set.write = MagicMock()
+        mlflow_client = MLFlowClient(TEST_CONFIG, checkpoint_service)
+        error_logger = MagicMock()
+        error_logger.error = MagicMock()
+
+        experiment_id = "experiment_id_for_test"
+        new_experiment_id = "new_experiment_id_for_test"
+        acl_str = json.dumps({
+            "object_id": f"/experiments/{experiment_id}",
+            "access_control_list": [
+                {
+                    "user_name": "example@email.com",
+                    "all_permissions": [
+                        {
+                            "permission_level": "CAN_EDIT",
+                            "inherited": "false"
+                        }
+                    ]
+                }
+            ]
+        })
+        experiment_id_map = {
+            experiment_id: new_experiment_id
+        }
+        perm_response = {
+            "http_status_code": 200
+        }
+        acl_args = [
+            {
+                'user_name': 'example@email.com',
+                'permission_level': 'CAN_EDIT'
+            }
+        ]
+        mlflow_client.put = MagicMock(return_value=perm_response)
+        mlflow_client.build_acl_args = MagicMock(return_value=acl_args)
+
+        mlflow_client._put_mlflow_experiment_acl(acl_str, experiment_id_map, checkpoint_key_set, error_logger)
+
+        mlflow_client.put.assert_called_with(f'/permissions/experiments/{new_experiment_id}', {'access_control_list': acl_args})
+        checkpoint_key_set.write.assert_called_with(experiment_id)

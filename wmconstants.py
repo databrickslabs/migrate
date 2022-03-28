@@ -14,6 +14,7 @@ INSTANCE_POOL_OBJECT = "instance_pools"
 JOB_OBJECT = "jobs"
 SECRET_OBJECT = "secrets"
 MLFLOW_EXPERIMENT_OBJECT = "mlflow_experiments"
+MLFLOW_EXPERIMENT_PERMISSION_OBJECT = "mlflow_experiments_permissions"
 MLFLOW_RUN_OBJECT = "mlflow_runs"
 # Migration pipeline placeholder constants
 MIGRATION_PIPELINE_OBJECT_TYPE = "tasks"
@@ -37,6 +38,7 @@ JOBS = "jobs"
 METASTORE = "metastore"
 METASTORE_TABLE_ACLS = "metastore_table_acls"
 MLFLOW_EXPERIMENTS = "mlflow_experiments"
+MLFLOW_EXPERIMENT_PERMISSION = "mlflow_experiments_permissions"
 MLFLOW_RUNS = "mlflow_runs"
 
 TASK_OBJECTS = [
