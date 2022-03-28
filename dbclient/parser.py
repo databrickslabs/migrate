@@ -1,4 +1,5 @@
 import argparse
+from datetime import datetime, timedelta
 import configparser
 import wmconstants
 from enum import Enum
@@ -29,6 +30,13 @@ class ValidateSkipTasks(argparse.Action):
                 raise ValueError(f"invalid task {task}. Skipped tasks must come from {valid_tasks}.")
         setattr(args, self.dest, values)
 
+
+def valid_date(s):
+    try:
+        return datetime.strptime(s, "%Y-%m-%d")
+    except ValueError:
+        msg = "not a valid date: {0!r}. It must be in YYYY-MM-DD".format(s)
+        raise argparse.ArgumentTypeError(msg)
 
 def is_azure_creds(creds):
     if 'azuredatabricks.net' in creds['host']:
@@ -234,7 +242,11 @@ def get_export_parser():
     parser.add_argument('--retry-total', type=int, default=3, help='Total number or retries when making calls to Databricks API')
 
     parser.add_argument('--retry-backoff', type=float, default=1.0, help='Backoff factor to apply between retry attempts when making calls to Databricks API')
-    
+
+    parser.add_argument('--start-date', action='store', default=None,
+                        help='start-date format: YYYY-MM-DD. If not provided, defaults to past 30 days. Currently, only used for exporting ML runs objects.',
+                        type=valid_date)
+
     return parser
 
 
@@ -517,4 +529,7 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
 
     parser.add_argument('--retry-backoff', type=float, default=1.0, help='Backoff factor to apply between retry attempts when making calls to Databricks API')
 
+    parser.add_argument('--start-date', action='store', default=None,
+                        help='start-date format: YYYY-MM-DD. If not provided, defaults to past 30 days. Currently, only used for exporting ML runs objects.',
+                        type=valid_date)
     return parser

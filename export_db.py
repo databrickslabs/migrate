@@ -299,7 +299,7 @@ def main():
     if args.mlflow_runs:
         print("Exporting MLflow runs.")
         mlflow_c = MLFlowClient(client_config, checkpoint_service)
-        mlflow_c.export_mlflow_runs(num_parallel=args.num_parallel)
+        mlflow_c.export_mlflow_runs(args.start_date, num_parallel=args.num_parallel)
         failed_task_log = logging_utils.get_error_log_file(wmconstants.WM_EXPORT, wmconstants.MLFLOW_RUN_OBJECT, client_config['export_dir'])
         logging_utils.raise_if_failed_task_file_exists(failed_task_log, "MLflow Runs Export.")
 
