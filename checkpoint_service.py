@@ -178,20 +178,26 @@ class CheckpointService():
         self._checkpoint_dir = configs['export_dir'] + "checkpoint/"
         os.makedirs(self._checkpoint_dir, exist_ok=True)
 
+    def _get_checkpoint_file(self, action_type, object_type):
+        return f"{self._checkpoint_dir}/{action_type}_{object_type}.log"
+
     @property
     def checkpoint_enabled(self):
         return self._checkpoint_enabled
 
+    def checkpoint_file_exists(self, action_type, object_type):
+        return os.path.exists(self._get_checkpoint_file(action_type, object_type))
+
     def get_checkpoint_key_set(self, action_type, object_type):
         if self._checkpoint_enabled:
-            checkpoint_file = f"{self._checkpoint_dir}/{action_type}_{object_type}.log"
+            checkpoint_file = self._get_checkpoint_file(action_type, object_type)
             return CheckpointKeySet(checkpoint_file)
         else:
             return DisabledCheckpointKeySet()
 
     def get_checkpoint_key_map(self, action_type, object_type):
         if self._checkpoint_enabled:
-            checkpoint_file = f"{self._checkpoint_dir}/{action_type}_{object_type}.log"
+            checkpoint_file = self._get_checkpoint_file(action_type, object_type)
             return CheckpointKeyMap(checkpoint_file)
         else:
             return DisabledCheckpointKeyMap()

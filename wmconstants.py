@@ -2,6 +2,7 @@
 USER_OBJECT = "users"
 INSTANCE_PROFILE_OBJECT = "instance_profiles"
 GROUP_OBJECT = "groups"
+WORKSPACE_ITEM_LOG_OBJECT = "workspace_item_log"
 WORKSPACE_NOTEBOOK_PATH_OBJECT = "notebook_paths"
 WORKSPACE_NOTEBOOK_OBJECT = "notebooks"
 WORKSPACE_DIRECTORY_OBJECT = "directories"

@@ -82,7 +82,7 @@ def build_export_pipeline(client_config, checkpoint_service, args) -> Pipeline:
     export_instance_profiles = pipeline.add_task(InstanceProfileExportTask(client_config, checkpoint_service, wmconstants.INSTANCE_PROFILES in skip_tasks))
     export_users = pipeline.add_task(UserExportTask(client_config, wmconstants.USERS in skip_tasks), [export_instance_profiles])
     export_groups = pipeline.add_task(GroupExportTask(client_config, wmconstants.GROUPS in skip_tasks), [export_users])
-    workspace_item_log_export = pipeline.add_task(WorkspaceItemLogExportTask(client_config, checkpoint_service, wmconstants.WORKSPACE_ITEM_LOG in skip_tasks), [export_groups])
+    workspace_item_log_export = pipeline.add_task(WorkspaceItemLogExportTask(client_config, args, checkpoint_service, wmconstants.WORKSPACE_ITEM_LOG in skip_tasks), [export_groups])
     export_workspace_acls = pipeline.add_task(WorkspaceACLExportTask(client_config, checkpoint_service, wmconstants.WORKSPACE_ACLS in skip_tasks), [workspace_item_log_export])
     export_notebooks = pipeline.add_task(NotebookExportTask(client_config, checkpoint_service, wmconstants.NOTEBOOKS in skip_tasks), [workspace_item_log_export])
     export_secrets = pipeline.add_task(SecretExportTask(client_config, args, checkpoint_service, wmconstants.SECRETS in skip_tasks), [export_groups])

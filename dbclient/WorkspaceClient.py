@@ -49,12 +49,15 @@ class WorkspaceClient(dbclient):
         workspace_log_writer = ThreadSafeWriter(self.get_export_dir() + 'user_workspace.log', "a")
         libs_log_writer = ThreadSafeWriter(self.get_export_dir() + 'libraries.log', "a")
         dir_log_writer = ThreadSafeWriter(self.get_export_dir() + 'user_dirs.log', "a")
+        checkpoint_item_log_set = self._checkpoint_service.get_checkpoint_key_set(
+            wmconstants.WM_EXPORT, wmconstants.WORKSPACE_ITEM_LOG_OBJECT
+        )
         try:
             for tld_obj in ls_tld:
                 # obj has 3 keys, object_type, path, object_id
                 tld_path = tld_obj.get('path')
                 log_count = self.log_all_workspace_items(
-                    tld_path, workspace_log_writer, libs_log_writer, dir_log_writer)
+                    tld_path, workspace_log_writer, libs_log_writer, dir_log_writer, checkpoint_item_log_set)
                 logged_nb_count += log_count
         finally:
             workspace_log_writer.close()
@@ -183,9 +186,12 @@ class WorkspaceClient(dbclient):
         workspace_log_writer = ThreadSafeWriter(self.get_export_dir() + 'user_workspace.log', "a")
         libs_log_writer = ThreadSafeWriter(self.get_export_dir() + 'libraries.log', "a")
         dir_log_writer = ThreadSafeWriter(self.get_export_dir() + 'user_dirs.log', "a")
+        checkpoint_item_log_set = self._checkpoint_service.get_checkpoint_key_set(
+            wmconstants.WM_EXPORT, wmconstants.WORKSPACE_ITEM_LOG_OBJECT
+        )
         try:
             num_of_nbs = self.log_all_workspace_items(
-                user_root, workspace_log_writer, libs_log_writer, dir_log_writer)
+                user_root, workspace_log_writer, libs_log_writer, dir_log_writer, checkpoint_item_log_set)
         finally:
             workspace_log_writer.close()
             libs_log_writer.close()
@@ -367,21 +373,26 @@ class WorkspaceClient(dbclient):
         workspace_log = self.get_export_dir() + workspace_log_file
         libs_log = self.get_export_dir() + libs_log_file
         workspace_dir_log = self.get_export_dir() + workspace_dir_log_file
-        if os.path.exists(workspace_log):
-            os.remove(workspace_log)
-        if os.path.exists(workspace_dir_log):
-            os.remove(workspace_dir_log)
-        if os.path.exists(libs_log):
-            os.remove(libs_log)
+        if not self._checkpoint_service.checkpoint_file_exists(wmconstants.WM_EXPORT, wmconstants.WORKSPACE_ITEM_LOG_OBJECT):
+            if os.path.exists(workspace_log):
+                os.remove(workspace_log)
+            if os.path.exists(workspace_dir_log):
+                os.remove(workspace_dir_log)
+            if os.path.exists(libs_log):
+                os.remove(libs_log)
 
-    def log_all_workspace_items_entry(self, ws_path='/', workspace_log_file='user_workspace.log', libs_log_file='libraries.log', dir_log_file='user_dirs.log'):
+    def log_all_workspace_items_entry(self, ws_path='/', workspace_log_file='user_workspace.log', libs_log_file='libraries.log', dir_log_file='user_dirs.log', exclude_prefixes=[]):
+        logging.info(f"Skip all paths with the following prefixes: {exclude_prefixes}")
+
         workspace_log_writer = ThreadSafeWriter(self.get_export_dir() + workspace_log_file, "a")
         libs_log_writer = ThreadSafeWriter(self.get_export_dir() + libs_log_file, "a")
         dir_log_writer = ThreadSafeWriter(self.get_export_dir() + dir_log_file, "a")
-
+        checkpoint_item_log_set = self._checkpoint_service.get_checkpoint_key_set(
+            wmconstants.WM_EXPORT, wmconstants.WORKSPACE_ITEM_LOG_OBJECT
+        )
         try:
             num_nbs = self.log_all_workspace_items(ws_path=ws_path, workspace_log_writer=workspace_log_writer,
-                                        libs_log_writer=libs_log_writer, dir_log_writer=dir_log_writer)
+                                        libs_log_writer=libs_log_writer, dir_log_writer=dir_log_writer, checkpoint_set=checkpoint_item_log_set, exclude_prefixes=exclude_prefixes)
         finally:
             workspace_log_writer.close()
             libs_log_writer.close()
@@ -389,7 +400,7 @@ class WorkspaceClient(dbclient):
 
         return num_nbs
 
-    def log_all_workspace_items(self, ws_path, workspace_log_writer, libs_log_writer, dir_log_writer):
+    def log_all_workspace_items(self, ws_path, workspace_log_writer, libs_log_writer, dir_log_writer, checkpoint_set, exclude_prefixes=[]):
         """
         Loop and log all workspace items to download them at a later time
         :param ws_path: root path to log all the items of the notebook workspace
@@ -419,12 +430,18 @@ class WorkspaceClient(dbclient):
             libraries = self.filter_workspace_items(items, 'LIBRARY')
             for x in notebooks:
                 # notebook objects has path and object_id
-                if self.is_verbose():
-                    logging.info("Saving path: {0}".format(x.get('path')))
-                workspace_log_writer.write(json.dumps(x) + '\n')
+                path = x.get('path')
+                if not checkpoint_set.contains(path) and not path.startswith(tuple(exclude_prefixes)):
+                    if self.is_verbose():
+                        logging.info("Saving path: {0}".format(x.get('path')))
+                    workspace_log_writer.write(json.dumps(x) + '\n')
+                    checkpoint_set.write(path)
                 num_nbs += 1
             for y in libraries:
-                libs_log_writer.write(json.dumps(y) + '\n')
+                path = y.get('path')
+                if not checkpoint_set.contains(path) and not path.startswith(tuple(exclude_prefixes)):
+                    libs_log_writer.write(json.dumps(y) + '\n')
+                    checkpoint_set.write(path)
             # log all directories to export permissions
             if folders:
                 def _recurse_log_all_workspace_items(folder):
@@ -434,12 +451,17 @@ class WorkspaceClient(dbclient):
                         return self.log_all_workspace_items(ws_path=dir_path,
                                                             workspace_log_writer=workspace_log_writer,
                                                             libs_log_writer=libs_log_writer,
-                                                            dir_log_writer=dir_log_writer)
+                                                            dir_log_writer=dir_log_writer,
+                                                            checkpoint_set=checkpoint_set)
 
                 for folder in folders:
-                    num_nbs_plus = _recurse_log_all_workspace_items(folder)
-                    if num_nbs_plus:
-                        num_nbs += num_nbs_plus
+                    path = folder.get('path', None)
+                    if not checkpoint_set.contains(path) and not path.startswith(tuple(exclude_prefixes)):
+                        num_nbs_plus = _recurse_log_all_workspace_items(folder)
+                        checkpoint_set.write(path)
+                        if num_nbs_plus:
+                            num_nbs += num_nbs_plus
+
 
         return num_nbs
 

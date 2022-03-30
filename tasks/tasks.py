@@ -93,16 +93,17 @@ class WorkspaceItemLogExportTask(AbstractTask):
     The behavior is equivalent to `$ python export_db.py --workspace`, which lives in main function of
     export_db.py.
     """
-    def __init__(self, client_config, checkpoint_service, skip=False):
+    def __init__(self, client_config, args, checkpoint_service, skip=False):
         super().__init__("export_workspace_items_log", wmconstants.WM_EXPORT, wmconstants.WORKSPACE_NOTEBOOK_PATH_OBJECT, skip)
         self.client_config = client_config
         self.checkpoint_service = checkpoint_service
+        self.args = args
 
     def run(self):
         ws_c = WorkspaceClient(self.client_config, self.checkpoint_service)
         # log notebooks and libraries
         ws_c.init_workspace_logfiles()
-        num_notebooks = ws_c.log_all_workspace_items_entry()
+        num_notebooks = ws_c.log_all_workspace_items_entry(exclude_prefixes=self.args.exclude_work_item_prefixes)
         print("Total number of notebooks logged: ", num_notebooks)
 
 

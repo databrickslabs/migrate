@@ -247,6 +247,8 @@ def get_export_parser():
                         help='start-date format: YYYY-MM-DD. If not provided, defaults to past 30 days. Currently, only used for exporting ML runs objects.',
                         type=valid_date)
 
+    parser.add_argument('--exclude-work-item-prefixes', nargs='+', type=str, default=[],
+                        help='List of prefixes to skip export for log_all_workspace_items')
     return parser
 
 
@@ -532,4 +534,7 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
     parser.add_argument('--start-date', action='store', default=None,
                         help='start-date format: YYYY-MM-DD. If not provided, defaults to past 30 days. Currently, only used for exporting ML runs objects.',
                         type=valid_date)
+
+    parser.add_argument('--exclude-work-item-prefixes', nargs='+', type=str, default=[],
+                        help='List of prefixes to skip export for log_all_workspace_items')
     return parser
