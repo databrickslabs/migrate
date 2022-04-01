@@ -56,7 +56,7 @@ class SecretsClient(ClustersClient):
                         fp.write(json.dumps(s_json) + '\n')
             except ValueError as error:
                 if "embedded null byte" in str(error):
-                    error_msg = f"{scopes_logfile} has bad name and hence cannot open. Skipping.."
+                    error_msg = f"{scopes_logfile} has bad name and hence cannot open: {str(error)} Skipping.."
                     logging.error(error_msg)
                     error_logger.error(error_msg)
                 else:
@@ -171,8 +171,17 @@ class SecretsClient(ClustersClient):
                         if 'WARNING: skipped' in v:
                             error_logger.error(f"Skipping scope {scope_name} as value is corrupted due to being too large \n")
                             continue
-                        put_secret_args = {'scope': scope_name,
-                                           'key': k,
-                                           'string_value': base64.b64decode(v.encode('ascii')).decode('ascii')}
-                        put_resp = self.post('/secrets/put', put_secret_args)
-                        logging_utils.log_reponse_error(error_logger, put_resp)
+                        try:
+                            put_secret_args = {'scope': scope_name,
+                                               'key': k,
+                                               'string_value': base64.b64decode(v.encode('ascii')).decode('ascii')}
+                            put_resp = self.post('/secrets/put', put_secret_args)
+                            logging_utils.log_reponse_error(error_logger, put_resp)
+                        except Exception as error:
+                            if "Invalid base64-encoded string" in str(error) or 'decode' in str(error) or "padding" in str(error):
+                                error_msg = f"secret_scope: {scope_name} has invalid invalid data characters: {str(error)} skipping.. and logging to error file."
+                                logging.error(error_msg)
+                                error_logger.error(error_msg)
+
+                            else:
+                                raise error

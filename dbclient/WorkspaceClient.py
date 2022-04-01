@@ -547,6 +547,7 @@ class WorkspaceClient(dbclient):
         # the object_type
         object_type = object_acl.get('object_type', None)
         obj_path = object_acl['path']
+        logging.info(f"Working on ACL for path: {obj_path}")
 
         if not checkpoint_key_set.contains(obj_path):
             # We cannot modify '/Shared' directory's ACL
@@ -577,10 +578,12 @@ class WorkspaceClient(dbclient):
                 return
             api_path = '/permissions' + object_id_with_type
             acl_list = object_acl.get('access_control_list', None)
-            api_args = {'access_control_list': self.build_acl_args(acl_list)}
-            resp = self.patch(api_path, api_args)
-            if not logging_utils.log_reponse_error(error_logger, resp):
-                checkpoint_key_set.write(obj_path)
+            access_control_list = self.build_acl_args(acl_list)
+            if access_control_list:
+                api_args = {'access_control_list': access_control_list}
+                resp = self.patch(api_path, api_args)
+                if not logging_utils.log_reponse_error(error_logger, resp):
+                    checkpoint_key_set.write(obj_path)
         return
 
     def import_workspace_acls(self, workspace_log_file='acl_notebooks.log',

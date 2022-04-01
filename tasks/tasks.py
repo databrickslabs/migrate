@@ -89,7 +89,7 @@ class GroupImportTask(AbstractTask):
 
     def run(self):
         scim_c = ScimClient(self.client_config, self.checkpoint_service)
-        scim_c.import_all_groups(num_parallel=self.client_config["num_parallel"])
+        scim_c.import_all_groups()
 
 class WorkspaceItemLogExportTask(AbstractTask):
     """Task that log all workspace items to download them at a later time.
