@@ -43,7 +43,9 @@ class ScimClient(dbclient):
 
     def import_single_user(self, user_email, log_file='single_user.log'):
         single_user_log = self.get_export_dir() + log_file
-        resp = self.import_users(single_user_log, logging.getLogger())
+        checkpoint_users_set = self._checkpoint_service.get_checkpoint_key_set(
+            wmconstants.WM_IMPORT, wmconstants.USER_OBJECT)
+        resp = self.import_users(single_user_log, logging.getLogger(), checkpoint_users_set)
 
     def get_users_from_log(self, users_log='users.log'):
         """
@@ -420,7 +422,7 @@ class ScimClient(dbclient):
                     add_resp = self.patch('/preview/scim/v2/Groups/{0}'.format(group_id), add_members_json)
                     logging_utils.log_reponse_error(error_logger, add_resp)
 
-    def import_users(self, user_log, error_logger):
+    def import_users(self, user_log, error_logger, checkpoint_set):
         # first create the user identities with the required fields
         create_keys = ('emails', 'entitlements', 'displayName', 'name', 'userName')
         if not os.path.exists(user_log):
@@ -429,10 +431,13 @@ class ScimClient(dbclient):
         with open(user_log, 'r') as fp:
             for x in fp:
                 user = json.loads(x)
-                logging.info("Creating user: {0}".format(user['userName']))
-                user_create = {k: user[k] for k in create_keys if k in user}
-                create_resp = self.post('/preview/scim/v2/Users', user_create)
-                logging_utils.log_reponse_error(error_logger, create_resp)
+                user_name = user['userName']
+                if not checkpoint_set.contains(user_name):
+                    logging.info("Creating user: {0}".format(user_name))
+                    user_create = {k: user[k] for k in create_keys if k in user}
+                    create_resp = self.post('/preview/scim/v2/Users', user_create)
+                    if not logging_utils.log_reponse_error(error_logger, create_resp):
+                        checkpoint_set.write(user_name)
 
         with open(self.get_export_dir() + "user_name_to_user_id.log", 'w') as fp:
             fp.write(json.dumps(self.get_user_id_mapping()))
@@ -451,11 +456,13 @@ class ScimClient(dbclient):
         self.import_all_groups(group_log_dir)
 
     def import_all_users(self, user_log_file='users.log'):
+        checkpoint_users_set = self._checkpoint_service.get_checkpoint_key_set(
+            wmconstants.WM_IMPORT, wmconstants.USER_OBJECT)
         user_log = self.get_export_dir() + user_log_file
         user_error_logger = logging_utils.get_error_logger(
             wmconstants.WM_IMPORT, wmconstants.USER_OBJECT, self.get_export_dir())
 
-        self.import_users(user_log, user_error_logger)
+        self.import_users(user_log, user_error_logger, checkpoint_users_set)
         current_user_ids = self.get_user_id_mapping()
         self.log_failed_users(current_user_ids, user_log, user_error_logger)
         # assign the users to IAM roles if on AWS

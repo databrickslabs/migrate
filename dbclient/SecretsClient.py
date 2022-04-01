@@ -44,13 +44,24 @@ class SecretsClient(ClustersClient):
         for scope_json in scopes_list:
             scope_name = scope_json.get('name')
             secrets_list = self.get_secrets(scope_name)
+            if logging_utils.log_reponse_error(error_logger, secrets_list):
+                continue
             scopes_logfile = scopes_dir + scope_name
-            with open(scopes_logfile, 'w') as fp:
-                for secret_json in secrets_list:
-                    secret_name = secret_json.get('key')
-                    b64_value = self.get_secret_value(scope_name, secret_name, cid, ec_id, error_logger)
-                    s_json = {'name': secret_name, 'value': b64_value}
-                    fp.write(json.dumps(s_json) + '\n')
+            try:
+                with open(scopes_logfile, 'w') as fp:
+                    for secret_json in secrets_list:
+                        secret_name = secret_json.get('key')
+                        b64_value = self.get_secret_value(scope_name, secret_name, cid, ec_id, error_logger)
+                        s_json = {'name': secret_name, 'value': b64_value}
+                        fp.write(json.dumps(s_json) + '\n')
+            except ValueError as error:
+                if "embedded null byte" in str(error):
+                    error_msg = f"{scopes_logfile} has bad name and hence cannot open. Skipping.."
+                    logging.error(error_msg)
+                    error_logger.error(error_msg)
+                else:
+                    raise error
+
 
     def log_all_secrets_acls(self, log_name='secret_scopes_acls.log'):
         acls_file = self.get_export_dir() + log_name

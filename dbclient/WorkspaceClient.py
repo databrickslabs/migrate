@@ -267,6 +267,7 @@ class WorkspaceClient(dbclient):
                 resp_upload = self.post(WS_IMPORT, nb_input_args)
                 if self.is_verbose():
                     print(resp_upload)
+
         # import the user's workspace ACLs
         notebook_acl_logs = user_import_dir + f'/{username}/acl_notebooks.log'
         acl_notebooks_error_logger = logging_utils.get_error_logger(
@@ -276,6 +277,7 @@ class WorkspaceClient(dbclient):
             with open(notebook_acl_logs) as nb_acls_fp:
                 for nb_acl_str in nb_acls_fp:
                     self.apply_acl_on_object(nb_acl_str, acl_notebooks_error_logger)
+
         dir_acl_logs = user_import_dir + f'/{username}/acl_directories.log'
         acl_dir_error_logger = logging_utils.get_error_logger(
             wmconstants.WM_IMPORT, wmconstants.WORKSPACE_DIRECTORY_ACL_OBJECT, self.get_export_dir())
@@ -320,6 +322,10 @@ class WorkspaceClient(dbclient):
         :return: return the notebook path that's successfully downloaded
         """
         notebook_path = json.loads(notebook_data).get('path', None).rstrip('\n')
+        # try:
+            # if "jimmy.xu@databricks.com" in notebook_path or "abcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghi" in notebook_path:
+            #     print(f"fkevinnnnn skipping {notebook_path}")
+            #     return {'path': notebook_path}
         if checkpoint_notebook_set.contains(notebook_path):
             return {'path': notebook_path}
         get_args = {'path': notebook_path, 'format': self.get_file_format()}
@@ -348,6 +354,8 @@ class WorkspaceClient(dbclient):
             f.write(base64.b64decode(resp['content']))
         checkpoint_notebook_set.write(notebook_path)
         return {'path': notebook_path}
+        # except Exception:
+        #     return {'path': notebook_path}
 
     def filter_workspace_items(self, item_list, item_type):
         """
@@ -452,7 +460,8 @@ class WorkspaceClient(dbclient):
                                                             workspace_log_writer=workspace_log_writer,
                                                             libs_log_writer=libs_log_writer,
                                                             dir_log_writer=dir_log_writer,
-                                                            checkpoint_set=checkpoint_set)
+                                                            checkpoint_set=checkpoint_set,
+                                                            exclude_prefixes=exclude_prefixes)
 
                 for folder in folders:
                     path = folder.get('path', None)
@@ -532,7 +541,7 @@ class WorkspaceClient(dbclient):
         end = timer()
         logging.info("Complete Directories ACLs Export Time: " + str(timedelta(seconds=end - start)))
 
-    def apply_acl_on_object(self, acl_str, error_logger):
+    def apply_acl_on_object(self, acl_str, error_logger, checkpoint_key_set):
         """
         apply the acl definition to the workspace object
         object_id comes from the export data which contains '/type/id' format for this key
@@ -545,36 +554,40 @@ class WorkspaceClient(dbclient):
         object_type = object_acl.get('object_type', None)
         obj_path = object_acl['path']
 
-        # We cannot modify '/Shared' directory's ACL
-        if obj_path == "/Shared" and object_type == "directory":
-            logging.info("We cannot modify /Shared directory's ACL. Skipping..")
-            return
-
-        if self.is_user_ws_item(obj_path):
-            ws_user = self.get_user(obj_path)
-            if not self.does_user_exist(ws_user):
-                logging.info(f"User workspace does not exist: {obj_path}, skipping ACL")
+        if not checkpoint_key_set.contains(obj_path):
+            # We cannot modify '/Shared' directory's ACL
+            if obj_path == "/Shared" and object_type == "directory":
+                logging.info("We cannot modify /Shared directory's ACL. Skipping..")
+                checkpoint_key_set.write(obj_path)
                 return
-        obj_status = self.get(WS_STATUS, {'path': obj_path})
-        if logging_utils.log_reponse_error(error_logger, obj_status):
-            return
-        logging.info("ws-stat: ", obj_status)
-        current_obj_id = obj_status.get('object_id', None)
-        if not current_obj_id:
-            error_logger.error(f'Object id missing from destination workspace: {obj_status}')
-            return
-        if object_type == 'directory':
-            object_id_with_type = f'/directories/{current_obj_id}'
-        elif object_type == 'notebook':
-            object_id_with_type = f'/notebooks/{current_obj_id}'
-        else:
-            error_logger.error(f'Object for Workspace ACLs is Undefined: {obj_status}')
-            return
-        api_path = '/permissions' + object_id_with_type
-        acl_list = object_acl.get('access_control_list', None)
-        api_args = {'access_control_list': self.build_acl_args(acl_list)}
-        resp = self.patch(api_path, api_args)
-        logging_utils.log_reponse_error(error_logger, resp)
+
+            if self.is_user_ws_item(obj_path):
+                ws_user = self.get_user(obj_path)
+                if not self.does_user_exist(ws_user):
+                    logging.info(f"User workspace does not exist: {obj_path}, skipping ACL")
+                    return
+            obj_status = self.get(WS_STATUS, {'path': obj_path})
+            if logging_utils.log_reponse_error(error_logger, obj_status):
+                return
+            logging.info("ws-stat: ", obj_status)
+            current_obj_id = obj_status.get('object_id', None)
+            if not current_obj_id:
+                error_logger.error(f'Object id missing from destination workspace: {obj_status}')
+                return
+            if object_type == 'directory':
+                object_id_with_type = f'/directories/{current_obj_id}'
+            elif object_type == 'notebook':
+                object_id_with_type = f'/notebooks/{current_obj_id}'
+            else:
+                error_logger.error(f'Object for Workspace ACLs is Undefined: {obj_status}')
+                return
+            api_path = '/permissions' + object_id_with_type
+            acl_list = object_acl.get('access_control_list', None)
+            api_args = {'access_control_list': self.build_acl_args(acl_list)}
+            resp = self.patch(api_path, api_args)
+            if not logging_utils.log_reponse_error(error_logger, resp):
+                checkpoint_key_set.write(obj_path)
+        return
 
     def import_workspace_acls(self, workspace_log_file='acl_notebooks.log',
                               dir_log_file='acl_directories.log', num_parallel=4):
@@ -585,17 +598,23 @@ class WorkspaceClient(dbclient):
         notebook_acl_logs = self.get_export_dir() + workspace_log_file
         acl_notebooks_error_logger = logging_utils.get_error_logger(
             wmconstants.WM_IMPORT, wmconstants.WORKSPACE_NOTEBOOK_ACL_OBJECT, self.get_export_dir())
+
+        checkpoint_notebook_acl_set = self._checkpoint_service.get_checkpoint_key_set(
+            wmconstants.WM_IMPORT, wmconstants.WORKSPACE_NOTEBOOK_ACL_OBJECT)
         with open(notebook_acl_logs) as nb_acls_fp:
             with ThreadPoolExecutor(max_workers=num_parallel) as executor:
-                futures = [executor.submit(self.apply_acl_on_object, nb_acl_str, acl_notebooks_error_logger) for nb_acl_str in nb_acls_fp]
+                futures = [executor.submit(self.apply_acl_on_object, nb_acl_str, acl_notebooks_error_logger, checkpoint_notebook_acl_set) for nb_acl_str in nb_acls_fp]
                 concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
                 propagate_exceptions(futures)
 
         acl_dir_error_logger = logging_utils.get_error_logger(
             wmconstants.WM_IMPORT, wmconstants.WORKSPACE_DIRECTORY_ACL_OBJECT, self.get_export_dir())
+        checkpoint_dir_acl_set = self._checkpoint_service.get_checkpoint_key_set(
+            wmconstants.WM_IMPORT, wmconstants.WORKSPACE_DIRECTORY_ACL_OBJECT)
+
         with open(dir_acl_logs) as dir_acls_fp:
             with ThreadPoolExecutor(max_workers=num_parallel) as executor:
-                futures = [executor.submit(self.apply_acl_on_object, dir_acl_str, acl_dir_error_logger) for dir_acl_str in dir_acls_fp]
+                futures = [executor.submit(self.apply_acl_on_object, dir_acl_str, acl_dir_error_logger, checkpoint_dir_acl_set) for dir_acl_str in dir_acls_fp]
                 concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
                 propagate_exceptions(futures)
         print("Completed import ACLs of Notebooks and Directories")
