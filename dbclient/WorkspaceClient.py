@@ -322,10 +322,6 @@ class WorkspaceClient(dbclient):
         :return: return the notebook path that's successfully downloaded
         """
         notebook_path = json.loads(notebook_data).get('path', None).rstrip('\n')
-        # try:
-            # if "jimmy.xu@databricks.com" in notebook_path or "abcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghi" in notebook_path:
-            #     print(f"fkevinnnnn skipping {notebook_path}")
-            #     return {'path': notebook_path}
         if checkpoint_notebook_set.contains(notebook_path):
             return {'path': notebook_path}
         get_args = {'path': notebook_path, 'format': self.get_file_format()}
@@ -354,8 +350,6 @@ class WorkspaceClient(dbclient):
             f.write(base64.b64decode(resp['content']))
         checkpoint_notebook_set.write(notebook_path)
         return {'path': notebook_path}
-        # except Exception:
-        #     return {'path': notebook_path}
 
     def filter_workspace_items(self, item_list, item_type):
         """

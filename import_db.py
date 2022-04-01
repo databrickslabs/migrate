@@ -32,7 +32,7 @@ def main():
 
     if args.users:
         print("Import all users and groups at {0}".format(now))
-        scim_c = ScimClient(client_config)
+        scim_c = ScimClient(client_config, checkpoint_service)
         if client_config['is_aws']:
             print("Start import of instance profiles first to ensure they exist...")
             cl_c = ClustersClient(client_config, checkpoint_service)
@@ -184,7 +184,7 @@ def main():
     if args.single_user:
         user_email = args.single_user
         print(f"Import user {user_email} at {now}")
-        scim_c = ScimClient(client_config)
+        scim_c = ScimClient(client_config, checkpoint_service)
         start = timer()
         # log all users
         scim_c.import_single_user(user_email)
@@ -208,7 +208,7 @@ def main():
     if args.import_groups:
         print("Importing Groups from logs")
         start = timer()
-        scim_c = ScimClient(client_config)
+        scim_c = ScimClient(client_config, checkpoint_service)
         scim_c.import_all_users_and_groups()
         user_names = scim_c.get_users_from_log()
         print('Export users notebooks:', user_names)

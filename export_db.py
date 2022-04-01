@@ -38,7 +38,7 @@ def main():
 
     if args.users:
         print("Export all users and groups at {0}".format(now))
-        scim_c = ScimClient(client_config)
+        scim_c = ScimClient(client_config, checkpoint_service)
         start = timer()
         # log all users
         scim_c.log_all_users()
@@ -237,7 +237,7 @@ def main():
     if args.single_user:
         user_email = args.single_user
         print(f"Export user {user_email} at {now}")
-        scim_c = ScimClient(client_config)
+        scim_c = ScimClient(client_config, checkpoint_service)
         start = timer()
         # log all users
         scim_c.log_single_user(user_email)
@@ -267,7 +267,7 @@ def main():
         group_name_list = convert_args_to_list(args.export_groups)
         print("Exporting Groups: {0}".format(group_name_list))
         start = timer()
-        scim_c = ScimClient(client_config)
+        scim_c = ScimClient(client_config, checkpoint_service)
         # log notebooks and libraries
         user_names = scim_c.log_groups_from_list(group_name_list)
         print('Export users notebooks:', user_names)
