@@ -585,21 +585,34 @@ class ClustersClient(dbclient):
                 for x in ips:
                     fp.write(json.dumps(x) + '\n')
 
+    @staticmethod
+    def is_excluded_cluster(cluster_name):
+        # model endpoint clusters start with `mlflow-model-` prefix
+        ml_model_pattern = "mlflow-model-"
+        # dlt cluster names start with the `dlt-execution-` prefix
+        dlt_execution_pattern = "dlt-execution-"
+        # job clusters have specific format for legacy single task jobs, job-JOBID-run-RUNID
+        re_expr_old = re.compile("job-\d+-run-\d+$")
+        # job clusters have specific format for mutli-task jobs, job-JOBID-run-RUNID-{TASK_CLUSTER_NAME}
+        re_expr_mtj = re.compile("job-\d+-run-\d+-.+$")
+        if (re_expr_old.match(cluster_name) 
+            or re_expr_mtj.match(cluster_name) 
+            or cluster_name.startswith(ml_model_pattern)
+            or cluster_name.startswith(dlt_execution_pattern)):
+            return True
+        return False
+
     def remove_automated_clusters(self, cluster_list, log_file='skipped_clusters.log'):
         """
         Automated clusters like job clusters or model endpoints should be excluded
         :param cluster_list: list of cluster configurations
         :return: cleaned list with automated clusters removed
         """
-        # model endpoint clusters start with the following
-        ml_model_pattern = "mlflow-model-"
-        # job clusters have specific format, job-JOBID-run-RUNID
-        re_expr = re.compile("job-\d+-run-\d+$")
         clean_cluster_list = []
         with open(self.get_export_dir() + log_file, 'w') as log_fp:
             for cluster in cluster_list:
                 cluster_name = cluster['cluster_name']
-                if re_expr.match(cluster_name) or cluster_name.startswith(ml_model_pattern):
+                if self.is_excluded_cluster(cluster_name):
                     log_fp.write(json.dumps(cluster) + '\n')
                 else:
                     clean_cluster_list.append(cluster)

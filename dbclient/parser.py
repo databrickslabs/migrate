@@ -31,7 +31,7 @@ class ValidateSkipTasks(argparse.Action):
 
 
 def is_azure_creds(creds):
-    if 'azuredatabricks.net' in creds['host']:
+    if 'azuredatabricks.net' in creds.get('host', ''):
         return True
     return False
 
@@ -47,6 +47,8 @@ def get_login_credentials(creds_path='~/.databrickscfg', profile='DEFAULT'):
     config.read(abs_creds_path)
     try:
         current_profile = dict(config[profile])
+        if not current_profile:
+            raise ValueError(f"Unable to find a defined profile to run this tool. Profile \'{profile}\' not found.")
         return current_profile
     except KeyError:
         raise ValueError(
