@@ -149,6 +149,10 @@ def get_export_parser():
     parser.add_argument('--metastore-unicode', action='store_true',
                         help='log all the metastore table definitions including unicode characters')
 
+    parser.add_argument('--session', action='store', default='',
+                        help='If set, the script resumes from latest checkpoint of given session; '
+                             'Otherwise, pipeline starts from beginning and creates a new session.')
+
     # get all table ACLs (TODO need to make sure that unicode database object names are supported)
     parser.add_argument('--table-acls', action='store_true',
                         help='log all table ACL grant and deny statements')
@@ -311,6 +315,10 @@ def get_import_parser():
     # import all metastore including defns with unicode
     parser.add_argument('--metastore-unicode', action='store_true',
                         help='Import all the metastore table definitions with unicode characters')
+
+    parser.add_argument('--session', action='store', default='',
+                        help='If set, the script resumes from latest checkpoint of given session; '
+                             'Otherwise, pipeline starts from beginning and creates a new session.')
 
     # import all table acls
     parser.add_argument('--table-acls', action='store_true',

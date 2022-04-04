@@ -26,6 +26,9 @@ def main():
     url = login_args['host']
     token = login_args['token']
     client_config = build_client_config(args.profile, url, token, args)
+    session = args.session if args.session else ""
+    client_config['session'] = session
+    client_config['export_dir'] = os.path.join(client_config['export_dir'], session) + '/'
 
     os.makedirs(client_config['export_dir'], exist_ok=True)
     logging_utils.set_default_logging(client_config['export_dir'])

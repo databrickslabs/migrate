@@ -4,6 +4,7 @@ from datetime import timedelta, datetime
 from os import makedirs
 from checkpoint_service import CheckpointService
 import logging_utils
+import os
 
 # python 3.6
 def main():
@@ -21,6 +22,9 @@ def main():
     url = login_args['host']
     token = login_args['token']
     client_config = build_client_config(args.profile, url, token, args)
+    session = args.session if args.session else ""
+    client_config['session'] = session
+    client_config['export_dir'] = os.path.join(client_config['export_dir'], session) + '/'
 
     makedirs(client_config['export_dir'], exist_ok=True)
     logging_utils.set_default_logging(client_config['export_dir'])

@@ -75,6 +75,10 @@ class MLFlowClient(dbclient):
         experiment_id = acl_obj["object_id"].split("/")[-1]
         if checkpoint_key_set.contains(experiment_id):
             return
+        if experiment_id not in experiment_id_map:
+            error_msg = f"experiment_id: {experiment_id} does not exist in mlflow_experiments_id_map.log. Skipping... but logged to error log file."
+            error_logger.error(error_msg)
+            return
         new_experiment_id = experiment_id_map[experiment_id]
         acl_create_args = {'access_control_list': self.build_acl_args(acl_obj['access_control_list'], True)}
         resp = self.put(f'/permissions/experiments/{new_experiment_id}', acl_create_args)
