@@ -4,8 +4,14 @@ import logging
 import os
 import json
 import wmconstants
+import concurrent
+from concurrent.futures import ThreadPoolExecutor
+from threading_utils import propagate_exceptions
 
 class ScimClient(dbclient):
+    def __init__(self, configs, checkpoint_service):
+        super().__init__(configs)
+        self._checkpoint_service = checkpoint_service
 
     def get_active_users(self):
         users = self.get('/preview/scim/v2/Users').get('Resources', None)
@@ -41,9 +47,11 @@ class ScimClient(dbclient):
         if not found_user:
             logging.error("User not found. Emails are case sensitive. Please verify email address")
 
-    def import_single_user(self, user_email, log_file='single_user.log'):
+    def import_single_user(self, user_email, log_file='single_user.log', num_parallel=4):
         single_user_log = self.get_export_dir() + log_file
-        resp = self.import_users(single_user_log, logging.getLogger())
+        checkpoint_users_set = self._checkpoint_service.get_checkpoint_key_set(
+            wmconstants.WM_IMPORT, wmconstants.USER_OBJECT)
+        resp = self.import_users(single_user_log, logging.getLogger(), checkpoint_users_set, num_parallel)
 
     def get_users_from_log(self, users_log='users.log'):
         """
@@ -371,20 +379,24 @@ class ScimClient(dbclient):
         return False
 
     def import_groups(self, group_dir, current_user_ids, error_logger):
+        checkpoint_groups_set = self._checkpoint_service.get_checkpoint_key_set(
+            wmconstants.WM_IMPORT, wmconstants.GROUP_OBJECT)
         # list all the groups and create groups first
         if not os.path.exists(group_dir):
             logging.info("No groups to import.")
             return
         groups = self.listdir(group_dir)
         for x in groups:
-            logging.info('Creating group: {0}'.format(x))
-            # set the create args displayName property aka group name
-            create_args = {
-                "schemas": ["urn:ietf:params:scim:schemas:core:2.0:Group"],
-                "displayName": x
-            }
-            group_resp = self.post('/preview/scim/v2/Groups', create_args)
-            logging_utils.log_reponse_error(error_logger, group_resp)
+            if not checkpoint_groups_set.contains(x):
+                logging.info('Creating group: {0}'.format(x))
+                # set the create args displayName property aka group name
+                create_args = {
+                    "schemas": ["urn:ietf:params:scim:schemas:core:2.0:Group"],
+                    "displayName": x
+                }
+                group_resp = self.post('/preview/scim/v2/Groups', create_args)
+                if not logging_utils.log_reponse_error(error_logger, group_resp):
+                    checkpoint_groups_set.write(x)
 
         # dict of { group_name : group_id }
         groups = self.listdir(group_dir)
@@ -420,22 +432,32 @@ class ScimClient(dbclient):
                     add_resp = self.patch('/preview/scim/v2/Groups/{0}'.format(group_id), add_members_json)
                     logging_utils.log_reponse_error(error_logger, add_resp)
 
-    def import_users(self, user_log, error_logger):
+    def import_users(self, user_log, error_logger, checkpoint_set, num_parallel):
         # first create the user identities with the required fields
         create_keys = ('emails', 'entitlements', 'displayName', 'name', 'userName')
         if not os.path.exists(user_log):
             logging.info("No users to import.")
             return
         with open(user_log, 'r') as fp:
-            for x in fp:
-                user = json.loads(x)
-                logging.info("Creating user: {0}".format(user['userName']))
-                user_create = {k: user[k] for k in create_keys if k in user}
-                create_resp = self.post('/preview/scim/v2/Users', user_create)
-                logging_utils.log_reponse_error(error_logger, create_resp)
+            with ThreadPoolExecutor(max_workers=num_parallel) as executor:
+                futures = [executor.submit(self._import_users_helper, user_data, create_keys, checkpoint_set, error_logger) for user_data in fp]
+                concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
+                propagate_exceptions(futures)
 
         with open(self.get_export_dir() + "user_name_to_user_id.log", 'w') as fp:
             fp.write(json.dumps(self.get_user_id_mapping()))
+
+    def _import_users_helper(self, user_data, create_keys, checkpoint_set, error_logger):
+        user = json.loads(user_data)
+        user_name = user['userName']
+        if not checkpoint_set.contains(user_name):
+            logging.info("Creating user: {0}".format(user_name))
+            user_create = {k: user[k] for k in create_keys if k in user}
+            create_resp = self.post('/preview/scim/v2/Users', user_create)
+            if not logging_utils.log_reponse_error(error_logger, create_resp):
+                checkpoint_set.write(user_name)
+
+
 
     def log_failed_users(self, current_user_ids, user_log, error_logger):
         with open(user_log, 'r') as fp:
@@ -450,12 +472,14 @@ class ScimClient(dbclient):
         self.import_all_users(user_log_file)
         self.import_all_groups(group_log_dir)
 
-    def import_all_users(self, user_log_file='users.log'):
+    def import_all_users(self, user_log_file='users.log', num_parallel=4):
+        checkpoint_users_set = self._checkpoint_service.get_checkpoint_key_set(
+            wmconstants.WM_IMPORT, wmconstants.USER_OBJECT)
         user_log = self.get_export_dir() + user_log_file
         user_error_logger = logging_utils.get_error_logger(
             wmconstants.WM_IMPORT, wmconstants.USER_OBJECT, self.get_export_dir())
 
-        self.import_users(user_log, user_error_logger)
+        self.import_users(user_log, user_error_logger, checkpoint_users_set, num_parallel)
         current_user_ids = self.get_user_id_mapping()
         self.log_failed_users(current_user_ids, user_log, user_error_logger)
         # assign the users to IAM roles if on AWS

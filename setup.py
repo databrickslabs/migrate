@@ -19,7 +19,7 @@ setuptools.setup(
           'mlflow-skinny',
           'sqlparse',
           'requests'
-      ],
+    ],
     py_modules=["export_db","import_db","test_connection","migration_pipeline"],
     classifiers=[
         "Programming Language :: Python :: 3",

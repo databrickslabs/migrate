@@ -2,6 +2,7 @@
 USER_OBJECT = "users"
 INSTANCE_PROFILE_OBJECT = "instance_profiles"
 GROUP_OBJECT = "groups"
+WORKSPACE_ITEM_LOG_OBJECT = "workspace_item_log"
 WORKSPACE_NOTEBOOK_PATH_OBJECT = "notebook_paths"
 WORKSPACE_NOTEBOOK_OBJECT = "notebooks"
 WORKSPACE_DIRECTORY_OBJECT = "directories"
@@ -14,6 +15,8 @@ INSTANCE_POOL_OBJECT = "instance_pools"
 JOB_OBJECT = "jobs"
 SECRET_OBJECT = "secrets"
 MLFLOW_EXPERIMENT_OBJECT = "mlflow_experiments"
+MLFLOW_EXPERIMENT_PERMISSION_OBJECT = "mlflow_experiments_permissions"
+MLFLOW_RUN_OBJECT = "mlflow_runs"
 # Migration pipeline placeholder constants
 MIGRATION_PIPELINE_OBJECT_TYPE = "tasks"
 
@@ -36,6 +39,8 @@ JOBS = "jobs"
 METASTORE = "metastore"
 METASTORE_TABLE_ACLS = "metastore_table_acls"
 MLFLOW_EXPERIMENTS = "mlflow_experiments"
+MLFLOW_EXPERIMENT_PERMISSION = "mlflow_experiments_permissions"
+MLFLOW_RUNS = "mlflow_runs"
 
 TASK_OBJECTS = [
     INSTANCE_PROFILES,
@@ -50,5 +55,6 @@ TASK_OBJECTS = [
     JOBS,
     METASTORE,
     METASTORE_TABLE_ACLS,
-    MLFLOW_EXPERIMENTS
+    MLFLOW_EXPERIMENTS,
+    MLFLOW_RUNS
 ]
