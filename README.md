@@ -362,6 +362,30 @@ python export_db.py --profile DEMO --secrets --cluster-name "my_cluster"
 python import_db.py --profile newDEMO --secrets
 ```
 
+### (Alpha version) Export / Import of MLFlow experiments, experiment permissions, and runs objects
+Note: Registered model, model version, and metric history are not supported yet.
+
+This will export and import the specified MLflow objects. Because MLFlow objects depend on other object types such as
+workspace directories, notebooks, etc this command should run after the other objects are successfully exported/imported.
+
+mlflow-runs are by default only exported for the past 30 days worth of data. The user can specify other dates but should
+be aware of the performance impacts.
+
+export
+```
+python3 export_db.py --profile $SRC --mlflow-experiments --use-checkpoint --num-parallel 4 
+python3 export_db.py --profile $SRC --mlflow-experiments-permissions --use-checkpoint --num-parallel 4
+python3 export_db.py --profile $SRC --mlflow-runs --use-checkpoint --num-parallel 4 --start-date 2022-02-26
+```
+
+import
+```
+python3 import_db.py --profile $DST --src-profile $SRC --mlflow-experiments --use-checkpoint --num-parallel 4
+python3 import_db.py --profile $DST --src-profile $SRC  --mlflow-experiments-permissions --use-checkpoint --num-parallel 4 
+python3 import_db.py --profile $DST --src-profile $SRC  --mlflow-runs --use-checkpoint --num-parallel 4
+```
+
+
 #### Export Help Text
 ```
 $ python export_db.py --help
