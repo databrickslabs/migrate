@@ -20,6 +20,7 @@ This package also uses credentials from the
   - [Pipeline parameters](#pipeline-parameters)
   - [Exporting the Workspace](#exporting-the-workspace)
   - [Recommended parameters and checkpointing](#recommended-parameters-and-checkpointing)
+  - [Updating the AWS Account ID](#updating-the-aws-account-id)
   - [Importing the Workspace](#importing-the-workspace)
   - [Validation](#validation)
 - [Limitations](#limitations)
@@ -186,6 +187,14 @@ As a starting point, we recommend using the following parameter values:
 These can be adjusted per your scenario if needed; in general, if API limits are being hit, you can increase `retry-backoff`, decrease `num-parallel`, or both. 
 
 If script failure occurs, you can safely rerun the same command with --use-checkpoint and --session $SESSION_ID to let the migration pick up from the previous checkpoint and rerun.
+
+#### Updating the AWS Account ID
+If your source and destination workspaces are in different accounts, you will need to update the Instance Profile ARN accordingly during the migration. To do this, run the following command after exporting the workspace assets:
+
+```python3 export_db.py --profile $SRC_PROFILE --update-account-id --use-checkpoint --old-account-id $OLD_AWS_ACCT_ID --new-account-id $NEW_AWS_ACCT_ID --session $SESSION_ID
+```
+
+Where `SESSION_ID` is the session ID used by your export job, `SRC_PROFILE` is the profile used to export the source workspace, `OLD_AWS_ACCT_ID` is the source AWS account ID, and `NEW_AWS_ACCT_ID` is the destination AWS account ID. Note that this will only update the ARN in the Instance Profiles; the same instance profiles must still exist in the destination workspace.
 
 ### Importing the Workspace
 
