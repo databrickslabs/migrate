@@ -96,7 +96,7 @@ Support Matrix for Import and Export Operations:
 | Table ACLs        | Supported    | Supported    |
 | ML Models         | Supported*   | Supported*   |
 
-> **Note on MLFlow Migration:**
+> **Note on MLFlow Migration:**  
 > MLFlow asset migration is currently in alpha.
 
 > **Note on DBFS Data Migration:**  
