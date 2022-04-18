@@ -4,22 +4,33 @@ This is a migration package to log all Databricks resources for backup and/or mi
 Migration allows a Databricks organization to move resources between Databricks Workspaces,
 to move between different cloud providers, or to move to different regions / accounts.
 
-Packaged is based on python 3.6 and DBR 6.x and 7.x releases.  
-python 3.7 or above is recommended if one is also exporting/importing MLflow objects.
+This package is based on python 3.6 and DBR 6.x+ releases.  
+Python 3.7 or above is recommended if one is also exporting/importing MLflow objects.
 
-> **Note:** Tools does not support windows currently since path resolution is different than mac / linux.  
-> Support for Windows is work in progress to update all paths to use pathlib resolution. 
+> **Note:** This tool does not support windows currently since path resolution is different than mac / linux.  
 
-This package uses credentials from the 
-[Databricks CLI](https://docs.databricks.com/user-guide/dev-tools/databricks-cli.html)  
+This package also uses credentials from the 
+[Databricks CLI](https://docs.databricks.com/user-guide/dev-tools/databricks-cli.html).
+
+## Table of Contents
+- [Pre-Requisites](#pre-requisites)
+- [Setup](#setup)
+- [Migration Components](#migration-components)
+- [Import using pipeline](#import-using-pipeline)
+  - [Pipeline parameters](#pipeline-parameters)
+  - [Exporting the Workspace](#exporting-the-workspace)
+  - [Recommended parameters and checkpointing](#recommended-parameters-and-checkpointing)
+  - [Updating the AWS Account ID](#updating-the-aws-account-id)
+  - [Importing the Workspace](#importing-the-workspace)
+  - [Validation](#validation)
+- [Limitations](#limitations)
 
 ## Pre-Requisites
 To use this migration tool, you'll need:  
 * An environment running linux with python, pip, git, and the databricks CLI installed.
-    Run `python3 setup.py install`
-* Admin access to both the old and new databricks accounts.
+* Admin access to both the old and new databricks accounts in the form of a [Personal Access Token](https://docs.databricks.com/dev-tools/api/latest/authentication.html).
 
-## PreSetup
+## Setup
 
 > Click to expand & collapse tasks
 <details><summary><strong>1. Generate Tokens </strong></summary>
@@ -60,6 +71,10 @@ databricks configure --token --profile newWS
 ```
 In this case newWS is the profile name you'll refer to for running the migration tool `import_db.py` file within the new databricks account.
 </details>
+<details><summary><strong>3. Install package dependencies</strong></summary>
+
+In order to set up the python environment, clone this repository and `python3 setup.py install` from the top-level project directory. 
+</details>
 
 ---
 
@@ -79,32 +94,136 @@ Support Matrix for Import and Export Operations:
 | Libraries         | Supported    | Unsupported  |
 | Secrets           | Supported    | Supported    |
 | Table ACLs        | Supported    | Supported    |
-| ML Models         | Unsupported  | Unsupported  |
+| ML Models         | Supported*   | Supported*   |
 
-**DBFS Data Migration:**  
-* DBFS is a protected object storage location on AWS and Azure.
-* Data within the DBFS bucket can be very large, and the Databricks support team will need to help here. 
-  * The Databricks support team has a tool available to help with DBFS migrations between AWS workspaces today. 
-  * Azure DBFS migrations is work in progress. 
+> **Note on MLFlow Migration:**  
+> MLFlow asset migration is currently in alpha.
 
-> **Note:** MLFlow objects cannot be exported / imported with this tool.
-> For more details, please look [here](https://github.com/amesar/mlflow-export-import/)
+> **Note on DBFS Data Migration:**  
+> DBFS is a protected object storage location on AWS and Azure.
+> Please contact your Databricks support team for information about migrating DBFS resources.
+
+> **Note on User Migration:**  
+> During user / group import, users will be notified of the new workspace and account by default.
+> To disable this behavior, please contact your Databricks account team. 
 
 ---
 
-## Workspace Analysis
+## Import using pipeline
 
-Import this [notebook](data/workspace_migration_analysis.py) to do an analysis of the number of objects within the 
-current workspace. The last cell will print:
-1. Number of users
-2. Number of groups
-3. Approximate number of notebooks
-4. Number of internal jobs defined
-5. Number of external jobs executed (from external API invocations)
-6. Number of databases
-7. Number of tables 
+The recommended method of exporting and importing is by using the Pipeline contained in `migration_pipeline.py`. This pipeline performs all export and import steps sequentially, and includes checkpointing parallelization features. 
 
-## Order of Operations
+### Pipeline parameters
+
+```
+python migration_pipeline.py -h
+usage: migration_pipeline.py [-h] [--profile PROFILE] [--azure] [--silent] [--no-ssl-verification] [--debug] [--set-export-dir SET_EXPORT_DIR]
+                             [--cluster-name CLUSTER_NAME] [--notebook-format {DBC,SOURCE,HTML}] [--overwrite-notebooks] [--archive-missing]
+                             [--repair-metastore-tables] [--metastore-unicode] [--skip-failed] [--session SESSION] [--dry-run] [--export-pipeline] [--import-pipeline]
+                             [--validate-pipeline] [--validate-source-session VALIDATE_SOURCE_SESSION] [--validate-destination-session VALIDATE_DESTINATION_SESSION]
+                             [--use-checkpoint] [--skip-tasks SKIP_TASKS [SKIP_TASKS ...]] [--num-parallel NUM_PARALLEL] [--retry-total RETRY_TOTAL]
+                             [--retry-backoff RETRY_BACKOFF] [--start-date START_DATE]
+                             [--exclude-work-item-prefixes EXCLUDE_WORK_ITEM_PREFIXES [EXCLUDE_WORK_ITEM_PREFIXES ...]]
+
+Export user(s) workspace artifacts from Databricks
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --profile PROFILE     Profile to parse the credentials
+  --azure               Run on Azure. (Default is AWS)
+  --silent              Silent all logging of export operations.
+  --no-ssl-verification
+                        Set Verify=False when making http requests.
+  --debug               Enable debug logging
+  --set-export-dir SET_EXPORT_DIR
+                        Set the base directory to export artifacts
+  --cluster-name CLUSTER_NAME
+                        Cluster name to export the metastore to a specific cluster. Cluster will be started.
+  --notebook-format {DBC,SOURCE,HTML}
+                        Choose the file format to download the notebooks (default: DBC)
+  --overwrite-notebooks
+                        Flag to overwrite notebooks to forcefully overwrite during notebook imports
+  --archive-missing     Import all missing users into the top level /Archive/ directory.
+  --repair-metastore-tables
+                        Repair legacy metastore tables
+  --metastore-unicode   log all the metastore table definitions including unicode characters
+  --skip-failed         Skip retries for any failed hive metastore exports.
+  --session SESSION     If set, pipeline resumes from latest checkpoint of given session; Otherwise, pipeline starts from beginning and creates a new session.
+  --dry-run             Dry run the pipeline i.e. will not execute tasks if true.
+  --export-pipeline     Execute all export tasks.
+  --import-pipeline     Execute all import tasks.
+  --validate-pipeline   Validate exported data between source and destination.
+  --validate-source-session VALIDATE_SOURCE_SESSION
+                        Session used by exporting source workspace. Only used for --validate-pipeline.
+  --validate-destination-session VALIDATE_DESTINATION_SESSION
+                        Session used by exporting destination workspace. Only used for --validate-pipeline.
+  --use-checkpoint      use checkpointing to restart from previous state
+  --skip-tasks SKIP_TASKS [SKIP_TASKS ...]
+                        List of tasks to skip from the pipeline.
+  --num-parallel NUM_PARALLEL
+                        Number of parallel threads to use to export/import
+  --retry-total RETRY_TOTAL
+                        Total number or retries when making calls to Databricks API
+  --retry-backoff RETRY_BACKOFF
+                        Backoff factor to apply between retry attempts when making calls to Databricks API
+  --start-date START_DATE
+                        start-date format: YYYY-MM-DD. If not provided, defaults to past 30 days. Currently, only used for exporting ML runs objects.
+  --exclude-work-item-prefixes EXCLUDE_WORK_ITEM_PREFIXES [EXCLUDE_WORK_ITEM_PREFIXES ...]
+                        List of prefixes to skip export for log_all_workspace_items
+```
+
+### Exporting the Workspace
+
+To export a workspace, run:
+
+`python3 migration_pipeline.py --profile $SRC_PROFILE --export-pipeline --use-checkpoint [--session $SESSION_ID]`
+
+Where `$SRC_PROFILE` is the Databricks profile for the source workspace, as configured during Setup, and `$SESSION_ID` is an optional session identifier used for subsequent checkpoint runs. All data is exported to a folder named according to the `$SESSION_ID` value under the logs folder - “logs/`$SESSION_ID`”. If `$SESSION_ID` is not specified, a random value will be generated.
+
+#### Recommended parameters and checkpointing
+
+As a starting point, we recommend using the following parameter values:
+* retry-total=30
+* num-parallel=8
+* retry-backoff=1.0
+
+These can be adjusted per your scenario if needed; in general, if API limits are being hit, you can increase `retry-backoff`, decrease `num-parallel`, or both. 
+
+If script failure occurs, you can safely rerun the same command with --use-checkpoint and --session $SESSION_ID to let the migration pick up from the previous checkpoint and rerun.
+
+#### Updating the AWS Account ID
+If your source and destination workspaces are in different accounts, you will need to update the Instance Profile ARN accordingly during the migration. To do this, run the following command after exporting the workspace assets:
+
+```python3 export_db.py --profile $SRC_PROFILE --update-account-id --use-checkpoint --old-account-id $OLD_AWS_ACCT_ID --new-account-id $NEW_AWS_ACCT_ID --session $SESSION_ID
+```
+
+Where `SESSION_ID` is the session ID used by your export job, `SRC_PROFILE` is the profile used to export the source workspace, `OLD_AWS_ACCT_ID` is the source AWS account ID, and `NEW_AWS_ACCT_ID` is the destination AWS account ID. Note that this will only update the ARN in the Instance Profiles; the same instance profiles must still exist in the destination workspace.
+
+### Importing the Workspace
+
+To import into a target workspace, run:
+
+`python3 migration_pipeline.py --profile $DST_PROFILE --import-pipeline --use-checkpoint [--session $SESSION_ID]`
+
+The same recommended parameters as above apply in the import workflow, and similarly, if a failure occurs, `--use-checkpoint` can be used to rerun from the last checkpoint.
+
+### Validation
+
+Simple workspace object validation can be performed once the import is completed by first exporting the contents of the *target* workspace:
+
+`python3 migration_pipeline.py --profile $DST_PROFILE --export-pipeline --use-checkpoint --cluster-name`
+
+And then running the `validate_pipeline.sh` script:
+
+`./validate_pipeline.sh $SRC_EXPORT_SESSION_ID $DST_EXPORT_SESSION_ID`
+
+Once this completes, check the console summary, as well as the logs folder (where a new folder should be generated).
+
+---
+
+<details><summary><strong>Import using step-by-step tools (not recommended)</strong></summary>
+
+If desired, `export_db.py` and `import_db.py` can be run in a stepwise fashion. This is the legacy mode of running the tools, and in general is not recommended. If running the scripts separately, the following order of operations applies:
 1. Export users and groups 
 2. Export cluster templates
 3. Export notebook metadata (listing of all notebooks)
@@ -113,24 +232,151 @@ current workspace. The last cell will print:
 6. Export Hive Metastore data 
 7. Export Table ACLs
 
-> **Note:** During user / group import, users will be notified of the new workspace and account. This is required 
-> for them to set up their credentials to access the new workspace. We need the user to exist before loading their 
-> artifacts like notebooks, clusters, etc. 
-
 By default, artifacts are stored in the `logs/` directory, and `azure_logs/` for Azure artifacts. 
 This is configurable with the `--set-export-dir` flag to specify the log directory.
 
-While exporting Libraries is supported, we do not have an implementation to import library definitions. 
+#### Export Help Text
+```
+$ python export_db.py --help
+usage: export_db.py [-h] [--users] [--workspace]
+                    [--notebook-format {DBC,SOURCE,HTML}] [--download]
+                    [--libs] [--clusters] [--jobs] [--metastore] [--secrets]
+                    [--metastore-unicode] [--cluster-name CLUSTER_NAME]
+                    [--database DATABASE] [--iam IAM] [--skip-failed]
+                    [--mounts] [--azure] [--profile PROFILE]
+                    [--single-user SINGLE_USER] [--export-home EXPORT_HOME]
+                    [--export-groups EXPORT_GROUPS] [--workspace-acls]
+                    [--workspace-top-level-only] [--silent]
+                    [--no-ssl-verification] [--debug] [--reset-exports]
+                    [--set-export-dir SET_EXPORT_DIR] [--pause-all-jobs]
+                    [--unpause-all-jobs]
+                    [--update-account-id UPDATE_ACCOUNT_ID]
+                    [--old-account-id OLD_ACCOUNT_ID]
+                    [--replace-old-email REPLACE_OLD_EMAIL]
+                    [--update-new-email UPDATE_NEW_EMAIL]
+                    [--bypass-windows-check]
+                    
+Export full workspace artifacts from Databricks
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --users               Download all the users and groups in the workspace
+  --workspace           Log all the notebook paths in the workspace. (metadata
+                        only)
+  --notebook-format {DBC,SOURCE,HTML}
+                        Choose the file format to download the notebooks
+                        (default: DBC)
+  --download            Download all notebooks for the environment
+  --libs                Log all the libs for the environment
+  --clusters            Log all the clusters for the environment
+  --jobs                Log all the job configs for the environment
+  --metastore           log all the metastore table definitions
+  --metastore-unicode   log all the metastore table definitions including
+                        unicode characters
+  --table-acls          log all table ACL grant and deny statements
+  --cluster-name CLUSTER_NAME
+                        Cluster name to export the metastore to a specific
+                        cluster. Cluster will be started.
+  --database DATABASE   Database name to export for the metastore and table
+                        ACLs. Single database name supported
+  --iam IAM             IAM Instance Profile to export metastore entires
+  --skip-failed         Skip retries for any failed hive metastore exports.
+  --mounts              Log all mount points.
+  --azure               Run on Azure. (Default is AWS)
+  --profile PROFILE     Profile to parse the credentials
+  --export-home EXPORT_HOME
+                        User workspace name to export, typically the users
+                        email address
+  --export-groups EXPORT_GROUPS
+                        Group names to export as a set. Includes group, users,
+                        and notebooks.
+  --workspace-acls      Permissions for workspace objects to export
+  --workspace-top-level-only
+                        Download only top level notebook directories
+  --silent              Silent all logging of export operations.
+  --no-ssl-verification
+                        Set Verify=False when making http requests.
+  --debug               Enable debug logging
+  --reset-exports       Clear export directory
+  --set-export-dir SET_EXPORT_DIR
+                        Set the base directory to export artifacts
+  --pause-all-jobs      Pause all scheduled jobs
+  --unpause-all-jobs    Unpause all scheduled jobs
+  --update-account-id UPDATE_ACCOUNT_ID
+                        Set the account id for instance profiles to a new
+                        account id
+  --old-account-id OLD_ACCOUNT_ID
+                        Old account ID to filter on
+  --replace-old-email REPLACE_OLD_EMAIL
+                        Old email address to update from logs
+  --update-new-email UPDATE_NEW_EMAIL
+                        New email address to replace the logs
+```
+
+#### Import Help Text
+```
+$ python import_db.py --help
+usage: import_db.py [-h] [--users] [--workspace] [--workspace-top-level]
+                    [--workspace-acls] [--notebook-format {DBC,SOURCE,HTML}]
+                    [--import-home IMPORT_HOME] [--import-groups]
+                    [--archive-missing] [--libs] [--clusters] [--jobs]
+                    [--metastore] [--metastore-unicode] [--get-repair-log]
+                    [--cluster-name CLUSTER_NAME] [--skip-failed] [--azure]
+                    [--profile PROFILE] [--single-user SINGLE_USER]
+                    [--no-ssl-verification] [--silent] [--debug]
+                    [--set-export-dir SET_EXPORT_DIR] [--pause-all-jobs]
+                    [--unpause-all-jobs] [--delete-all-jobs]
+                                        
+Import full workspace artifacts into Databricks
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --users               Import all the users and groups from the logfile.
+  --workspace           Import all notebooks from export dir into the
+                        workspace.
+  --workspace-top-level
+                        Import all top level notebooks from export dir into
+                        the workspace. Excluding Users dirs
+  --notebook-format {DBC,SOURCE,HTML}
+                        Choose the file format of the notebook to import
+                        (default: DBC)
+  --workspace-acls      Permissions for workspace objects to import
+  --import-home IMPORT_HOME
+                        User workspace name to import, typically the users
+                        email address
+  --import-groups       Groups to import into a new workspace. Includes group
+                        creation and user notebooks.
+  --archive-missing     Import all missing users into the top level /Archive/
+                        directory.
+  --libs                Import all the libs from the logfile into the
+                        workspace.
+  --clusters            Import all the cluster configs for the environment
+  --jobs                Import all job configurations to the environment.
+  --metastore           Import the metastore to the workspace.
+  --metastore-unicode   Import all the metastore table definitions with
+                        unicode characters
+  --table-acls          Import table acls to the workspace.
+  --get-repair-log      Report on current tables requiring repairs
+  --cluster-name CLUSTER_NAME
+                        Cluster name to import the metastore to a specific
+                        cluster. Cluster will be started.
+  --skip-failed         Skip missing users that do not exist when importing
+                        user notebooks
+  --azure               Run on Azure. (Default is AWS)
+  --profile PROFILE     Profile to parse the credentials
+  --no-ssl-verification
+                        Set Verify=False when making http requests.
+  --silent              Silent all logging of import operations.
+  --debug               Enable debug logging
+  --set-export-dir SET_EXPORT_DIR
+                        Set the base directory to import artifacts if the
+                        export dir was a customized
+  --pause-all-jobs      Pause all scheduled jobs
+  --unpause-all-jobs    Unpause all scheduled jobs
+  --delete-all-jobs     Delete all jobs
+```
 
 ---
-
-## Table of Contents
-- [Users and Groups](#users-and-groups)
-- [Clusters](#Clusters)
-- [Notebooks](#Notebooks)
-- [Jobs](#Jobs)
-- [Export Help Text](#export-help-text)
-- [Import Help Text](#import-help-text)
 
 ### Users and Groups
 
@@ -384,158 +630,17 @@ python3 import_db.py --profile $DST --src-profile $SRC --mlflow-experiments --us
 python3 import_db.py --profile $DST --src-profile $SRC  --mlflow-experiments-permissions --use-checkpoint --num-parallel 4 
 python3 import_db.py --profile $DST --src-profile $SRC  --mlflow-runs --use-checkpoint --num-parallel 4
 ```
+</details>
 
+---
 
-#### Export Help Text
-```
-$ python export_db.py --help
-usage: export_db.py [-h] [--users] [--workspace]
-                    [--notebook-format {DBC,SOURCE,HTML}] [--download]
-                    [--libs] [--clusters] [--jobs] [--metastore] [--secrets]
-                    [--metastore-unicode] [--cluster-name CLUSTER_NAME]
-                    [--database DATABASE] [--iam IAM] [--skip-failed]
-                    [--mounts] [--azure] [--profile PROFILE]
-                    [--single-user SINGLE_USER] [--export-home EXPORT_HOME]
-                    [--export-groups EXPORT_GROUPS] [--workspace-acls]
-                    [--workspace-top-level-only] [--silent]
-                    [--no-ssl-verification] [--debug] [--reset-exports]
-                    [--set-export-dir SET_EXPORT_DIR] [--pause-all-jobs]
-                    [--unpause-all-jobs]
-                    [--update-account-id UPDATE_ACCOUNT_ID]
-                    [--old-account-id OLD_ACCOUNT_ID]
-                    [--replace-old-email REPLACE_OLD_EMAIL]
-                    [--update-new-email UPDATE_NEW_EMAIL]
-                    [--bypass-windows-check]
-                    
-Export full workspace artifacts from Databricks
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --users               Download all the users and groups in the workspace
-  --workspace           Log all the notebook paths in the workspace. (metadata
-                        only)
-  --notebook-format {DBC,SOURCE,HTML}
-                        Choose the file format to download the notebooks
-                        (default: DBC)
-  --download            Download all notebooks for the environment
-  --libs                Log all the libs for the environment
-  --clusters            Log all the clusters for the environment
-  --jobs                Log all the job configs for the environment
-  --metastore           log all the metastore table definitions
-  --metastore-unicode   log all the metastore table definitions including
-                        unicode characters
-  --table-acls          log all table ACL grant and deny statements
-  --cluster-name CLUSTER_NAME
-                        Cluster name to export the metastore to a specific
-                        cluster. Cluster will be started.
-  --database DATABASE   Database name to export for the metastore and table
-                        ACLs. Single database name supported
-  --iam IAM             IAM Instance Profile to export metastore entires
-  --skip-failed         Skip retries for any failed hive metastore exports.
-  --mounts              Log all mount points.
-  --azure               Run on Azure. (Default is AWS)
-  --profile PROFILE     Profile to parse the credentials
-  --export-home EXPORT_HOME
-                        User workspace name to export, typically the users
-                        email address
-  --export-groups EXPORT_GROUPS
-                        Group names to export as a set. Includes group, users,
-                        and notebooks.
-  --workspace-acls      Permissions for workspace objects to export
-  --workspace-top-level-only
-                        Download only top level notebook directories
-  --silent              Silent all logging of export operations.
-  --no-ssl-verification
-                        Set Verify=False when making http requests.
-  --debug               Enable debug logging
-  --reset-exports       Clear export directory
-  --set-export-dir SET_EXPORT_DIR
-                        Set the base directory to export artifacts
-  --pause-all-jobs      Pause all scheduled jobs
-  --unpause-all-jobs    Unpause all scheduled jobs
-  --update-account-id UPDATE_ACCOUNT_ID
-                        Set the account id for instance profiles to a new
-                        account id
-  --old-account-id OLD_ACCOUNT_ID
-                        Old account ID to filter on
-  --replace-old-email REPLACE_OLD_EMAIL
-                        Old email address to update from logs
-  --update-new-email UPDATE_NEW_EMAIL
-                        New email address to replace the logs
-```
-
-#### Import Help Text
-```
-$ python import_db.py --help
-usage: import_db.py [-h] [--users] [--workspace] [--workspace-top-level]
-                    [--workspace-acls] [--notebook-format {DBC,SOURCE,HTML}]
-                    [--import-home IMPORT_HOME] [--import-groups]
-                    [--archive-missing] [--libs] [--clusters] [--jobs]
-                    [--metastore] [--metastore-unicode] [--get-repair-log]
-                    [--cluster-name CLUSTER_NAME] [--skip-failed] [--azure]
-                    [--profile PROFILE] [--single-user SINGLE_USER]
-                    [--no-ssl-verification] [--silent] [--debug]
-                    [--set-export-dir SET_EXPORT_DIR] [--pause-all-jobs]
-                    [--unpause-all-jobs] [--delete-all-jobs]
-                                        
-Import full workspace artifacts into Databricks
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --users               Import all the users and groups from the logfile.
-  --workspace           Import all notebooks from export dir into the
-                        workspace.
-  --workspace-top-level
-                        Import all top level notebooks from export dir into
-                        the workspace. Excluding Users dirs
-  --notebook-format {DBC,SOURCE,HTML}
-                        Choose the file format of the notebook to import
-                        (default: DBC)
-  --workspace-acls      Permissions for workspace objects to import
-  --import-home IMPORT_HOME
-                        User workspace name to import, typically the users
-                        email address
-  --import-groups       Groups to import into a new workspace. Includes group
-                        creation and user notebooks.
-  --archive-missing     Import all missing users into the top level /Archive/
-                        directory.
-  --libs                Import all the libs from the logfile into the
-                        workspace.
-  --clusters            Import all the cluster configs for the environment
-  --jobs                Import all job configurations to the environment.
-  --metastore           Import the metastore to the workspace.
-  --metastore-unicode   Import all the metastore table definitions with
-                        unicode characters
-  --table-acls          Import table acls to the workspace.
-  --get-repair-log      Report on current tables requiring repairs
-  --cluster-name CLUSTER_NAME
-                        Cluster name to import the metastore to a specific
-                        cluster. Cluster will be started.
-  --skip-failed         Skip missing users that do not exist when importing
-                        user notebooks
-  --azure               Run on Azure. (Default is AWS)
-  --profile PROFILE     Profile to parse the credentials
-  --no-ssl-verification
-                        Set Verify=False when making http requests.
-  --silent              Silent all logging of import operations.
-  --debug               Enable debug logging
-  --set-export-dir SET_EXPORT_DIR
-                        Set the base directory to import artifacts if the
-                        export dir was a customized
-  --pause-all-jobs      Pause all scheduled jobs
-  --unpause-all-jobs    Unpause all scheduled jobs
-  --delete-all-jobs     Delete all jobs
-```
-
-#### FAQs / Limitations
+## Limitations:
 **Note**: To disable ssl verification pass the flag `--no-ssl-verification`.
-If still getting SSL Error add the following to your current bash shell -
+If still getting SSL Error add the following to your current bash shell:
 ```
 export REQUESTS_CA_BUNDLE=""
 export CURL_CA_BUNDLE=""
 ```
-
-Limitations:
 * Instance profiles (AWS only): Group access to instance profiles will take precedence. If a user is added to the role 
 directly, and has access via a group, only the group access will be granted during a migration.  
 * Clusters: Cluster creator will be seen as the single admin user who migrated all the clusters. (Relevant for billing 
