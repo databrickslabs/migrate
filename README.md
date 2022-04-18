@@ -94,7 +94,10 @@ Support Matrix for Import and Export Operations:
 | Libraries         | Supported    | Unsupported  |
 | Secrets           | Supported    | Supported    |
 | Table ACLs        | Supported    | Supported    |
-| ML Models         | Supported    | Supported    |
+| ML Models         | Supported*   | Supported*   |
+
+> **Note on MLFlow Migration:**
+> MLFlow asset migration is currently in alpha.
 
 > **Note on DBFS Data Migration:**  
 > DBFS is a protected object storage location on AWS and Azure.
