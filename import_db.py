@@ -83,7 +83,8 @@ def main():
         ws_c = WorkspaceClient(client_config, checkpoint_service)
         start = timer()
         # log notebooks and libraries
-        ws_c.import_workspace_acls(num_parallel=args.num_parallel)
+        # Workspace Acl Import cannot handle parallel APIs due to the heavy loads.
+        ws_c.import_workspace_acls(num_parallel=1)
         end = timer()
         print("Complete Workspace acl Import Time: " + str(timedelta(seconds=end - start)))
 
