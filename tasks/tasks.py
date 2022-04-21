@@ -158,7 +158,8 @@ class WorkspaceACLImportTask(AbstractTask):
 
     def run(self):
         ws_c = WorkspaceClient(self.client_config, self.checkpoint_service)
-        ws_c.import_workspace_acls(num_parallel=self.client_config["num_parallel"])
+        # Workspace Acl Import cannot handle parallel APIs due to the heavy loads.
+        ws_c.import_workspace_acls(num_parallel=1)
 
 
 class NotebookImportTask(AbstractTask):

@@ -587,7 +587,7 @@ class WorkspaceClient(dbclient):
         return
 
     def import_workspace_acls(self, workspace_log_file='acl_notebooks.log',
-                              dir_log_file='acl_directories.log', num_parallel=4):
+                              dir_log_file='acl_directories.log', num_parallel=1):
         """
         import the notebook and directory acls by looping over notebook and dir logfiles
         """
