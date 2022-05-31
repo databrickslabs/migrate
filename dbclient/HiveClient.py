@@ -176,7 +176,11 @@ class HiveClient(ClustersClient):
         with open(db_logfile, 'r') as fp:
             for x in fp:
                 db_json = json.loads(x)
-                db_name = db_json.pop('Database Name')
+                db_json_keys = db_json.keys()
+                if 'Database Name' in db_json_keys:
+                    db_name = db_json.pop('Database Name')
+                else:
+                    db_name = db_json.pop('Namespace Name')
                 all_db_json[db_name] = db_json
         return all_db_json
 
