@@ -1,4 +1,5 @@
 import argparse
+from datetime import datetime, timedelta
 import configparser
 import wmconstants
 from enum import Enum
@@ -29,6 +30,13 @@ class ValidateSkipTasks(argparse.Action):
                 raise ValueError(f"invalid task {task}. Skipped tasks must come from {valid_tasks}.")
         setattr(args, self.dest, values)
 
+
+def valid_date(s):
+    try:
+        return datetime.strptime(s, "%Y-%m-%d")
+    except ValueError:
+        msg = "not a valid date: {0!r}. It must be in YYYY-MM-DD".format(s)
+        raise argparse.ArgumentTypeError(msg)
 
 def is_azure_creds(creds):
     if 'azuredatabricks.net' in creds.get('host', ''):
@@ -131,9 +139,21 @@ def get_export_parser():
     parser.add_argument('--mlflow-experiments', action='store_true',
                         help='log all the mlflow experiments')
 
+    # get all mlflow experiments permissions
+    parser.add_argument('--mlflow-experiments-permissions', action='store_true',
+                        help='log all the mlflow experiments permissions')
+
+    # get all mlflow runs
+    parser.add_argument('--mlflow-runs', action='store_true',
+                        help='log all the mlflow runs')
+
     # get all metastore
     parser.add_argument('--metastore-unicode', action='store_true',
                         help='log all the metastore table definitions including unicode characters')
+
+    parser.add_argument('--session', action='store', default='',
+                        help='If set, the script resumes from latest checkpoint of given session; '
+                             'Otherwise, pipeline starts from beginning and creates a new session.')
 
     # get all table ACLs (TODO need to make sure that unicode database object names are supported)
     parser.add_argument('--table-acls', action='store_true',
@@ -228,7 +248,13 @@ def get_export_parser():
     parser.add_argument('--retry-total', type=int, default=3, help='Total number or retries when making calls to Databricks API')
 
     parser.add_argument('--retry-backoff', type=float, default=1.0, help='Backoff factor to apply between retry attempts when making calls to Databricks API')
-    
+
+    parser.add_argument('--start-date', action='store', default=None,
+                        help='start-date format: YYYY-MM-DD. If not provided, defaults to past 30 days. Currently, only used for exporting ML runs objects.',
+                        type=valid_date)
+
+    parser.add_argument('--exclude-work-item-prefixes', nargs='+', type=str, default=[],
+                        help='List of prefixes to skip export for log_all_workspace_items')
     return parser
 
 
@@ -292,6 +318,10 @@ def get_import_parser():
     parser.add_argument('--metastore-unicode', action='store_true',
                         help='Import all the metastore table definitions with unicode characters')
 
+    parser.add_argument('--session', action='store', default='',
+                        help='If set, the script resumes from latest checkpoint of given session; '
+                             'Otherwise, pipeline starts from beginning and creates a new session.')
+
     # import all table acls
     parser.add_argument('--table-acls', action='store_true',
                         help='Import table acls to the workspace.')
@@ -315,7 +345,15 @@ def get_import_parser():
 
     # import all mlflow experiments
     parser.add_argument('--mlflow-experiments', action='store_true',
-                        help='log all the mlflow experiments')
+                        help='Import all the mlflow experiments')
+
+    # import all mlflow experiments permissions
+    parser.add_argument('--mlflow-experiments-permissions', action='store_true',
+                        help='Import all the mlflow experiments permissions')
+
+    # import all mlflow runs
+    parser.add_argument('--mlflow-runs', action='store_true',
+                        help='Import all the mlflow runs')
 
     # get azure logs
     parser.add_argument('--azure', action='store_true',
@@ -323,6 +361,10 @@ def get_import_parser():
     #
     parser.add_argument('--profile', action='store', default='DEFAULT',
                         help='Profile to parse the credentials')
+
+    # Source workspace's profile. Necessary for importing mlflow runs objects
+    parser.add_argument('--src-profile', action='store', default=None,
+                        help='Source Profile to parse the credentials')
 
     parser.add_argument('--single-user', action='store',
                         help='User\'s email to export their user identity and entitlements')
@@ -499,4 +541,10 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
 
     parser.add_argument('--retry-backoff', type=float, default=1.0, help='Backoff factor to apply between retry attempts when making calls to Databricks API')
 
+    parser.add_argument('--start-date', action='store', default=None,
+                        help='start-date format: YYYY-MM-DD. If not provided, defaults to past 30 days. Currently, only used for exporting ML runs objects.',
+                        type=valid_date)
+
+    parser.add_argument('--exclude-work-item-prefixes', nargs='+', type=str, default=[],
+                        help='List of prefixes to skip export for log_all_workspace_items')
     return parser

@@ -21,7 +21,7 @@ class InstanceProfileExportTask(AbstractTask):
         self.checkpoint_service = checkpoint_service
 
     def run(self):
-        scim_c = ScimClient(self.client_config)
+        scim_c = ScimClient(self.client_config, self.checkpoint_service)
         if scim_c.is_aws():
             cl_c = ClustersClient(self.client_config, self.checkpoint_service)
             cl_c.log_instance_profiles()
@@ -30,24 +30,26 @@ class InstanceProfileExportTask(AbstractTask):
 class UserExportTask(AbstractTask):
     """Task that exports users."""
 
-    def __init__(self, client_config, skip=False):
+    def __init__(self, client_config, checkpoint_service, skip=False):
         super().__init__("export_users", wmconstants.WM_EXPORT, wmconstants.USER_OBJECT, skip)
         self.client_config = client_config
+        self.checkpoint_service = checkpoint_service
 
     def run(self):
-        scim_c = ScimClient(self.client_config)
+        scim_c = ScimClient(self.client_config, self.checkpoint_service)
         scim_c.log_all_users()
 
 
 class GroupExportTask(AbstractTask):
     """Task that exports groups."""
 
-    def __init__(self, client_config, skip=False):
+    def __init__(self, client_config, checkpoint_service, skip=False):
         super().__init__("export_groups", wmconstants.WM_EXPORT, wmconstants.GROUP_OBJECT, skip)
         self.client_config = client_config
+        self.checkpoint_service = checkpoint_service
 
     def run(self):
-        scim_c = ScimClient(self.client_config)
+        scim_c = ScimClient(self.client_config, self.checkpoint_service)
         scim_c.log_all_groups()
 
 
@@ -67,24 +69,26 @@ class InstanceProfileImportTask(AbstractTask):
 class UserImportTask(AbstractTask):
     """Task that imports users."""
 
-    def __init__(self, client_config, skip=False):
+    def __init__(self, client_config, checkpoint_service, skip=False):
         super().__init__("import_users", wmconstants.WM_IMPORT, wmconstants.USER_OBJECT, skip)
         self.client_config = client_config
+        self.checkpoint_service = checkpoint_service
 
     def run(self):
-        scim_c = ScimClient(self.client_config)
-        scim_c.import_all_users()
+        scim_c = ScimClient(self.client_config, self.checkpoint_service)
+        scim_c.import_all_users(num_parallel=self.client_config["num_parallel"])
 
 
 class GroupImportTask(AbstractTask):
     """Task that imports groups."""
 
-    def __init__(self, client_config, skip=False):
+    def __init__(self, client_config, checkpoint_service, skip=False):
         super().__init__("import_groups", wmconstants.WM_IMPORT, wmconstants.GROUP_OBJECT, skip)
         self.client_config = client_config
+        self.checkpoint_service = checkpoint_service
 
     def run(self):
-        scim_c = ScimClient(self.client_config)
+        scim_c = ScimClient(self.client_config, self.checkpoint_service)
         scim_c.import_all_groups()
 
 class WorkspaceItemLogExportTask(AbstractTask):
@@ -93,16 +97,17 @@ class WorkspaceItemLogExportTask(AbstractTask):
     The behavior is equivalent to `$ python export_db.py --workspace`, which lives in main function of
     export_db.py.
     """
-    def __init__(self, client_config, checkpoint_service, skip=False):
+    def __init__(self, client_config, args, checkpoint_service, skip=False):
         super().__init__("export_workspace_items_log", wmconstants.WM_EXPORT, wmconstants.WORKSPACE_NOTEBOOK_PATH_OBJECT, skip)
         self.client_config = client_config
         self.checkpoint_service = checkpoint_service
+        self.args = args
 
     def run(self):
         ws_c = WorkspaceClient(self.client_config, self.checkpoint_service)
         # log notebooks and libraries
         ws_c.init_workspace_logfiles()
-        num_notebooks = ws_c.log_all_workspace_items_entry()
+        num_notebooks = ws_c.log_all_workspace_items_entry(exclude_prefixes=self.args.exclude_work_item_prefixes)
         print("Total number of notebooks logged: ", num_notebooks)
 
 
@@ -153,7 +158,8 @@ class WorkspaceACLImportTask(AbstractTask):
 
     def run(self):
         ws_c = WorkspaceClient(self.client_config, self.checkpoint_service)
-        ws_c.import_workspace_acls(num_parallel=self.client_config["num_parallel"])
+        # Workspace Acl Import cannot handle parallel APIs due to the heavy loads.
+        ws_c.import_workspace_acls(num_parallel=1)
 
 
 class NotebookImportTask(AbstractTask):

@@ -4,6 +4,7 @@ from datetime import timedelta, datetime
 from os import makedirs
 from checkpoint_service import CheckpointService
 import logging_utils
+import os
 
 # python 3.6
 def main():
@@ -21,6 +22,9 @@ def main():
     url = login_args['host']
     token = login_args['token']
     client_config = build_client_config(args.profile, url, token, args)
+    session = args.session if args.session else ""
+    client_config['session'] = session
+    client_config['export_dir'] = os.path.join(client_config['export_dir'], session) + '/'
 
     makedirs(client_config['export_dir'], exist_ok=True)
     logging_utils.set_default_logging(client_config['export_dir'])
@@ -32,7 +36,7 @@ def main():
 
     if args.users:
         print("Import all users and groups at {0}".format(now))
-        scim_c = ScimClient(client_config)
+        scim_c = ScimClient(client_config, checkpoint_service)
         if client_config['is_aws']:
             print("Start import of instance profiles first to ensure they exist...")
             cl_c = ClustersClient(client_config, checkpoint_service)
@@ -79,7 +83,8 @@ def main():
         ws_c = WorkspaceClient(client_config, checkpoint_service)
         start = timer()
         # log notebooks and libraries
-        ws_c.import_workspace_acls(num_parallel=args.num_parallel)
+        # Workspace Acl Import cannot handle parallel APIs due to the heavy loads.
+        ws_c.import_workspace_acls(num_parallel=1)
         end = timer()
         print("Complete Workspace acl Import Time: " + str(timedelta(seconds=end - start)))
 
@@ -184,7 +189,7 @@ def main():
     if args.single_user:
         user_email = args.single_user
         print(f"Import user {user_email} at {now}")
-        scim_c = ScimClient(client_config)
+        scim_c = ScimClient(client_config, checkpoint_service)
         start = timer()
         # log all users
         scim_c.import_single_user(user_email)
@@ -208,7 +213,7 @@ def main():
     if args.import_groups:
         print("Importing Groups from logs")
         start = timer()
-        scim_c = ScimClient(client_config)
+        scim_c = ScimClient(client_config, checkpoint_service)
         scim_c.import_all_users_and_groups()
         user_names = scim_c.get_users_from_log()
         print('Export users notebooks:', user_names)
@@ -236,6 +241,26 @@ def main():
         print("Importing MLflow experiments.")
         mlflow_c = MLFlowClient(client_config, checkpoint_service)
         mlflow_c.import_mlflow_experiments(num_parallel=args.num_parallel)
+        failed_task_log = logging_utils.get_error_log_file(wmconstants.WM_IMPORT, wmconstants.MLFLOW_EXPERIMENT_OBJECT, client_config['export_dir'])
+        logging_utils.raise_if_failed_task_file_exists(failed_task_log, "MLflow Runs Import.")
+
+    if args.mlflow_experiments_permissions:
+        print("Importing MLflow experiment permissions.")
+        mlflow_c = MLFlowClient(client_config, checkpoint_service)
+        mlflow_c.import_mlflow_experiments_acls(num_parallel=args.num_parallel)
+        failed_task_log = logging_utils.get_error_log_file(wmconstants.WM_IMPORT, wmconstants.MLFLOW_EXPERIMENT_PERMISSION_OBJECT, client_config['export_dir'])
+        logging_utils.raise_if_failed_task_file_exists(failed_task_log, "MLflow Experiments Permissions Import.")
+
+    if args.mlflow_runs:
+        print("Importing MLflow runs.")
+        mlflow_c = MLFlowClient(client_config, checkpoint_service)
+        assert args.src_profile is not None, "Import MLflow runs requires --src-profile flag."
+        src_login_args = get_login_credentials(profile=args.src_profile)
+        src_client_config = build_client_config(args.src_profile, src_login_args['host'], src_login_args['token'], args)
+        mlflow_c.import_mlflow_runs(src_client_config, num_parallel=args.num_parallel)
+        failed_task_log = logging_utils.get_error_log_file(wmconstants.WM_IMPORT, wmconstants.MLFLOW_RUN_OBJECT, client_config['export_dir'])
+        logging_utils.raise_if_failed_task_file_exists(failed_task_log, "MLflow Runs Import.")
+
 
     if args.get_repair_log:
         print("Finding partitioned tables to repair at {0}".format(now))

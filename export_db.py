@@ -26,6 +26,9 @@ def main():
     url = login_args['host']
     token = login_args['token']
     client_config = build_client_config(args.profile, url, token, args)
+    session = args.session if args.session else ""
+    client_config['session'] = session
+    client_config['export_dir'] = os.path.join(client_config['export_dir'], session) + '/'
 
     os.makedirs(client_config['export_dir'], exist_ok=True)
     logging_utils.set_default_logging(client_config['export_dir'])
@@ -38,7 +41,7 @@ def main():
 
     if args.users:
         print("Export all users and groups at {0}".format(now))
-        scim_c = ScimClient(client_config)
+        scim_c = ScimClient(client_config, checkpoint_service)
         start = timer()
         # log all users
         scim_c.log_all_users()
@@ -64,7 +67,7 @@ def main():
         start = timer()
         # log notebooks and libraries
         ws_c.init_workspace_logfiles()
-        num_notebooks = ws_c.log_all_workspace_items_entry()
+        num_notebooks = ws_c.log_all_workspace_items_entry(exclude_prefixes=args.exclude_work_item_prefixes)
         print("Total number of notebooks logged: ", num_notebooks)
         end = timer()
         print("Complete Workspace Export Time: " + str(timedelta(seconds=end - start)))
@@ -237,7 +240,7 @@ def main():
     if args.single_user:
         user_email = args.single_user
         print(f"Export user {user_email} at {now}")
-        scim_c = ScimClient(client_config)
+        scim_c = ScimClient(client_config, checkpoint_service)
         start = timer()
         # log all users
         scim_c.log_single_user(user_email)
@@ -267,7 +270,7 @@ def main():
         group_name_list = convert_args_to_list(args.export_groups)
         print("Exporting Groups: {0}".format(group_name_list))
         start = timer()
-        scim_c = ScimClient(client_config)
+        scim_c = ScimClient(client_config, checkpoint_service)
         # log notebooks and libraries
         user_names = scim_c.log_groups_from_list(group_name_list)
         print('Export users notebooks:', user_names)
@@ -286,6 +289,23 @@ def main():
         print("Exporting MLflow experiments.")
         mlflow_c = MLFlowClient(client_config, checkpoint_service)
         mlflow_c.export_mlflow_experiments()
+        failed_task_log = logging_utils.get_error_log_file(wmconstants.WM_EXPORT, wmconstants.MLFLOW_EXPERIMENT_OBJECT, client_config['export_dir'])
+        logging_utils.raise_if_failed_task_file_exists(failed_task_log, "MLflow Experiments Export.")
+
+    if args.mlflow_experiments_permissions:
+        print("Importing MLflow experiment permissions.")
+        mlflow_c = MLFlowClient(client_config, checkpoint_service)
+        mlflow_c.export_mlflow_experiments_acls()
+        failed_task_log = logging_utils.get_error_log_file(wmconstants.WM_EXPORT, wmconstants.MLFLOW_EXPERIMENT_PERMISSION_OBJECT, client_config['export_dir'])
+        logging_utils.raise_if_failed_task_file_exists(failed_task_log, "MLflow Experiments Permissions Export.")
+
+    if args.mlflow_runs:
+        print("Exporting MLflow runs.")
+        mlflow_c = MLFlowClient(client_config, checkpoint_service)
+        mlflow_c.export_mlflow_runs(args.start_date, num_parallel=args.num_parallel)
+        failed_task_log = logging_utils.get_error_log_file(wmconstants.WM_EXPORT, wmconstants.MLFLOW_RUN_OBJECT, client_config['export_dir'])
+        logging_utils.raise_if_failed_task_file_exists(failed_task_log, "MLflow Runs Export.")
+
 
     if args.reset_exports:
         print('Request to clean up old export directory')

@@ -9,5 +9,9 @@ TEST_CONFIG = {
     'file_format': 'DBC',
     'overwrite_notebooks': True,
     'checkpoint_dir': '/',
-    'use_checkpoint': False
+    'use_checkpoint': False,
+    'profile': "test_profile",
+    'retry_total': 1,
+    'retry_backoff': 2,
+    'debug': False
 }
