@@ -124,9 +124,9 @@ def build_import_pipeline(client_config, checkpoint_service, args) -> Pipeline:
     import_notebooks = pipeline.add_task(NotebookImportTask(client_config, checkpoint_service, args, wmconstants.NOTEBOOKS in skip_tasks), [import_groups])
     import_workspace_acls = pipeline.add_task(WorkspaceACLImportTask(client_config, checkpoint_service, wmconstants.WORKSPACE_ACLS in skip_tasks), [import_notebooks])
     import_secrets = pipeline.add_task(SecretImportTask(client_config, checkpoint_service, wmconstants.SECRETS in skip_tasks), [import_groups])
-    import_clusters = pipeline.add_task(ClustersImportTask(client_config, args, checkpoint_service, wmconstants.CLUSTERS in skip_tasks), [import_secrets])
-    import_instance_pools = pipeline.add_task(InstancePoolsImportTask(client_config, args, checkpoint_service, wmconstants.INSTANCE_POOLS in skip_tasks), [import_clusters])
-    import_jobs = pipeline.add_task(JobsImportTask(client_config, args, checkpoint_service, wmconstants.JOBS in skip_tasks), [import_instance_pools])
+    import_instance_pools = pipeline.add_task(InstancePoolsImportTask(client_config, args, checkpoint_service, wmconstants.INSTANCE_POOLS in skip_tasks), [import_secrets])
+    import_clusters = pipeline.add_task(ClustersImportTask(client_config, args, checkpoint_service, wmconstants.CLUSTERS in skip_tasks), [import_instance_pools])
+    import_jobs = pipeline.add_task(JobsImportTask(client_config, args, checkpoint_service, wmconstants.JOBS in skip_tasks), [import_clusters])
     import_metastore = pipeline.add_task(MetastoreImportTask(client_config, checkpoint_service, args, wmconstants.METASTORE in skip_tasks), [import_groups])
     import_metastore_table_acls = pipeline.add_task(MetastoreTableACLImportTask(client_config, args, checkpoint_service, wmconstants.METASTORE_TABLE_ACLS in skip_tasks), [import_metastore])
     return pipeline
