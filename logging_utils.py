@@ -19,7 +19,7 @@ def get_error_logger(action_type, object_type, log_dir):
     """
     Failures are written to object specific log file.
     """
-    logger = logging.getLogger("workspace_migration")
+    logger = logging.getLogger(f"workspace_migration_{object_type}")
 
     failed_log_file = get_error_log_file(action_type, object_type, log_dir)
     os.makedirs(_get_log_dir(log_dir), exist_ok=True)
