@@ -110,7 +110,7 @@ class JobsClient(ClustersClient):
                     job_perms['job_name'] = new_job_name
                     acl_fp.write(json.dumps(job_perms) + '\n')
 
-    def import_job_configs(self, log_file='jobs.log', acl_file='acl_jobs.log', job_map_file='job_map.log'):
+    def import_job_configs(self, log_file='jobs.log', acl_file='acl_jobs.log', job_map_file='job_id_map.log'):
         jobs_log = self.get_export_dir() + log_file
         acl_jobs_log = self.get_export_dir() + acl_file
         job_map_log = self.get_export_dir() + job_map_file
@@ -185,7 +185,7 @@ class JobsClient(ClustersClient):
                 else:
                     if 'job_id' in job_conf:
                         checkpoint_job_configs_set.write(job_conf["job_id"])
-                    _job_map = {job_conf["job_id"]: str(create_resp["job_id"])}
+                    _job_map = {"old_id": job_conf["job_id"], "new_id": str(create_resp["job_id"])}
                     jm_fp.write(json.dumps(_job_map) + '\n')
 
 
