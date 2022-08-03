@@ -210,6 +210,33 @@ class JobsClient(ClustersClient):
         # update the imported job names
         self.update_imported_job_names(error_logger, checkpoint_job_configs_set)
 
+    def import_pause_status(self, log_file='jobs.log', job_map_file='job_id_map.log'):
+        log_file = self.get_export_dir() + log_file
+        job_map_file = self.get_export_dir() + job_map_file
+
+
+        if not os.path.exists(log_file) or not os.path.exists(job_map_file):
+            raise ValueError('Jobs log and jobs id map must exist to map jobs to previous existing jobs ids')
+
+        job_map_log = self._load_job_id_map(job_map_file)
+        
+        with open(log_file, 'r') as fp:
+            for line in fp:
+                job_conf = json.loads(line)
+                new_job_id = job_map_log[job_conf['job_id']]
+                job_settings = job_conf['settings']
+                update_job_conf = {'job_id': new_job_id,
+                                   'new_settings': job_settings}
+                update_job_resp = self.post('/jobs/reset', update_job_conf)
+
+    def _load_job_id_map(self, job_id_map_log):
+        id_map = {}
+        with open(job_id_map_log, 'r') as fp:
+            for single_id_map_str in fp:
+                single_id_map = json.loads(single_id_map_str)
+                id_map[single_id_map["old_id"]] = single_id_map["new_id"]
+        return id_map
+
     def pause_all_jobs(self, pause=True):
         job_list = self.get_jobs_list()
         for job_conf in job_list:

@@ -326,7 +326,8 @@ usage: import_db.py [-h] [--users] [--workspace] [--workspace-top-level]
                     [--profile PROFILE] [--single-user SINGLE_USER]
                     [--no-ssl-verification] [--silent] [--debug]
                     [--set-export-dir SET_EXPORT_DIR] [--pause-all-jobs]
-                    [--unpause-all-jobs] [--delete-all-jobs]
+                    [--unpause-all-jobs] [--import-pause-status]
+                    [--delete-all-jobs]
                                         
 Import full workspace artifacts into Databricks
 
@@ -374,6 +375,7 @@ optional arguments:
                         export dir was a customized
   --pause-all-jobs      Pause all scheduled jobs
   --unpause-all-jobs    Unpause all scheduled jobs
+  --import-pause-status Import the pause status from jobs in the old workspace
   --delete-all-jobs     Delete all jobs
 ```
 
@@ -496,6 +498,11 @@ python export_db.py --profile DEMO --pause-all-jobs
 Un-pause all jobs in the new workspace:
 ```bash
 python import_db.py --profile NEW_DEMO --unpause-all-jobs
+```
+
+If you want to unpause only the jobs which were not paused in the old workspace, you can use the following option:
+```bash
+python import_db.py --profile NEW_DEMO --import-pause-status
 ```
 
 ### Hive Metastore

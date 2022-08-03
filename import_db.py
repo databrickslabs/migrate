@@ -173,6 +173,16 @@ def main():
         jobs_c.pause_all_jobs(False)
         end = timer()
         print("Unpaused all jobs time: " + str(timedelta(seconds=end - start)))
+    
+    if args.import_pause_status:
+        print("Importing pause status for migrated jobs {0}".format(now))
+        start = timer()
+        jobs_c = JobsClient(client_config, checkpoint_service)
+        # log job configs
+        jobs_c.import_pause_status()
+        end = timer()
+        print("Import pause jobs time: " + str(timedelta(seconds=end - start)))
+
 
     if args.delete_all_jobs:
         print("Delete all current jobs {0}".format(now))
