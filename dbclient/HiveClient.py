@@ -140,6 +140,10 @@ class HiveClient(ClustersClient):
             put_resp = self.post('/dbfs/put', path_args, files_json=file_content_json)
             if self.is_verbose():
                 logging.info(put_resp)
+            if (put_resp['http_status_code'] != 200) or (del_resp['http_status_code'] != 200):
+                if del_resp['http_status_code'] == 200:
+                    return del_resp
+                return put_resp
             spark_big_ddl_cmd = f'with open("/dbfs{dbfs_path}", "r") as fp: tmp_ddl = fp.read(); spark.sql(tmp_ddl)'
             ddl_results = self.submit_command(cid, ec_id, spark_big_ddl_cmd)
             return ddl_results
