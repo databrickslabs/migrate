@@ -195,6 +195,15 @@ def main():
         end = timer()
         print("Single user all jobs time: " + str(timedelta(seconds=end - start)))
 
+    if args.shared_all_jobs:
+        print("Setting all jobs on new clusters as shared mode to enable UC {0}".format(now))
+        start = timer()
+        jobs_c = JobsClient(client_config, checkpoint_service)
+        # log job configs
+        jobs_c.shared_all_jobs()
+        end = timer()
+        print("Shared access mode all jobs time: " + str(timedelta(seconds=end - start)))
+
     if args.set_policy_all_jobs:
         print("Setting all jobs on new clusters with the provided policy {0}".format(now))
         start = timer()

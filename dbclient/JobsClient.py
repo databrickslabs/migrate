@@ -243,6 +243,20 @@ class JobsClient(ClustersClient):
                 update_job_resp = self.post('/jobs/reset', update_job_conf)
 
     # MTJ Jobs not supported
+    def shared_all_jobs(self):
+        job_list = self.get_jobs_list()
+        for job_conf in job_list:
+            job_settings = job_conf['settings']
+            job_clusters = job_settings.get('new_cluster', None)
+
+            if job_clusters:
+                job_clusters['data_security_mode'] = 'LEGACY_TABLE_ACL'
+                job_settings['new_cluster'] = job_clusters
+                update_job_conf = {'job_id': job_conf['job_id'],
+                                   'new_settings': job_settings}
+                update_job_resp = self.post('/jobs/reset', update_job_conf)
+
+    # MTJ Jobs not supported
     def set_policy_all_jobs(self, policy_id):
         job_list = self.get_jobs_list()
         for job_conf in job_list:

@@ -394,6 +394,9 @@ def get_import_parser():
     parser.add_argument('--single-user-all-jobs', action='store_true',
                         help='Set all jobs as single user to allow UC enabled clusters')
 
+    parser.add_argument('--shared-all-jobs', action='store_true',
+                        help='Set all jobs as shared to allow UC enabled clusters')
+
     parser.add_argument('--set-policy-all-jobs', action='store',
                         help='Set all jobs with the provided policy')
 
