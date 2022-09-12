@@ -391,6 +391,12 @@ def get_import_parser():
     parser.add_argument('--delete-all-jobs', action='store_true',
                         help='Delete all jobs')
 
+    parser.add_argument('--single-user-all-jobs', action='store_true',
+                        help='Set all jobs as single user to allow UC enabled clusters')
+
+    parser.add_argument('--set-policy-all-jobs', action='store',
+                        help='Set all jobs with the provided policy')
+
     parser.add_argument('--use-checkpoint', action='store_true',
                         help='use checkpointing to restart from previous state')
 

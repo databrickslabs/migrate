@@ -186,6 +186,24 @@ def main():
         end = timer()
         print("Delete all jobs time: " + str(timedelta(seconds=end - start)))
 
+    if args.single_user_all_jobs:
+        print("Setting all jobs on new clusters as single user mode to enable UC {0}".format(now))
+        start = timer()
+        jobs_c = JobsClient(client_config, checkpoint_service)
+        # log job configs
+        jobs_c.single_user_all_jobs()
+        end = timer()
+        print("Single user all jobs time: " + str(timedelta(seconds=end - start)))
+
+    if args.set_policy_all_jobs:
+        print("Setting all jobs on new clusters with the provided policy {0}".format(now))
+        start = timer()
+        jobs_c = JobsClient(client_config, checkpoint_service)
+        # log job configs
+        jobs_c.set_policy_all_jobs(args.set_policy_all_jobs)
+        end = timer()
+        print("Set policy all jobs time: " + str(timedelta(seconds=end - start)))
+
     if args.single_user:
         user_email = args.single_user
         print(f"Import user {user_email} at {now}")
