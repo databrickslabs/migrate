@@ -240,7 +240,7 @@ class JobsClient(ClustersClient):
                 job_settings['new_cluster'] = job_clusters
                 update_job_conf = {'job_id': job_conf['job_id'],
                                    'new_settings': job_settings}
-                update_job_resp = self.post('/jobs/reset', update_job_conf)
+                self.post('/jobs/reset', update_job_conf)
 
     # MTJ Jobs not supported
     def shared_all_jobs(self):
@@ -254,7 +254,7 @@ class JobsClient(ClustersClient):
                 job_settings['new_cluster'] = job_clusters
                 update_job_conf = {'job_id': job_conf['job_id'],
                                    'new_settings': job_settings}
-                update_job_resp = self.post('/jobs/reset', update_job_conf)
+                self.post('/jobs/reset', update_job_conf)
 
     # MTJ Jobs not supported
     def set_policy_all_jobs(self, policy_id):
@@ -268,5 +268,5 @@ class JobsClient(ClustersClient):
                 job_settings['new_cluster'] = job_clusters
                 update_job_conf = {'job_id': job_conf['job_id'],
                                    'new_settings': job_settings}
-                update_job_resp = self.post('/jobs/reset', update_job_conf)
+                self.post('/jobs/reset', update_job_conf)
 
