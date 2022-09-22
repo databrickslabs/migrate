@@ -388,6 +388,9 @@ def get_import_parser():
     parser.add_argument('--unpause-all-jobs', action='store_true',
                         help='Unpause all scheduled jobs')
 
+    parser.add_argument('--import-pause-status', action='store_true',
+                        help='Imports pause status for migrated jobs')
+
     parser.add_argument('--delete-all-jobs', action='store_true',
                         help='Delete all jobs')
 

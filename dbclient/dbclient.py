@@ -362,7 +362,7 @@ class dbclient:
         log_dir = self.get_export_dir()
         logs_to_update = ['users.log',
                           'instance_profiles.log', 'clusters.log', 'cluster_policies.log',
-                          'jobs.log']
+                          'jobs.log', 'job_id_map.log']
         # update individual logs first
         for log_name in logs_to_update:
             if os.path.exists(log_dir + log_name):

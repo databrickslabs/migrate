@@ -110,9 +110,10 @@ class JobsClient(ClustersClient):
                     job_perms['job_name'] = new_job_name
                     acl_fp.write(json.dumps(job_perms) + '\n')
 
-    def import_job_configs(self, log_file='jobs.log', acl_file='acl_jobs.log'):
+    def import_job_configs(self, log_file='jobs.log', acl_file='acl_jobs.log', job_map_file='job_id_map.log'):
         jobs_log = self.get_export_dir() + log_file
         acl_jobs_log = self.get_export_dir() + acl_file
+        job_map_log = self.get_export_dir() + job_map_file
         error_logger = logging_utils.get_error_logger(
             wmconstants.WM_IMPORT, wmconstants.JOB_OBJECT, self.get_export_dir())
         if not os.path.exists(jobs_log):
@@ -147,7 +148,7 @@ class JobsClient(ClustersClient):
                     new_cluster_conf = cluster_conf
                 settings['new_cluster'] = new_cluster_conf
 
-        with open(jobs_log, 'r') as fp:
+        with open(jobs_log, 'r') as fp, open(job_map_log, 'w') as jm_fp:
             for line in fp:
                 job_conf = json.loads(line)
                 # need to do str(...), otherwise the job_id is recognized as integer which becomes
@@ -184,6 +185,8 @@ class JobsClient(ClustersClient):
                 else:
                     if 'job_id' in job_conf:
                         checkpoint_job_configs_set.write(job_conf["job_id"])
+                    _job_map = {"old_id": job_conf["job_id"], "new_id": str(create_resp["job_id"])}
+                    jm_fp.write(json.dumps(_job_map) + '\n')
 
 
         # update the jobs with their ACLs
@@ -206,6 +209,33 @@ class JobsClient(ClustersClient):
                     raise RuntimeError("Import job has failed. Refer to the previous log messages to investigate.")
         # update the imported job names
         self.update_imported_job_names(error_logger, checkpoint_job_configs_set)
+
+    def import_pause_status(self, log_file='jobs.log', job_map_file='job_id_map.log'):
+        log_file = self.get_export_dir() + log_file
+        job_map_file = self.get_export_dir() + job_map_file
+
+
+        if not os.path.exists(log_file) or not os.path.exists(job_map_file):
+            raise ValueError('Jobs log and jobs id map must exist to map jobs to previous existing jobs ids')
+
+        job_map_log = self._load_job_id_map(job_map_file)
+        
+        with open(log_file, 'r') as fp:
+            for line in fp:
+                job_conf = json.loads(line)
+                new_job_id = job_map_log[job_conf['job_id']]
+                job_settings = job_conf['settings']
+                update_job_conf = {'job_id': new_job_id,
+                                   'new_settings': job_settings}
+                update_job_resp = self.post('/jobs/reset', update_job_conf)
+
+    def _load_job_id_map(self, job_id_map_log):
+        id_map = {}
+        with open(job_id_map_log, 'r') as fp:
+            for single_id_map_str in fp:
+                single_id_map = json.loads(single_id_map_str)
+                id_map[single_id_map["old_id"]] = single_id_map["new_id"]
+        return id_map
 
     def pause_all_jobs(self, pause=True):
         job_list = self.get_jobs_list()
