@@ -616,10 +616,11 @@ python export_db.py --profile DEMO --secrets --cluster-name "my_cluster"
 python import_db.py --profile newDEMO --secrets
 ```
 
-### (Alpha version) Export / Import of MLFlow experiments, experiment permissions, and runs objects
+### (Alpha version) Export / Import of MLflow experiments, experiment permissions, and runs objects
 Note: Registered model, model version, and metric history are not supported yet.
+Please see [mlflow-export-import](https://github.com/amesar/mlflow-export-import) for standalone MLflow migrations.
 
-This will export and import the specified MLflow objects. Because MLFlow objects depend on other object types such as
+This will export and import the specified MLflow objects. Because MLflow objects depend on other object types such as
 workspace directories, notebooks, etc this command should run after the other objects are successfully exported/imported.
 
 mlflow-runs are by default only exported for the past 30 days worth of data. The user can specify other dates but should
