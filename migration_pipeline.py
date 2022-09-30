@@ -34,7 +34,7 @@ def build_pipeline(args) -> Pipeline:
         # Cant use netrc credentials because requests module tries to load the credentials into http
         # basic auth headers parse the credentials
         url = login_args['host']
-        token = login_args['token']
+        token = login_args.get('token', login_args.get('password'))
         client_config = parser.build_client_config(args.profile, url, token, args)
 
     client_config['session'] = session
