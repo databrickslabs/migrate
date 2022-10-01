@@ -20,7 +20,7 @@ def main():
 
     # cant use netrc credentials because requests module tries to load the credentials into http basic auth headers
     url = login_args['host']
-    token = login_args['token']
+    token = login_args.get('token', login_args.get('password'))
     client_config = build_client_config(args.profile, url, token, args)
     session = args.session if args.session else ""
     client_config['session'] = session
@@ -266,7 +266,7 @@ def main():
         mlflow_c = MLFlowClient(client_config, checkpoint_service)
         assert args.src_profile is not None, "Import MLflow runs requires --src-profile flag."
         src_login_args = get_login_credentials(profile=args.src_profile)
-        src_client_config = build_client_config(args.src_profile, src_login_args['host'], src_login_args['token'], args)
+        src_client_config = build_client_config(args.src_profile, src_login_args['host'], src_login_args.get('token', login_args.get('password')), args)
         mlflow_c.import_mlflow_runs(src_client_config, num_parallel=args.num_parallel)
         failed_task_log = logging_utils.get_error_log_file(wmconstants.WM_IMPORT, wmconstants.MLFLOW_RUN_OBJECT, client_config['export_dir'])
         logging_utils.raise_if_failed_task_file_exists(failed_task_log, "MLflow Runs Import.")

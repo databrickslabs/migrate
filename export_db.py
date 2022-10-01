@@ -24,7 +24,7 @@ def main():
     # cant use netrc credentials because requests module tries to load the credentials into http basic auth headers
     # parse the credentials
     url = login_args['host']
-    token = login_args['token']
+    token = login_args.get('token', login_args.get('password'))
     client_config = build_client_config(args.profile, url, token, args)
     session = args.session if args.session else ""
     client_config['session'] = session
