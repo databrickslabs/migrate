@@ -62,7 +62,7 @@ INSTANCE_STATE="Not Ready"
 while [[ $INSTANCE_STATE != "running" ]]
 do
     echo "Instance $INSTANCE_ID is in $INSTANCE_STATE state. Waiting for the instance to be in running state. Checking again in 5 seconds.."
-    INSTANCE_STATE=$(aws ec2 describe-instance-status --instance-ids $INSTANCE_ID --region $REGION --profile aws-field-eng_databricks-power-user | jq .InstanceStatuses | jq -r .'[].InstanceState.Name')
+    INSTANCE_STATE=$(aws ec2 describe-instance-status --instance-ids $INSTANCE_ID --region $REGION --profile $AWS_PROFILE | jq .InstanceStatuses | jq -r .'[].InstanceState.Name')
     if [ -z $INSTANCE_STATE ]; then
       INSTANCE_STATE="Not Ready"
     fi
