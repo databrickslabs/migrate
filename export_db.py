@@ -237,6 +237,22 @@ def main():
         end = timer()
         print("Complete email update time: " + str(timedelta(seconds=end - start)))
 
+    if args.update_domain:
+        print("Updating old email(s) to new email(s)) at {0}".format(now))
+        start = timer()
+        client = dbclient(client_config)
+        domains = args.update_domain.split(':')
+        if len(domains) < 2:
+            print('Syntax error in domain '+emailpair+'. Old domain and new domain to be separated by a :')
+        else:
+            old_domain = domains[0]
+            new_domain = domains[1]
+            print('Replacing old domains: '+old_domain+' with new domains '+new_domain)
+            client.update_domain(old_domain, new_domain)
+        end = timer()
+        print("Complete domain update time: " + str(timedelta(seconds=end - start)))
+
+
     if args.single_user:
         user_email = args.single_user
         print(f"Export user {user_email} at {now}")

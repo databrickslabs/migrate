@@ -406,3 +406,20 @@ class dbclient:
         if os.path.exists(old_single_user_nbs_dir):
             os.rename(old_single_user_nbs_dir, new_single_user_nbs_dir)
         print("Update email address complete")
+
+    def update_domain(self, old_domain, new_domain):
+        """
+        """
+        user_logfile = self.get_export_dir() + 'users.log'
+        username_list = []
+        with open(user_logfile, 'r') as fp:
+            for u in fp:
+                user_json = json.loads(u)
+                username_list.append(user_json.get('userName'))
+        
+        for old_email_address in username_list:
+            old_domain_check = old_email_address.split('@')[1]
+            if old_domain_check == old_domain:
+                new_email_address = old_email_address.split('@')[0]+'@'+new_domain
+                self.update_email_addresses(old_email_address, new_email_address)
+        
