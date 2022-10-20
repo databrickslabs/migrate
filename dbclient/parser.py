@@ -553,4 +553,7 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
 
     parser.add_argument('--exclude-work-item-prefixes', nargs='+', type=str, default=[],
                         help='List of prefixes to skip export for log_all_workspace_items')
+
+    parser.add_argument('--update-domain', action='store',
+                        help='Update old domain with new domain. ')
     return parser
