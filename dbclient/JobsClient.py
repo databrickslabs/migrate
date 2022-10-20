@@ -27,7 +27,7 @@ class JobsClient(ClustersClient):
         res = self.get("/jobs/list", print_json, version='2.0')
         for job in res.get('jobs', []):
             jobsById[job.get('job_id')] = job
-
+            
         limit = 25 # max limit supported by the API
         offset = 0
         has_more = True
@@ -40,8 +40,10 @@ class JobsClient(ClustersClient):
             has_more = res.get('has_more')
             for job in res.get('jobs', []):
                 jobId = job.get('job_id')
+                lens = len(job.get("settings").get('tasks'))
                 # only replaces "real" MULTI_TASK jobs, as they contain the task definitions.
-                if jobsById[jobId].get('format') == 'MULTI_TASK':
+                if lens > 1:
+                    print(jobsById[jobId].get('format'))
                     jobsById[jobId] = job
         return jobsById.values()
 
@@ -110,7 +112,7 @@ class JobsClient(ClustersClient):
                     job_perms['job_name'] = new_job_name
                     acl_fp.write(json.dumps(job_perms) + '\n')
 
-    def import_job_configs(self, log_file='jobs.log', acl_file='acl_jobs.log', job_map_file='job_id_map.log'):
+    def import_job_configs(self, log_file='jobs.log', acl_file='acl_jobs.log', job_map_file='job_id_map.log', replace_jobs=False):
         jobs_log = self.get_export_dir() + log_file
         acl_jobs_log = self.get_export_dir() + acl_file
         job_map_log = self.get_export_dir() + job_map_file
@@ -124,8 +126,9 @@ class JobsClient(ClustersClient):
         old_2_new_policy_ids = self.get_new_policy_id_dict()  # dict { old_policy_id : new_policy_id }
         checkpoint_job_configs_set = self._checkpoint_service.get_checkpoint_key_set(
             wmconstants.WM_IMPORT, wmconstants.JOB_OBJECT)
+        jobs_to_replace = []
 
-        def adjust_ids_for_cluster(settings): #job_settings or task_settings
+        def adjust_ids_for_cluster(settings, tasksLength): #job_settings or task_settings
             if 'existing_cluster_id' in settings:
                 old_cid = settings['existing_cluster_id']
                 # set new cluster id for existing cluster attribute
@@ -136,7 +139,18 @@ class JobsClient(ClustersClient):
                     settings['new_cluster'] = self.get_jobs_default_cluster_conf()
                 else:
                     settings['existing_cluster_id'] = new_cid
-            else:  # new cluster config
+            elif tasksLength > 1:  # new cluster config
+                if 'job_cluster_key' in settings:
+                    old_cid = settings['job_cluster_key']
+                    # set new cluster id for existing cluster attribute
+                    new_cid = cluster_mapping.get(old_cid, None)
+                    if not new_cid:
+                        logging.info("Existing cluster has been removed. Resetting job to use new cluster.")
+                        settings.pop('job_cluster_key')
+                        settings['new_cluster'] = self.get_jobs_default_cluster_conf()
+                    else:
+                        settings['existing_cluster_id'] = new_cid
+            elif tasksLength == 1:  # new cluster config
                 cluster_conf = settings['new_cluster']
                 if 'policy_id' in cluster_conf:
                     old_policy_id = cluster_conf['policy_id']
@@ -159,15 +173,16 @@ class JobsClient(ClustersClient):
                 job_creator = job_conf.get('creator_user_name', '')
                 job_settings = job_conf['settings']
                 job_schedule = job_settings.get('schedule', None)
+                tasksLength = len(job_settings.get('tasks', []))
                 if job_schedule:
                     # set all imported jobs as paused
                     job_schedule['pause_status'] = 'PAUSED'
                     job_settings['schedule'] = job_schedule
                 if 'format' not in job_settings or job_settings.get('format') == 'SINGLE_TASK':
-                    adjust_ids_for_cluster(job_settings)
+                    adjust_ids_for_cluster(job_settings, tasksLength)
                 else:
                     for task_settings in job_settings.get('tasks', []):
-                        adjust_ids_for_cluster(task_settings)
+                        adjust_ids_for_cluster(task_settings, tasksLength)
 
                 logging.info("Current Job Name: {0}".format(job_conf['settings']['name']))
                 # creator can be none if the user is no longer in the org. see our docs page
@@ -189,7 +204,7 @@ class JobsClient(ClustersClient):
                     jm_fp.write(json.dumps(_job_map) + '\n')
 
 
-        # update the jobs with their ACLs
+      # update the jobs with their ACLs
         with open(acl_jobs_log, 'r') as acl_fp:
             job_id_by_name = self.get_job_id_by_name()
             for line in acl_fp:
