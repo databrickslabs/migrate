@@ -467,7 +467,7 @@ def build_client_config(profile, url, token, args):
     elif config['is_aws']:
         config['export_dir'] = 'logs/'
     elif config['is_azure']:
-        config['export_dir'] = 'azure_logs'
+        config['export_dir'] = 'azure_logs/'
     else:
         config['export_dir'] = 'gcp_logs/'
 
