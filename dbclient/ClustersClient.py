@@ -482,8 +482,11 @@ class ClustersClient(dbclient):
                 print("Creating cluster with: " + iam_role)
                 aws_attr['instance_profile_arn'] = iam_role
                 cluster_json['aws_attributes'] = aws_attr
-        else:
+        elif self.is_azure():
             with open(f'{real_path}/../data/azure_cluster{cluster_json_postfix}.json', 'r') as fp:
+                cluster_json = json.loads(fp.read())
+        elif self.is_gcp():
+            with open(f'{real_path}/../data/gcp_cluster{cluster_json_postfix}.json', 'r') as fp:
                 cluster_json = json.loads(fp.read())
         # set the latest spark release regardless of defined cluster json
         # cluster_json['spark_version'] = version['key']
@@ -497,7 +500,7 @@ class ClustersClient(dbclient):
             logging.info("Starting cluster with name: {0} ".format(cluster_name))
             c_info = self.post('/clusters/create', cluster_json)
             if c_info['http_status_code'] != 200:
-                raise Exception("Could not launch cluster. Verify that the --azure flag or cluster config is correct.")
+                raise Exception("Could not launch cluster. Verify that the --azure or --gcp flag or cluster config is correct.")
             self.wait_for_cluster(c_info['cluster_id'])
             return c_info['cluster_id']
 

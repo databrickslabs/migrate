@@ -43,6 +43,10 @@ def is_azure_creds(creds):
         return True
     return False
 
+def is_gcp_creds(creds):
+    if 'gcp.databricks.com' in creds.get('host', ''):
+        return True
+    return False
 
 def convert_args_to_list(arg_str):
     arg_list = map(lambda x: x.lstrip().rstrip(), arg_str.split(','))
@@ -73,6 +77,9 @@ def get_export_user_parser():
 
     parser.add_argument('--azure', action='store_true', default=False,
                         help='Run on Azure. (Default is AWS)')
+
+    parser.add_argument('--gcp', action='store_true', default=False,
+                        help='Run on GCP. (Default is AWS)')
 
     parser.add_argument('--skip-failed', action='store_true', default=False,
                         help='Skip retries for any failed hive metastore exports.')
@@ -181,6 +188,9 @@ def get_export_parser():
     # get azure logs
     parser.add_argument('--azure', action='store_true', default=False,
                         help='Run on Azure. (Default is AWS)')
+
+    parser.add_argument('--gcp', action='store_true', default=False,
+                        help='Run on GCP. (Default is AWS)')
     #
     parser.add_argument('--profile', action='store', default='DEFAULT',
                         help='Profile to parse the credentials')
@@ -358,6 +368,9 @@ def get_import_parser():
     # get azure logs
     parser.add_argument('--azure', action='store_true',
                         help='Run on Azure. (Default is AWS)')
+
+    parser.add_argument('--gcp', action='store_true',
+                        help='Run on GCP. (Default is AWS)')
     #
     parser.add_argument('--profile', action='store', default='DEFAULT',
                         help='Profile to parse the credentials')
@@ -432,7 +445,9 @@ def build_client_config(profile, url, token, args):
     config = {'profile': profile,
               'url': url,
               'token': token,
-              'is_aws': (not args.azure),
+              'is_aws': (not args.azure and not args.gcp),
+              'is_azure': (args.azure),
+              'is_gcp': (args.gcp),
               'verbose': (not args.silent),
               'verify_ssl': (not args.no_ssl_verification),
               'skip_failed': args.skip_failed,
@@ -451,8 +466,10 @@ def build_client_config(profile, url, token, args):
             config['export_dir'] = args.set_export_dir
     elif config['is_aws']:
         config['export_dir'] = 'logs/'
+    elif config['is_azure']:
+        config['export_dir'] = 'azure_logs'
     else:
-        config['export_dir'] = 'azure_logs/'
+        config['export_dir'] = 'gcp_logs/'
 
     config['use_checkpoint'] = args.use_checkpoint
     config['num_parallel'] = args.num_parallel
@@ -470,6 +487,9 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
 
     parser.add_argument('--azure', action='store_true', default=False,
                         help='Run on Azure. (Default is AWS)')
+
+    parser.add_argument('--gcp', action='store_true', default=False,
+                        help='Run on GCP. (Default is AWS)')
 
     parser.add_argument('--silent', action='store_true', default=False,
                         help='Silent all logging of export operations.')

@@ -57,6 +57,8 @@ class dbclient:
         self._update_token(configs['token'])
         self._export_dir = configs['export_dir']
         self._is_aws = configs['is_aws']
+        self._is_azure = configs['is_azure']
+        self._is_gcp = configs['is_gcp']
         self._skip_failed = configs['skip_failed']
         self._is_verbose = configs['verbose']
         self._verify_ssl = configs['verify_ssl']
@@ -82,6 +84,12 @@ class dbclient:
 
     def is_aws(self):
         return self._is_aws
+
+    def is_azure(self):
+        return self._is_azure
+
+    def is_gcp(self):
+        return self._is_gcp
 
     def is_verbose(self):
         return self._is_verbose
