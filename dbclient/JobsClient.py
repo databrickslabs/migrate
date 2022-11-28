@@ -9,8 +9,10 @@ class JobsClient(ClustersClient):
     def get_jobs_default_cluster_conf(self):
         if self.is_aws():
             cluster_json_file = 'data/default_jobs_cluster_aws.json'
-        else:
+        elif self.is_azure():
             cluster_json_file = 'data/default_jobs_cluster_azure.json'
+        elif self.is_gcp():
+            cluster_json_file = 'data/default_jobs_cluster_gcp.json'
         with open(cluster_json_file, 'r') as fp:
             cluster_json = json.loads(fp.read())
             return cluster_json

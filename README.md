@@ -117,7 +117,7 @@ The recommended method of exporting and importing is by using the Pipeline conta
 
 ```
 python migration_pipeline.py -h
-usage: migration_pipeline.py [-h] [--profile PROFILE] [--azure] [--silent] [--no-ssl-verification] [--debug] [--set-export-dir SET_EXPORT_DIR]
+usage: migration_pipeline.py [-h] [--profile PROFILE] [--azure or gcp] [--silent] [--no-ssl-verification] [--debug] [--set-export-dir SET_EXPORT_DIR]
                              [--cluster-name CLUSTER_NAME] [--notebook-format {DBC,SOURCE,HTML}] [--overwrite-notebooks] [--archive-missing]
                              [--repair-metastore-tables] [--metastore-unicode] [--skip-failed] [--session SESSION] [--dry-run] [--export-pipeline] [--import-pipeline]
                              [--validate-pipeline] [--validate-source-session VALIDATE_SOURCE_SESSION] [--validate-destination-session VALIDATE_DESTINATION_SESSION]
@@ -130,7 +130,7 @@ Export user(s) workspace artifacts from Databricks
 optional arguments:
   -h, --help            show this help message and exit
   --profile PROFILE     Profile to parse the credentials
-  --azure               Run on Azure. (Default is AWS)
+  --azure or gcp        Run on Azure or GCP. (Default is AWS)
   --silent              Silent all logging of export operations.
   --no-ssl-verification
                         Set Verify=False when making http requests.

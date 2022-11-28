@@ -27,9 +27,14 @@ def build_pipeline(args) -> Pipeline:
         client_config = parser.build_client_config_without_profile(args)
     else:
         login_args = parser.get_login_credentials(profile=args.profile)
+
         if parser.is_azure_creds(login_args) and (not args.azure):
             raise ValueError(
                 'Login credentials do not match args. Please provide --azure flag for azure envs.')
+
+        if parser.is_gcp_creds(login_args) and (not args.gcp):
+            raise ValueError(
+                'Login credentials do not match args. Please provide --gcp flag for gcp envs.')
 
         # Cant use netrc credentials because requests module tries to load the credentials into http
         # basic auth headers parse the credentials

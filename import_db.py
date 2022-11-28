@@ -18,6 +18,9 @@ def main():
     if is_azure_creds(login_args) and (not args.azure):
         raise ValueError('Login credentials do not match args. Please provide --azure flag for azure environments.')
 
+    if is_gcp_creds(login_args) and (not args.gcp):
+        raise ValueError('Login credentials do not match args. Please provide --gcp flag for gcp environments.')
+
     # cant use netrc credentials because requests module tries to load the credentials into http basic auth headers
     url = login_args['host']
     token = login_args['token']
