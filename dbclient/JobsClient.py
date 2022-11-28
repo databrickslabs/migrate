@@ -43,7 +43,7 @@ class JobsClient(ClustersClient):
             for job in res.get('jobs', []):
                 jobId = job.get('job_id')
                 # only replaces "real" MULTI_TASK jobs, as they contain the task definitions.
-                if jobsById[jobId].get('format') == 'MULTI_TASK':
+                if jobsById[jobId]['settings'].get('format') == 'MULTI_TASK':
                     jobsById[jobId] = job
         return jobsById.values()
 
