@@ -97,7 +97,7 @@ Support Matrix for Import and Export Operations:
 | ML Models         | Supported*   | Supported*   |
 
 > **Note on MLFlow Migration:**  
-> MLFlow asset migration is currently in alpha. See [mlflow-export-import](https://github.com/amesar/mlflow-export-import) for comprehensive MLflow migrations.
+> MLFlow asset migration is currently only partially supported; Feature Store and Model Registry will not be migrated, for example. See [mlflow-export-import](https://github.com/mlflow/mlflow-export-import) for comprehensive MLflow migrations.
 
 > **Note on DBFS Data Migration:**  
 > DBFS is a protected object storage location on AWS and Azure.
