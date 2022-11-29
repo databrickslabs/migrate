@@ -159,7 +159,9 @@ optional arguments:
                         Session used by exporting destination workspace. Only used for --validate-pipeline.
   --use-checkpoint      use checkpointing to restart from previous state
   --skip-tasks SKIP_TASKS [SKIP_TASKS ...]
-                        List of tasks to skip from the pipeline.
+                        Space-separated list of tasks to skip from the pipeline. Valid options are:
+                         instance_profiles, users, groups, workspace_item_log, workspace_acls, notebooks, secrets,
+                         clusters, instance_pools, jobs, metastore, metastore_table_acls, mlflow_experiments, mlflow_runs
   --num-parallel NUM_PARALLEL
                         Number of parallel threads to use to export/import
   --retry-total RETRY_TOTAL
