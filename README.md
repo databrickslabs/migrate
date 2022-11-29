@@ -7,7 +7,7 @@ to move between different cloud providers, or to move to different regions / acc
 This package is based on python 3.6 and DBR 6.x+ releases.  
 Python 3.7 or above is recommended if one is also exporting/importing MLflow objects.
 
-> **Note:** This tool does not support windows currently since path resolution is different than mac / linux.  
+> **Note:** This tool does not support windows currently since path resolution is different from mac / linux.  
 
 This package also uses credentials from the 
 [Databricks CLI](https://docs.databricks.com/user-guide/dev-tools/databricks-cli.html).
@@ -62,7 +62,7 @@ In this case oldWS is the profile name you'll refer to for running the migration
 2. `Token`: When this happens, paste in the token you generated for the old databricks account.
 
 
-Repeat the steps above for the new databricks account and change the `oldWS` profile name to something like `newWS` in order to keep track of which account you're exporting FROM and which account you're inporting TO.
+Repeat the steps above for the new databricks account and change the `oldWS` profile name to something like `newWS` in order to keep track of which account you're exporting FROM and which account you're importing TO.
 
 Create a profile for the New workspace by typing:
 
@@ -83,18 +83,18 @@ To use the migration tool see the details below to start running the tool in the
 
 Support Matrix for Import and Export Operations:
 
-| Component         | Export       | Import       |
-| ----------------- | ------------ | ------------ |
-| Users / Groups    | Supported    | Supported    |
-| Clusters (w/ ACLs)| Supported    | Supported    |
-| Notebooks         | Supported    | Supported    |
-| Notebooks ACLs    | Supported    | Supported    |
-| Metastore         | Supported    | Supported    |
-| Jobs (w/ ACLs)    | Supported    | Supported    |
-| Libraries         | Supported    | Unsupported  |
-| Secrets           | Supported    | Supported    |
-| Table ACLs        | Supported    | Supported    |
-| ML Models         | Supported*   | Supported*   |
+| Component          | Export     | Import      |
+|--------------------|------------|-------------|
+| Users / Groups     | Supported  | Supported   |
+| Clusters (w/ ACLs) | Supported  | Supported   |
+| Notebooks          | Supported  | Supported   |
+| Notebooks ACLs     | Supported  | Supported   |
+| Metastore          | Supported  | Supported   |
+| Jobs (w/ ACLs)     | Supported  | Supported   |
+| Libraries          | Supported  | Unsupported |
+| Secrets            | Supported  | Supported   |
+| Table ACLs         | Supported  | Supported   |
+| ML Models          | Supported* | Supported*  |
 
 > **Note on MLFlow Migration:**  
 > MLFlow asset migration is currently only partially supported; Feature Store and Model Registry will not be migrated, for example. See [mlflow-export-import](https://github.com/mlflow/mlflow-export-import) for comprehensive MLflow migrations.
@@ -158,10 +158,12 @@ optional arguments:
   --validate-destination-session VALIDATE_DESTINATION_SESSION
                         Session used by exporting destination workspace. Only used for --validate-pipeline.
   --use-checkpoint      use checkpointing to restart from previous state
-  --skip-tasks SKIP_TASKS [SKIP_TASKS ...]
+  --skip-tasks SKIP_TASK [SKIP_TASK ...]
                         Space-separated list of tasks to skip from the pipeline. Valid options are:
                          instance_profiles, users, groups, workspace_item_log, workspace_acls, notebooks, secrets,
                          clusters, instance_pools, jobs, metastore, metastore_table_acls, mlflow_experiments, mlflow_runs
+  --keep-tasks KEEP_TASK [KEEP_TASK ...]
+                        Space-separated list of tasks to run from the pipeline. See valid options in --skip-tasks. Overrides skip-tasks.
   --num-parallel NUM_PARALLEL
                         Number of parallel threads to use to export/import
   --retry-total RETRY_TOTAL
@@ -623,7 +625,7 @@ Note: Registered model, model version, and metric history are not supported yet.
 Please see [mlflow-export-import](https://github.com/amesar/mlflow-export-import) for standalone MLflow migrations.
 
 This will export and import the specified MLflow objects. Because MLflow objects depend on other object types such as
-workspace directories, notebooks, etc this command should run after the other objects are successfully exported/imported.
+workspace directories, notebooks, etc. this command should run after the other objects are successfully exported/imported.
 
 mlflow-runs are by default only exported for the past 30 days worth of data. The user can specify other dates but should
 be aware of the performance impacts.

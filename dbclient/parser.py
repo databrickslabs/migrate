@@ -557,6 +557,9 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
     parser.add_argument('--skip-tasks', nargs='+', type=str, action=ValidateSkipTasks, default=[],
                         help='List of tasks to skip from the pipeline.')
 
+    parser.add_argument('--keep-tasks', nargs='+', type=str, action=ValidateSkipTasks, default=[],
+                        help='List of tasks to run in the pipeline; overrides --skip-tasks.')
+
     parser.add_argument('--num-parallel', type=int, default=4, help='Number of parallel threads to use to '
                                                                           'export/import')
 

@@ -75,7 +75,10 @@ def build_export_pipeline(client_config, checkpoint_service, args) -> Pipeline:
                                                               -> export_notebooks
                                                               -> export_metastore -> export_metastore_table_acls
     """
-    skip_tasks = args.skip_tasks
+    if args.keep_tasks:
+        skip_tasks = [task for task in wmconstants.TASK_OBJECTS if task not in args.keep_tasks]
+    else:
+        skip_tasks = args.skip_tasks
 
     source_info_file = os.path.join(client_config['export_dir'], "source_info.txt")
     with open(source_info_file, 'w') as f:
