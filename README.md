@@ -148,7 +148,6 @@ optional arguments:
                         Repair legacy metastore tables
   --metastore-unicode   log all the metastore table definitions including unicode characters
   --skip-failed         Skip retries for any failed hive metastore exports.
-  --ignore-principles   Skip failed principles during ACL import; for missing principles, this will result in open ACLs
   --session SESSION     If set, pipeline resumes from latest checkpoint of given session; Otherwise, pipeline starts from beginning and creates a new session.
   --dry-run             Dry run the pipeline i.e. will not execute tasks if true.
   --export-pipeline     Execute all export tasks.
