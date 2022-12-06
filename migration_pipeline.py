@@ -44,6 +44,9 @@ def build_pipeline(args) -> Pipeline:
 
     client_config['session'] = session
 
+    # list of groups to keep, if empty keep all
+    client_config['groups_to_keep'] = args.groups_to_keep
+
     # Need to keep the export_dir as base_dir to find exported data from source and destination.
     client_config['base_dir'] = client_config['export_dir']
     client_config['export_dir'] = os.path.join(client_config['base_dir'], session) + '/'

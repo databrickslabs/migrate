@@ -173,7 +173,9 @@ optional arguments:
   --start-date START_DATE
                         start-date format: YYYY-MM-DD. If not provided, defaults to past 30 days. Currently, only used for exporting ML runs objects.
   --exclude-work-item-prefixes EXCLUDE_WORK_ITEM_PREFIXES [EXCLUDE_WORK_ITEM_PREFIXES ...]
-                        List of prefixes to skip export for log_all_workspace_items
+                        List of prefixes to skip export for 
+  --groups-to-keep group [group ...]
+                        List of groups to keep if selectively exporting assets. Only users (and their assets) belonging to these groups will be exported.
 ```
 
 ### Exporting the Workspace

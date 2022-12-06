@@ -12,6 +12,7 @@ class ScimClient(dbclient):
     def __init__(self, configs, checkpoint_service):
         super().__init__(configs)
         self._checkpoint_service = checkpoint_service
+        self.groups_to_keep = configs['groups_to_keep']
 
     def get_active_users(self):
         users = self.get('/preview/scim/v2/Users').get('Resources', None)
@@ -24,6 +25,13 @@ class ScimClient(dbclient):
             with open(user_log, "w") as fp:
                 for x in users:
                     fullname = x.get('name', None)
+
+                    # if a group list has been passed, check to see if current user is part of groups
+                    if self.groups_to_keep:
+                        user_groups = [g['display'] for g in x.get('groups')]
+                        if not set(user_groups).intersection(set(self.groups_to_keep)):
+                            continue
+
                     if fullname:
                         given_name = fullname.get('givenName', None)
                         # if user is an admin, skip this user entry
@@ -112,6 +120,12 @@ class ScimClient(dbclient):
         group_list = self.get("/preview/scim/v2/Groups").get('Resources', [])
         for x in group_list:
             group_name = x['displayName']
+
+            # if groups_to_keep is defined, check to see if current group is a member
+            if self.groups_to_keep:
+                if group_name not in self.groups_to_keep:
+                    continue
+
             with open(group_dir + group_name, "w") as fp:
                 fp.write(json.dumps(self.add_username_to_group(x)))
 

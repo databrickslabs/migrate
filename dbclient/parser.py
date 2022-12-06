@@ -38,15 +38,18 @@ def valid_date(s):
         msg = "not a valid date: {0!r}. It must be in YYYY-MM-DD".format(s)
         raise argparse.ArgumentTypeError(msg)
 
+
 def is_azure_creds(creds):
     if 'azuredatabricks.net' in creds.get('host', ''):
         return True
     return False
 
+
 def is_gcp_creds(creds):
     if 'gcp.databricks.com' in creds.get('host', ''):
         return True
     return False
+
 
 def convert_args_to_list(arg_str):
     arg_list = map(lambda x: x.lstrip().rstrip(), arg_str.split(','))
@@ -65,42 +68,6 @@ def get_login_credentials(creds_path='~/.databrickscfg', profile='DEFAULT'):
     except KeyError:
         raise ValueError(
             'Unable to find credentials to load for profile. Profile only supports tokens.')
-
-
-def get_export_user_parser():
-    # export workspace items
-    parser = argparse.ArgumentParser(
-        description='Export user(s) workspace artifacts from Databricks')
-
-    parser.add_argument('--profile', action='store', default='DEFAULT',
-                        help='Profile to parse the credentials')
-
-    parser.add_argument('--azure', action='store_true', default=False,
-                        help='Run on Azure. (Default is AWS)')
-
-    parser.add_argument('--gcp', action='store_true', default=False,
-                        help='Run on GCP. (Default is AWS)')
-
-    parser.add_argument('--skip-failed', action='store_true', default=False,
-                        help='Skip retries for any failed hive metastore exports.')
-
-    parser.add_argument('--silent', action='store_true', default=False,
-                        help='Silent all logging of export operations.')
-    # Don't verify ssl
-    parser.add_argument('--no-ssl-verification', action='store_true',
-                        help='Set Verify=False when making http requests.')
-
-    parser.add_argument('--debug', action='store_true',
-                        help='Enable debug logging')
-
-    parser.add_argument('--set-export-dir', action='store',
-                        help='Set the base directory to export artifacts')
-
-    parser.add_argument('--users', action='store',
-                        help='Download user(s) artifacts such as notebooks, cluster specs, jobs. '
-                             'Provide a list of user ids / emails to export')
-
-    return parser
 
 
 def get_export_parser():
@@ -527,6 +494,7 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
     parser.add_argument('--skip-failed', action='store_true', default=False,
                         help='Skip retries for any failed hive metastore exports.')
 
+    # Pipeline arguments
     parser.add_argument('--session', action='store', default='',
                         help='If set, pipeline resumes from latest checkpoint of given session; '
                              'Otherwise, pipeline starts from beginning and creates a new session.')
@@ -573,4 +541,7 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
 
     parser.add_argument('--exclude-work-item-prefixes', nargs='+', type=str, default=[],
                         help='List of prefixes to skip export for log_all_workspace_items')
+
+    parser.add_argument('--groups-to-keep', nargs='+', type=str, default=[],
+                        help='List of groups (and therefore users/notebooks) to keep if specified')
     return parser

@@ -328,4 +328,5 @@ def main():
 
 
 if __name__ == '__main__':
+    print("Note: running export_db.py directly is not recommended. Please use migration_pipeline.py")
     main()

@@ -78,14 +78,24 @@ class JobsClient(ClustersClient):
             else:
                 raise RuntimeError("Import job has failed. Refer to the previous log messages to investigate.")
 
-    def log_job_configs(self, users_list=[], log_file='jobs.log', acl_file='acl_jobs.log'):
+    def log_job_configs(self, users_list=None, groups_list = None, log_file='jobs.log', acl_file='acl_jobs.log'):
         """
         log all job configs and the ACLs for each job
         :param users_list: a list of users / emails to filter the results upon (optional for group exports)
+        :param groups_list: a list of groups to filter the results upon (resolves to users)
         :param log_file: log file to store job configs as json entries per line
         :param acl_file: log file to store job ACLs
         :return:
         """
+        if users_list is None:
+            users_list = []
+
+        # if groups_to_keep is provided, get users_list based on groups_list
+        if groups_list is not None:
+            all_users = self.get('/preview/scim/v2/Users').get('Resources', None)
+            users_list = list(set([user.get("emails")[0].get("value") for user in all_users
+                                   for group in user.get("groups") if group.get("display") in groups_list]))
+
         jobs_log = self.get_export_dir() + log_file
         acl_jobs_log = self.get_export_dir() + acl_file
         error_logger = logging_utils.get_error_logger(wmconstants.WM_EXPORT, wmconstants.JOB_OBJECT, self.get_export_dir())

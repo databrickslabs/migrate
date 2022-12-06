@@ -23,6 +23,7 @@ class WorkspaceClient(dbclient):
     def __init__(self, configs, checkpoint_service):
         super().__init__(configs)
         self._checkpoint_service = checkpoint_service
+        self.groups_to_keep = configs['groups_to_keep']
 
     _languages = {'.py': 'PYTHON',
                   '.scala': 'SCALA',
@@ -430,20 +431,42 @@ class WorkspaceClient(dbclient):
             # should be no notebooks, but lets filter and can check later
             notebooks = self.filter_workspace_items(items, 'NOTEBOOK')
             libraries = self.filter_workspace_items(items, 'LIBRARY')
+            # only get user list if we are filtering by group
+            ws_users = self.get('/preview/scim/v2/Users').get('Resources', None) if self.groups_to_keep else []
             for x in notebooks:
                 # notebook objects has path and object_id
-                path = x.get('path')
-                if not checkpoint_set.contains(path) and not path.startswith(tuple(exclude_prefixes)):
+                nb_path = x.get('path')
+
+                # if the current user is not in kept groups, skip this nb
+                if self.groups_to_keep and self.is_user_ws_item(nb_path):
+                    nb_user = self.get_user(nb_path)
+                    user_groups = [group.get("display") for user in ws_users if user.get("emails")[0].get("value") == nb_user for group in user.get("groups")]
+                    if not set(user_groups).intersection(set(self.groups_to_keep)):
+                        if self.is_verbose():
+                            logging.info("Skipped notebook path due to group exclusion: {0}".format(x.get('path')))
+                        continue
+
+                if not checkpoint_set.contains(nb_path) and not nb_path.startswith(tuple(exclude_prefixes)):
                     if self.is_verbose():
                         logging.info("Saving path: {0}".format(x.get('path')))
                     workspace_log_writer.write(json.dumps(x) + '\n')
-                    checkpoint_set.write(path)
+                    checkpoint_set.write(nb_path)
                 num_nbs += 1
             for y in libraries:
-                path = y.get('path')
-                if not checkpoint_set.contains(path) and not path.startswith(tuple(exclude_prefixes)):
+                lib_path = y.get('path')
+
+                # if the current user is not in kept groups, skip this lib
+                if self.groups_to_keep and self.is_user_ws_item(lib_path):
+                    nb_user = self.get_user(lib_path)
+                    user_groups = [group.get("display") for user in ws_users if user.get("emails")[0].get("value") == nb_user for group in user.get("groups")]
+                    if not set(user_groups).intersection(set(self.groups_to_keep)):
+                        if self.is_verbose():
+                            logging.info("Skipped library path due to group exclusion: {0}".format(lib_path))
+                        continue
+
+                if not checkpoint_set.contains(lib_path) and not lib_path.startswith(tuple(exclude_prefixes)):
                     libs_log_writer.write(json.dumps(y) + '\n')
-                    checkpoint_set.write(path)
+                    checkpoint_set.write(lib_path)
             # log all directories to export permissions
             if folders:
                 def _recurse_log_all_workspace_items(folder):
@@ -464,7 +487,6 @@ class WorkspaceClient(dbclient):
                         checkpoint_set.write(path)
                         if num_nbs_plus:
                             num_nbs += num_nbs_plus
-
 
         return num_nbs
 

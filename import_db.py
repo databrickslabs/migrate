@@ -286,4 +286,5 @@ def main():
 
 
 if __name__ == '__main__':
+    print("Note: running import_db.py directly is not recommended. Please use migration_pipeline.py")
     main()

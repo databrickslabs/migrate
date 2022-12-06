@@ -254,7 +254,11 @@ class JobsExportTask(AbstractTask):
 
     def run(self):
         jobs_c = JobsClient(self.client_config, self.checkpoint_service)
-        jobs_c.log_job_configs()
+
+        if self.client_config.get("groups_to_keep"):
+            jobs_c.log_job_configs(groups_list=self.client_config.get("groups_to_keep"))
+        else:
+            jobs_c.log_job_configs()
 
 
 class JobsImportTask(AbstractTask):
