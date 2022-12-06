@@ -1,6 +1,7 @@
 import logging
 import json
 import os
+import re
 
 
 def set_default_logging(parent_dir, level=logging.INFO):
@@ -68,7 +69,11 @@ def check_error(response, ignore_error_list=default_ignore_error_list):
     else:
         return _check_error_helper(response, ignore_error_list)
 
+
 def _check_error_helper(response, ignore_error_list):
+    if re.match("Cluster .*? is in unexpected state Running\\.", response.get("message", "")):
+        return False
+
     return ('error_code' in response and response['error_code'] not in ignore_error_list) \
             or ('error' in response and response['error'] not in ignore_error_list) \
             or (response.get('resultType', None) == 'error' and 'already exists' not in response.get('summary', None))
