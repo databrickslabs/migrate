@@ -629,7 +629,7 @@ class ClustersClient(dbclient):
         resp = self.post('/clusters/start', {'cluster_id': cid})
         if 'error_code' in resp:
             if resp.get('error_code', None) == 'INVALID_STATE':
-                logging.error(resp.get('message', None))
+                logging.info(resp.get('message', None))
             else:
                 raise Exception('Error: cluster does not exist, or is in a state that is unexpected. '
                                 'Cluster should either be terminated state, or already running.')

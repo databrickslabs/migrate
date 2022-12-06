@@ -71,7 +71,7 @@ def check_error(response, ignore_error_list=default_ignore_error_list):
 
 
 def _check_error_helper(response, ignore_error_list):
-    if re.match("Cluster .*? is in unexpected state Running\\.", response.get("message", "")):
+    if re.match("Cluster .*? is in unexpected state (Running|Pending)\\.", response.get("message", "")):
         return False
 
     return ('error_code' in response and response['error_code'] not in ignore_error_list) \
