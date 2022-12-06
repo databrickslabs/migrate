@@ -481,10 +481,21 @@ class WorkspaceClient(dbclient):
                                                             exclude_prefixes=exclude_prefixes)
 
                 for folder in folders:
-                    path = folder.get('path', None)
-                    if not checkpoint_set.contains(path) and not path.startswith(tuple(exclude_prefixes)):
+                    dir_path = folder.get('path', None)
+
+                    # if the current user is not in kept groups, skip this dir
+                    if self.groups_to_keep and self.is_user_ws_item(dir_path):
+                        dir_user = self.get_user(dir_path)
+                        user_groups = [group.get("display") for user in ws_users if
+                                       user.get("emails")[0].get("value") == dir_user for group in user.get("groups")]
+                        if not set(user_groups).intersection(set(self.groups_to_keep)):
+                            if self.is_verbose():
+                                logging.info("Skipped directory due to group exclusion: {0}".format(dir_path))
+                            continue
+
+                    if not checkpoint_set.contains(dir_path) and not dir_path.startswith(tuple(exclude_prefixes)):
                         num_nbs_plus = _recurse_log_all_workspace_items(folder)
-                        checkpoint_set.write(path)
+                        checkpoint_set.write(dir_path)
                         if num_nbs_plus:
                             num_nbs += num_nbs_plus
 
