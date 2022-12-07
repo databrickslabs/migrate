@@ -178,7 +178,7 @@ class JobsClient(ClustersClient):
                 if 'format' not in job_settings or job_settings.get('format') == 'SINGLE_TASK':
                     adjust_ids_for_cluster(job_settings)
                 else:
-                    for task_settings in job_settings.get('tasks', []):
+                    for task_settings in job_settings.get('job_clusters', []):
                         adjust_ids_for_cluster(task_settings)
 
                 logging.info("Current Job Name: {0}".format(job_conf['settings']['name']))

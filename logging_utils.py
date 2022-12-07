@@ -71,7 +71,13 @@ def check_error(response, ignore_error_list=default_ignore_error_list):
 
 
 def _check_error_helper(response, ignore_error_list):
+    # suppress cluster warning for already-running clusters
     if re.match("Cluster .*? is in unexpected state (Running|Pending)\\.", response.get("message", "")):
+        return False
+
+    # suppress principal error; this should be surfaced from the client level
+    if re.match("Principal: .*? does not exist", response.get("message", "")) \
+            and (response.get("error_code") == "RESOURCE_DOES_NOT_EXIST"):
         return False
 
     return ('error_code' in response and response['error_code'] not in ignore_error_list) \

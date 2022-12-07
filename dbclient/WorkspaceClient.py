@@ -24,6 +24,7 @@ class WorkspaceClient(dbclient):
         super().__init__(configs)
         self._checkpoint_service = checkpoint_service
         self.groups_to_keep = configs['groups_to_keep']
+        self.skip_missing_users = configs['skip_missing_users']
 
     _languages = {'.py': 'PYTHON',
                   '.scala': 'SCALA',
@@ -615,7 +616,12 @@ class WorkspaceClient(dbclient):
             if access_control_list:
                 api_args = {'access_control_list': access_control_list}
                 resp = self.patch(api_path, api_args)
-                if not logging_utils.log_reponse_error(error_logger, resp):
+                if logging_utils.check_error(resp):
+                    if resp.get("error_code", None) == "RESOURCE_DOES_NOT_EXIST" and self.skip_missing_users:
+                        error_logger.info(resp)
+                    else:
+                        logging_utils.log_reponse_error(resp, error_logger)
+                else:
                     checkpoint_key_set.write(obj_path)
         return
 

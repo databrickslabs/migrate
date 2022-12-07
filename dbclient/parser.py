@@ -494,6 +494,9 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
     parser.add_argument('--skip-failed', action='store_true', default=False,
                         help='Skip retries for any failed hive metastore exports.')
 
+    parser.add_argument('--skip-missing-users', action='store_true', default=False,
+                        help='Skip missing principles during import.')
+
     # Pipeline arguments
     parser.add_argument('--session', action='store', default='',
                         help='If set, pipeline resumes from latest checkpoint of given session; '

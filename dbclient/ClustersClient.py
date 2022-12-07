@@ -32,7 +32,8 @@ class ClustersClient(dbclient):
                       'policy_id',
                       'pinned_by_user_name',
                       'creator_user_name',
-                      'cluster_id'}
+                      'cluster_id',
+                      'data_security_mode'}
 
     def cleanup_cluster_pool_configs(self, cluster_json, cluster_creator, is_job_cluster=False):
         """
