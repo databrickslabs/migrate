@@ -467,6 +467,9 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
     parser.add_argument('--debug', action='store_true',
                         help='Enable debug logging')
 
+    parser.add_argument('--no-prompt', action='store_true', default=False,
+                        help='Skip interactive prompt to confirm workspace import')
+
     parser.add_argument('--set-export-dir', action='store',
                         help='Set the base directory to export artifacts')
 

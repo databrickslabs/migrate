@@ -43,6 +43,7 @@ def build_pipeline(args) -> Pipeline:
         client_config = parser.build_client_config(args.profile, url, token, args)
 
     client_config['session'] = session
+    client_config['no_prompt'] = args.no_prompt
 
     # list of groups to keep, if empty keep all
     client_config['groups_to_keep'] = args.groups_to_keep
@@ -125,9 +126,11 @@ def build_import_pipeline(client_config, checkpoint_service, args) -> Pipeline:
     source_info_file = os.path.join(client_config['export_dir'], "source_info.txt")
     with open(source_info_file, 'r') as f:
         source_url = f.readline()
-        confirm = input(f"Import from `{source_url}` into `{client_config['url']}`? (y/N) ")
-        if confirm.lower() not in ["y", "yes"]:
-            raise RuntimeError("User aborted import pipeline. Exiting..")
+
+        if not client_config.no_prompt:
+            confirm = input(f"Import from `{source_url}` into `{client_config['url']}`? (y/N) ")
+            if confirm.lower() not in ["y", "yes"]:
+                raise RuntimeError("User aborted import pipeline. Exiting..")
 
     completed_pipeline_steps = checkpoint_service.get_checkpoint_key_set(
         wmconstants.WM_IMPORT, wmconstants.MIGRATION_PIPELINE_OBJECT_TYPE)

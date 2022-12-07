@@ -135,6 +135,7 @@ optional arguments:
   --no-ssl-verification
                         Set Verify=False when making http requests.
   --debug               Enable debug logging
+  --no-prompt           Skip interactive prompt/confirmation for workspace import
   --set-export-dir SET_EXPORT_DIR
                         Set the base directory to export artifacts
   --cluster-name CLUSTER_NAME
