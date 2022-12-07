@@ -23,7 +23,7 @@ class WorkspaceClient(dbclient):
     def __init__(self, configs, checkpoint_service):
         super().__init__(configs)
         self._checkpoint_service = checkpoint_service
-        self.groups_to_keep = configs['groups_to_keep']
+        self.groups_to_keep = configs.get("groups_to_keep", False)
         self.skip_missing_users = configs['skip_missing_users']
 
     _languages = {'.py': 'PYTHON',

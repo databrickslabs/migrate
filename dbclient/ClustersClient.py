@@ -11,6 +11,7 @@ class ClustersClient(dbclient):
     def __init__(self, configs, checkpoint_service):
         super().__init__(configs)
         self._checkpoint_service = checkpoint_service
+        self.groups_to_keep = configs.get("groups_to_keep", False)
 
     create_configs = {'num_workers',
                       'autoscale',

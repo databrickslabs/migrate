@@ -12,7 +12,7 @@ class ScimClient(dbclient):
     def __init__(self, configs, checkpoint_service):
         super().__init__(configs)
         self._checkpoint_service = checkpoint_service
-        self.groups_to_keep = configs['groups_to_keep']
+        self.groups_to_keep = configs.get("groups_to_keep", False)
 
     def get_active_users(self):
         users = self.get('/preview/scim/v2/Users').get('Resources', None)
