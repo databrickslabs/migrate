@@ -127,7 +127,7 @@ def build_import_pipeline(client_config, checkpoint_service, args) -> Pipeline:
     with open(source_info_file, 'r') as f:
         source_url = f.readline()
 
-        if not client_config.no_prompt:
+        if not client_config.get("no_prompt", None):
             confirm = input(f"Import from `{source_url}` into `{client_config['url']}`? (y/N) ")
             if confirm.lower() not in ["y", "yes"]:
                 raise RuntimeError("User aborted import pipeline. Exiting..")
