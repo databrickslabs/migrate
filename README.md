@@ -127,15 +127,15 @@ usage: migration_pipeline.py [-h] [--profile PROFILE] [--azure or gcp] [--silent
 
 Export user(s) workspace artifacts from Databricks
 
-optional arguments:
+optional arguments for import/export pipeline:
   -h, --help            show this help message and exit
   --profile PROFILE     Profile to parse the credentials
-  --azure or gcp        Run on Azure or GCP. (Default is AWS)
+  --azure or --gcp      Run on Azure or GCP (Default is AWS)
   --silent              Silent all logging of export operations.
   --no-ssl-verification
                         Set Verify=False when making http requests.
   --debug               Enable debug logging
-  --no-prompt           Skip interactive prompt/confirmation for workspace import
+  --no-prompt           Skip interactive prompt/confirmation for workspace import.
   --set-export-dir SET_EXPORT_DIR
                         Set the base directory to export artifacts
   --cluster-name CLUSTER_NAME
@@ -154,11 +154,6 @@ optional arguments:
   --dry-run             Dry run the pipeline i.e. will not execute tasks if true.
   --export-pipeline     Execute all export tasks.
   --import-pipeline     Execute all import tasks.
-  --validate-pipeline   Validate exported data between source and destination.
-  --validate-source-session VALIDATE_SOURCE_SESSION
-                        Session used by exporting source workspace. Only used for --validate-pipeline.
-  --validate-destination-session VALIDATE_DESTINATION_SESSION
-                        Session used by exporting destination workspace. Only used for --validate-pipeline.
   --use-checkpoint      use checkpointing to restart from previous state
   --skip-tasks SKIP_TASK [SKIP_TASK ...]
                         Space-separated list of tasks to skip from the pipeline. Valid options are:
@@ -174,10 +169,15 @@ optional arguments:
                         Backoff factor to apply between retry attempts when making calls to Databricks API
   --start-date START_DATE
                         start-date format: YYYY-MM-DD. If not provided, defaults to past 30 days. Currently, only used for exporting ML runs objects.
-  --exclude-work-item-prefixes EXCLUDE_WORK_ITEM_PREFIXES [EXCLUDE_WORK_ITEM_PREFIXES ...]
-                        List of prefixes to skip export for 
   --groups-to-keep group [group ...]
                         List of groups to keep if selectively exporting assets. Only users (and their assets) belonging to these groups will be exported.
+                        
+options for validation pipeline:
+  --validate-pipeline   Validate exported data between source and destination.
+  --validate-source-session VALIDATE_SOURCE_SESSION
+                        Session used by exporting source workspace. Only used for --validate-pipeline.
+  --validate-destination-session VALIDATE_DESTINATION_SESSION
+                        Session used by exporting destination workspace. Only used for --validate-pipeline.
 ```
 
 ### Exporting the Workspace
