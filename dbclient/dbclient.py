@@ -151,7 +151,7 @@ class dbclient:
         for x in range(0, int(timeout / interval)):
             print(f"#{x} Migration paused due to invalid or expired token. Trying to renew...")
             login_args = parser.get_login_credentials(profile=self._profile)
-            token = login_args['token']
+            token = login_args.get('token', login_args.get('password'))
             if token == self._raw_token:
                 print("No new token found. Please renew token by running:\n" +
                       f"$ databricks configure --token --profile {self._profile}\n" +
