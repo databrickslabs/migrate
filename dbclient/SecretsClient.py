@@ -24,9 +24,9 @@ class SecretsClient(ClustersClient):
         results_set = self.submit_command(cid, ec_id, cmd_set_value)
         results_convert = self.submit_command(cid, ec_id, cmd_convert_b64)
         results_get = self.submit_command(cid, ec_id, cmd_get_b64)
-        if logging_utils.log_reponse_error(error_logger, results_set) \
-                or logging_utils.log_reponse_error(error_logger, results_convert) \
-                or logging_utils.log_reponse_error(error_logger, results_get):
+        if logging_utils.log_response_error(error_logger, results_set) \
+                or logging_utils.log_response_error(error_logger, results_convert) \
+                or logging_utils.log_response_error(error_logger, results_get):
             return None
         else:
             return results_get.get('data')
@@ -44,7 +44,7 @@ class SecretsClient(ClustersClient):
         for scope_json in scopes_list:
             scope_name = scope_json.get('name')
             secrets_list = self.get_secrets(scope_name)
-            if logging_utils.log_reponse_error(error_logger, secrets_list):
+            if logging_utils.log_response_error(error_logger, secrets_list):
                 continue
             scopes_logfile = scopes_dir + scope_name
             try:
@@ -72,7 +72,7 @@ class SecretsClient(ClustersClient):
             for scope_json in scopes_list:
                 scope_name = scope_json.get('name', None)
                 resp = self.get('/secrets/acls/list', {'scope': scope_name})
-                if logging_utils.log_reponse_error(error_logger, resp):
+                if logging_utils.log_response_error(error_logger, resp):
                     return
                 else:
                     resp['scope_name'] = scope_name
@@ -150,7 +150,7 @@ class SecretsClient(ClustersClient):
                     create_scope_args['initial_manage_principal'] = 'users'
                 other_permissions = self.get_all_other_permissions(scope_name, scopes_acl_dict)
                 create_resp = self.post('/secrets/scopes/create', create_scope_args)
-                logging_utils.log_reponse_error(
+                logging_utils.log_response_error(
                     error_logger, create_resp, ignore_error_list=['RESOURCE_ALREADY_EXISTS'])
                 if other_permissions:
                     # use this dict minus the `users:MANAGE` permissions and apply the other permissions to the scope
@@ -161,7 +161,7 @@ class SecretsClient(ClustersClient):
                             put_acl_args["principal"] = x
                             logging.info(put_acl_args)
                             put_resp = self.post('/secrets/acls/put', put_acl_args)
-                            logging_utils.log_reponse_error(error_logger, put_resp)
+                            logging_utils.log_response_error(error_logger, put_resp)
                 # loop through the scope and create the k/v pairs
                 with open(file_path, 'r') as fp:
                     for s in fp:
@@ -176,7 +176,7 @@ class SecretsClient(ClustersClient):
                                                'key': k,
                                                'string_value': base64.b64decode(v.encode('ascii')).decode('ascii')}
                             put_resp = self.post('/secrets/put', put_secret_args)
-                            logging_utils.log_reponse_error(error_logger, put_resp)
+                            logging_utils.log_response_error(error_logger, put_resp)
                         except Exception as error:
                             if "Invalid base64-encoded string" in str(error) or 'decode' in str(error) or "padding" in str(error):
                                 error_msg = f"secret_scope: {scope_name} has invalid invalid data characters: {str(error)} skipping.. and logging to error file."

@@ -82,7 +82,7 @@ class MLFlowClient(dbclient):
         new_experiment_id = experiment_id_map[experiment_id]
         acl_create_args = {'access_control_list': self.build_acl_args(acl_obj['access_control_list'], True)}
         resp = self.put(f'/permissions/experiments/{new_experiment_id}', acl_create_args)
-        if not logging_utils.log_reponse_error(error_logger, resp):
+        if not logging_utils.log_response_error(error_logger, resp):
             checkpoint_key_set.write(experiment_id)
 
     def _get_mlflow_experiment_acls(self, acl_log_file_writer, experiment_str, checkpoint_key_set, error_logger):
@@ -97,7 +97,7 @@ class MLFlowClient(dbclient):
             return
         logging.info(f"Exporting ACLs for experiment_id: {experiment_id}.")
         perms = self.get(f"/permissions/experiments/{experiment_id}", do_not_throw=True)
-        if not logging_utils.log_reponse_error(error_logger, perms):
+        if not logging_utils.log_response_error(error_logger, perms):
             acl_log_file_writer.write(json.dumps(perms) + '\n')
             checkpoint_key_set.write(experiment_id)
             logging.info(f"Successfully exported ACLs for experiment_id: {experiment_id}.")

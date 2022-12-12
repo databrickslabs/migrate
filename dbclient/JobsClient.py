@@ -73,7 +73,7 @@ class JobsClient(ClustersClient):
             update_args = {'job_id': job_id, 'new_settings': new_settings}
             logging.info(f'Updating job name: {update_args}')
             resp = self.post('/jobs/update', update_args)
-            if not logging_utils.log_reponse_error(error_logger, resp):
+            if not logging_utils.log_response_error(error_logger, resp):
                 checkpoint_job_configs_set.write(job_name)
             else:
                 raise RuntimeError("Import job has failed. Refer to the previous log messages to investigate.")
@@ -118,7 +118,7 @@ class JobsClient(ClustersClient):
                 x['settings'] = job_settings
                 log_fp.write(json.dumps(x) + '\n')
                 job_perms = self.get(f'/preview/permissions/jobs/{job_id}')
-                if not logging_utils.log_reponse_error(error_logger, job_perms):
+                if not logging_utils.log_response_error(error_logger, job_perms):
                     job_perms['job_name'] = new_job_name
                     acl_fp.write(json.dumps(job_perms) + '\n')
 
@@ -188,7 +188,7 @@ class JobsClient(ClustersClient):
                     logging.info("Resetting job to use default cluster configs due to expired configurations.")
                     job_settings['new_cluster'] = self.get_jobs_default_cluster_conf()
                     create_resp_retry = self.post('/jobs/create', job_settings)
-                    if not logging_utils.log_reponse_error(error_logger, create_resp_retry):
+                    if not logging_utils.log_response_error(error_logger, create_resp_retry):
                         if 'job_id' in job_conf:
                             checkpoint_job_configs_set.write(job_conf["job_id"])
                     else:
@@ -215,7 +215,7 @@ class JobsClient(ClustersClient):
                 acl_perms = self.build_acl_args(acl_conf['access_control_list'], True)
                 acl_create_args = {'access_control_list': acl_perms}
                 acl_resp = self.patch(api, acl_create_args)
-                if not logging_utils.log_reponse_error(error_logger, acl_resp) and 'object_id' in acl_conf:
+                if not logging_utils.log_response_error(error_logger, acl_resp) and 'object_id' in acl_conf:
                     checkpoint_job_configs_set.write(acl_conf['object_id'])
                 else:
                     raise RuntimeError("Import job has failed. Refer to the previous log messages to investigate.")

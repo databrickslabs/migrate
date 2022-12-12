@@ -332,11 +332,11 @@ class WorkspaceClient(dbclient):
         resp = self.get(WS_EXPORT, get_args)
         if resp.get('error', None):
             resp['path'] = notebook_path
-            logging_utils.log_reponse_error(error_logger, resp)
+            logging_utils.log_response_error(error_logger, resp)
             return resp
         if resp.get('error_code', None):
             resp['path'] = notebook_path
-            logging_utils.log_reponse_error(error_logger, resp)
+            logging_utils.log_response_error(error_logger, resp)
             return resp
         nb_path = os.path.dirname(notebook_path)
         if nb_path != '/':
@@ -525,7 +525,7 @@ class WorkspaceClient(dbclient):
             api_endpoint = '/permissions/{0}/{1}'.format(artifact_type, obj_id)
             acl_resp = self.get(api_endpoint)
             acl_resp['path'] = data.get('path')
-            if logging_utils.log_reponse_error(error_logger, acl_resp):
+            if logging_utils.log_response_error(error_logger, acl_resp):
                 return
             acl_resp.pop('http_status_code')
             writer.write(json.dumps(acl_resp) + '\n')
@@ -596,7 +596,7 @@ class WorkspaceClient(dbclient):
                     logging.info(f"User workspace does not exist: {obj_path}, skipping ACL")
                     return
             obj_status = self.get(WS_STATUS, {'path': obj_path})
-            if logging_utils.log_reponse_error(error_logger, obj_status):
+            if logging_utils.log_response_error(error_logger, obj_status):
                 return
             logging.info("ws-stat: ", obj_status)
             current_obj_id = obj_status.get('object_id', None)
@@ -620,7 +620,7 @@ class WorkspaceClient(dbclient):
                     if resp.get("error_code", None) == "RESOURCE_DOES_NOT_EXIST" and self.skip_missing_users:
                         error_logger.info(resp)
                     else:
-                        logging_utils.log_reponse_error(resp, error_logger)
+                        logging_utils.log_response_error(resp, error_logger)
                 else:
                     checkpoint_key_set.write(obj_path)
         return
@@ -699,7 +699,7 @@ class WorkspaceClient(dbclient):
             if not self.does_path_exist(upload_dir):
                 resp_mkdirs = self.post(WS_MKDIRS, {'path': upload_dir})
                 if 'error_code' in resp_mkdirs:
-                    logging_utils.log_reponse_error(error_logger, resp_mkdirs)
+                    logging_utils.log_response_error(error_logger, resp_mkdirs)
             for f in files:
                 logging.info("Uploading: {0}".format(f))
                 # create the local file path to load the DBC file
@@ -714,7 +714,7 @@ class WorkspaceClient(dbclient):
                 resp_upload = self.post(WS_IMPORT, nb_input_args)
                 if 'error_code' in resp_upload:
                     resp_upload['path'] = nb_input_args['path']
-                    logging_utils.log_reponse_error(error_logger, resp_upload)
+                    logging_utils.log_response_error(error_logger, resp_upload)
 
     def import_all_workspace_items(self, artifact_dir='artifacts/',
                                    archive_missing=False, num_parallel=4):
@@ -782,7 +782,7 @@ class WorkspaceClient(dbclient):
                 resp_mkdirs = self.post(WS_MKDIRS, {'path': upload_dir})
                 if 'error_code' in resp_mkdirs:
                     resp_mkdirs['path'] = upload_dir
-                    logging_utils.log_reponse_error(error_logger, resp_mkdirs)
+                    logging_utils.log_response_error(error_logger, resp_mkdirs)
 
             def _file_upload_helper(f):
                 logging.info("Uploading: {0}".format(f))
@@ -801,7 +801,7 @@ class WorkspaceClient(dbclient):
                 if 'error_code' in resp_upload:
                     resp_upload['path'] = ws_file_path
                     logging.info(f'Error uploading file: {ws_file_path}')
-                    logging_utils.log_reponse_error(error_logger, resp_upload)
+                    logging_utils.log_response_error(error_logger, resp_upload)
                 else:
                     checkpoint_notebook_set.write(ws_file_path)
 

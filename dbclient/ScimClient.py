@@ -229,7 +229,7 @@ class ScimClient(dbclient):
                     g_id = group_ids[group_name]
                     update_entitlements = self.assign_entitlements_args(entitlements)
                     up_resp = self.patch(f'/preview/scim/v2/Groups/{g_id}', update_entitlements)
-                    logging_utils.log_reponse_error(error_logger, up_resp)
+                    logging_utils.log_response_error(error_logger, up_resp)
 
     def assign_group_roles(self, group_dir, error_logger):
         # assign group role ACLs, which are only available via SCIM apis
@@ -246,13 +246,13 @@ class ScimClient(dbclient):
                     g_id = group_ids[group_name]
                     update_roles = self.assign_roles_args(roles)
                     up_resp = self.patch(f'/preview/scim/v2/Groups/{g_id}', update_roles)
-                    logging_utils.log_reponse_error(error_logger, up_resp)
+                    logging_utils.log_response_error(error_logger, up_resp)
                 entitlements = group_data.get('entitlements', None)
                 if entitlements:
                     g_id = group_ids[group_name]
                     update_entitlements = self.assign_entitlements_args(entitlements)
                     up_resp = self.patch(f'/preview/scim/v2/Groups/{g_id}', update_entitlements)
-                    logging_utils.log_reponse_error(error_logger, up_resp)
+                    logging_utils.log_response_error(error_logger, up_resp)
 
     def get_current_group_ids(self):
         # return a dict of group displayName and id mappings
@@ -303,7 +303,7 @@ class ScimClient(dbclient):
                 if user_entitlements:
                     entitlements_args = self.assign_entitlements_args(user_entitlements)
                     update_resp = self.patch(f'/preview/scim/v2/Users/{user_id}', entitlements_args)
-                    logging_utils.log_reponse_error(error_logger, update_resp)
+                    logging_utils.log_response_error(error_logger, update_resp)
 
     def assign_user_roles(self, current_user_ids, error_logger, user_log_file='users.log'):
         """
@@ -351,7 +351,7 @@ class ScimClient(dbclient):
                     # get the json to add the roles to the user profile
                     patch_roles = self.add_roles_arg(roles_needed)
                     update_resp = self.patch(f'/preview/scim/v2/Users/{user_id}', patch_roles)
-                    logging_utils.log_reponse_error(error_logger, update_resp)
+                    logging_utils.log_response_error(error_logger, update_resp)
 
     @staticmethod
     def get_member_args(member_id_list):
@@ -409,7 +409,7 @@ class ScimClient(dbclient):
                     "displayName": x
                 }
                 group_resp = self.post('/preview/scim/v2/Groups', create_args)
-                if not logging_utils.log_reponse_error(error_logger, group_resp):
+                if not logging_utils.log_response_error(error_logger, group_resp):
                     checkpoint_groups_set.write(x)
 
         # dict of { group_name : group_id }
@@ -444,7 +444,7 @@ class ScimClient(dbclient):
                     add_members_json = self.get_member_args(member_id_list)
                     group_id = current_group_ids[group_name]
                     add_resp = self.patch('/preview/scim/v2/Groups/{0}'.format(group_id), add_members_json)
-                    logging_utils.log_reponse_error(error_logger, add_resp)
+                    logging_utils.log_response_error(error_logger, add_resp)
 
     def import_users(self, user_log, error_logger, checkpoint_set, num_parallel):
         # first create the user identities with the required fields
@@ -468,7 +468,7 @@ class ScimClient(dbclient):
             logging.info("Creating user: {0}".format(user_name))
             user_create = {k: user[k] for k in create_keys if k in user}
             create_resp = self.post('/preview/scim/v2/Users', user_create)
-            if not logging_utils.log_reponse_error(error_logger, create_resp):
+            if not logging_utils.log_response_error(error_logger, create_resp):
                 checkpoint_set.write(user_name)
 
 

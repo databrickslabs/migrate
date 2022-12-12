@@ -44,7 +44,7 @@ default_ignore_error_list=[
 ]
 
 
-def log_reponse_error(error_logger,
+def log_response_error(error_logger,
                       response,
                       error_msg=None,
                       ignore_error_list=default_ignore_error_list):
