@@ -12,6 +12,7 @@ class ClustersClient(dbclient):
         super().__init__(configs)
         self._checkpoint_service = checkpoint_service
         self.groups_to_keep = configs.get("groups_to_keep", False)
+        self.skip_missing_users = configs['skip_missing_users']
 
     create_configs = {'num_workers',
                       'autoscale',
@@ -299,9 +300,17 @@ class ClustersClient(dbclient):
                     raise ValueError(error_message)
                 api = f'/preview/permissions/clusters/{cid}'
                 resp = self.put(api, acl_args)
-                if not logging_utils.log_response_error(error_logger, resp):
-                    if 'object_id' in data:
-                        checkpoint_cluster_configs_set.write(data['object_id'])
+
+                if self.skip_missing_users:
+                    ignore_error_list = ["RESOURCE_DOES_NOT_EXIST", "RESOURCE_ALREADY_EXISTS"]
+                else:
+                    ignore_error_list = ["RESOURCE_ALREADY_EXISTS"]
+
+                if logging_utils.check_error(resp, ignore_error_list):
+                    logging_utils.log_response_error(error_logger, resp)
+                elif 'object_id' in data:
+                    checkpoint_cluster_configs_set.write(data['object_id'])
+
                 print(resp)
 
     def _log_cluster_ids_and_original_creators(

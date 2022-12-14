@@ -17,7 +17,7 @@ WS_MKDIRS = "/workspace/mkdirs"
 WS_IMPORT = "/workspace/import"
 WS_EXPORT = "/workspace/export"
 LS_ZONES = "/clusters/list-zones"
-
+REPOS = "/repos"
 
 class WorkspaceClient(dbclient):
     def __init__(self, configs, checkpoint_service):
@@ -39,8 +39,8 @@ class WorkspaceClient(dbclient):
         supported_types = ('NOTEBOOK', 'DIRECTORY')
         root_items = self.get(WS_LIST, {'path': '/'}).get('objects', [])
         # filter out Projects and Users folders
-        non_users_dir = list(filter(lambda x: (x.get('path') != '/Users' and x.get('path') != '/Projects'),
-                                    root_items))
+        non_users_dir = list(filter(lambda x: (x.get('path') not in ['/Users', '/Repos']
+                                               and x.get('path') != '/Projects'), root_items))
         dirs_and_nbs = list(filter(lambda x: (x.get('object_type') in supported_types),
                                     non_users_dir))
         return dirs_and_nbs
@@ -112,11 +112,22 @@ class WorkspaceClient(dbclient):
         return False
 
     @staticmethod
+    def is_repo(ws_dir):
+        """
+        Checks if this item is part of a repo.
+        We need to use a separate API for these, so they should not be treated as standard WS items
+        """
+        path_list = [x for x in ws_dir.split('/') if x]
+        if len(path_list) >= 2 and path_list[0] == 'Repos':
+            return True
+        return False
+
+    @staticmethod
     def is_user_ws_root(ws_dir):
         """
-        Check if we're at the users home folder to skip folder creation
+        Check if we're at the users home folder or repos root folder to skip folder creation
         """
-        if ws_dir == '/Users/' or ws_dir == '/Users':
+        if ws_dir in ['/Users/', '/Users', '/Repos/', '/Repos']:
             return True
         path_list = [x for x in ws_dir.split('/') if x]
         if len(path_list) == 2 and path_list[0] == 'Users':
@@ -385,26 +396,33 @@ class WorkspaceClient(dbclient):
             if os.path.exists(libs_log):
                 os.remove(libs_log)
 
-    def log_all_workspace_items_entry(self, ws_path='/', workspace_log_file='user_workspace.log', libs_log_file='libraries.log', dir_log_file='user_dirs.log', exclude_prefixes=[]):
+    def log_all_workspace_items_entry(self, ws_path='/', workspace_log_file='user_workspace.log', libs_log_file='libraries.log', dir_log_file='user_dirs.log', repos_log_file='repos.log', exclude_prefixes=[]):
         logging.info(f"Skip all paths with the following prefixes: {exclude_prefixes}")
 
         workspace_log_writer = ThreadSafeWriter(self.get_export_dir() + workspace_log_file, "a")
         libs_log_writer = ThreadSafeWriter(self.get_export_dir() + libs_log_file, "a")
         dir_log_writer = ThreadSafeWriter(self.get_export_dir() + dir_log_file, "a")
+        repos_log_writer = ThreadSafeWriter(self.get_export_dir() + repos_log_file, "a")
         checkpoint_item_log_set = self._checkpoint_service.get_checkpoint_key_set(
             wmconstants.WM_EXPORT, wmconstants.WORKSPACE_ITEM_LOG_OBJECT
         )
         try:
-            num_nbs = self.log_all_workspace_items(ws_path=ws_path, workspace_log_writer=workspace_log_writer,
-                                        libs_log_writer=libs_log_writer, dir_log_writer=dir_log_writer, checkpoint_set=checkpoint_item_log_set, exclude_prefixes=exclude_prefixes)
+            num_nbs = self.log_all_workspace_items(ws_path=ws_path,
+                                                   workspace_log_writer=workspace_log_writer,
+                                                   libs_log_writer=libs_log_writer,
+                                                   dir_log_writer=dir_log_writer,
+                                                   repos_log_writer=repos_log_writer,
+                                                   checkpoint_set=checkpoint_item_log_set,
+                                                   exclude_prefixes=exclude_prefixes)
         finally:
             workspace_log_writer.close()
             libs_log_writer.close()
             dir_log_writer.close()
+            repos_log_writer.close()
 
         return num_nbs
 
-    def log_all_workspace_items(self, ws_path, workspace_log_writer, libs_log_writer, dir_log_writer, checkpoint_set, exclude_prefixes=[]):
+    def log_all_workspace_items(self, ws_path, workspace_log_writer, libs_log_writer, dir_log_writer, repos_log_writer, checkpoint_set, exclude_prefixes=[]):
         """
         Loop and log all workspace items to download them at a later time
         :param ws_path: root path to log all the items of the notebook workspace
@@ -423,6 +441,7 @@ class WorkspaceClient(dbclient):
         if not os.path.exists(self.get_export_dir()):
             os.makedirs(self.get_export_dir(), exist_ok=True)
         items = self.get(WS_LIST, get_args).get('objects', None)
+        repos = self.get(REPOS).get('repos', None)
         num_nbs = 0
         if self.is_verbose():
             logging.info("Listing: {0}".format(get_args['path']))
@@ -472,12 +491,13 @@ class WorkspaceClient(dbclient):
             if folders:
                 def _recurse_log_all_workspace_items(folder):
                     dir_path = folder.get('path', None)
-                    if not WorkspaceClient.is_user_trash(dir_path):
+                    if not self.is_user_trash(dir_path) and not self.is_repo(dir_path):
                         dir_log_writer.write(json.dumps(folder) + '\n')
                         return self.log_all_workspace_items(ws_path=dir_path,
                                                             workspace_log_writer=workspace_log_writer,
                                                             libs_log_writer=libs_log_writer,
                                                             dir_log_writer=dir_log_writer,
+                                                            repos_log_writer=None,
                                                             checkpoint_set=checkpoint_set,
                                                             exclude_prefixes=exclude_prefixes)
 
@@ -499,6 +519,13 @@ class WorkspaceClient(dbclient):
                         checkpoint_set.write(dir_path)
                         if num_nbs_plus:
                             num_nbs += num_nbs_plus
+        # log all repos
+        if repos_log_writer is not None:
+            for repo in repos:
+                repo_path = repo.get('path', "")
+                if not checkpoint_set.contains(repo_path) and not repo_path.startswith(tuple(exclude_prefixes)):
+                    repos_log_writer.write(json.dumps(repo) + '\n')
+                    checkpoint_set.write(repo_path)
 
         return num_nbs
 
@@ -519,9 +546,15 @@ class WorkspaceClient(dbclient):
         if not os.path.exists(read_log_path):
             logging.info(f"No log exists for {read_log_path}. Skipping ACL export ...")
             return
+
         def _acl_log_helper(json_data):
             data = json.loads(json_data)
             obj_id = data.get('object_id', None)
+            alt_id = data.get('id', None)
+
+            if alt_id and not obj_id:
+                obj_id = alt_id
+
             api_endpoint = '/permissions/{0}/{1}'.format(artifact_type, obj_id)
             acl_resp = self.get(api_endpoint)
             acl_resp['path'] = data.get('path')
@@ -538,11 +571,13 @@ class WorkspaceClient(dbclient):
 
     def log_all_workspace_acls(self, workspace_log_file='user_workspace.log',
                                dir_log_file='user_dirs.log',
+                               repo_log_file="repos.log",
                                num_parallel=4):
         """
         loop through all notebooks and directories to store their associated ACLs
         :param workspace_log_file: input file for user notebook listing
         :param dir_log_file: input file for user directory listing
+        :param repo_log_file: input file for repo listing
         """
         # define log file names for notebooks, folders, and libraries
         logging.info("Exporting the notebook permissions")
@@ -568,6 +603,19 @@ class WorkspaceClient(dbclient):
             acl_directory_writer.close()
         end = timer()
         logging.info("Complete Directories ACLs Export Time: " + str(timedelta(seconds=end - start)))
+
+        logging.info("Exporting the repo permissions")
+        start = timer()
+        acl_repo_error_logger = logging_utils.get_error_logger(
+            wmconstants.WM_EXPORT, wmconstants.WORKSPACE_REPO_ACL_OBJECT, self.get_export_dir())
+        acl_repo_writer = ThreadSafeWriter(self.get_export_dir() + "acl_repos.log", "w")
+        try:
+            self.log_acl_to_file('repos', repo_log_file, acl_repo_writer, acl_repo_error_logger,
+                                 num_parallel)
+        finally:
+            acl_repo_writer.close()
+        end = timer()
+        logging.info("Complete Repo ACLs Export Time: " + str(timedelta(seconds=end - start)))
 
     def apply_acl_on_object(self, acl_str, error_logger, checkpoint_key_set):
         """
@@ -616,22 +664,28 @@ class WorkspaceClient(dbclient):
             if access_control_list:
                 api_args = {'access_control_list': access_control_list}
                 resp = self.patch(api_path, api_args)
-                if logging_utils.check_error(resp):
-                    if resp.get("error_code", None) == "RESOURCE_DOES_NOT_EXIST" and self.skip_missing_users:
-                        error_logger.info(resp)
-                    else:
-                        logging_utils.log_response_error(resp, error_logger)
+
+                if self.skip_missing_users:
+                    ignore_error_list = ["RESOURCE_DOES_NOT_EXIST", "RESOURCE_ALREADY_EXISTS"]
+                else:
+                    ignore_error_list = ["RESOURCE_ALREADY_EXISTS"]
+
+                if logging_utils.check_error(resp, ignore_error_list):
+                    logging_utils.log_response_error(error_logger, resp)
                 else:
                     checkpoint_key_set.write(obj_path)
         return
 
     def import_workspace_acls(self, workspace_log_file='acl_notebooks.log',
-                              dir_log_file='acl_directories.log', num_parallel=1):
+                              dir_log_file='acl_directories.log',
+                              repo_log_file='acl_repos.log', num_parallel=1):
         """
         import the notebook and directory acls by looping over notebook and dir logfiles
         """
         dir_acl_logs = self.get_export_dir() + dir_log_file
         notebook_acl_logs = self.get_export_dir() + workspace_log_file
+        repo_acl_logs = self.get_export_dir() + repo_log_file
+
         acl_notebooks_error_logger = logging_utils.get_error_logger(
             wmconstants.WM_IMPORT, wmconstants.WORKSPACE_NOTEBOOK_ACL_OBJECT, self.get_export_dir())
 
@@ -653,7 +707,21 @@ class WorkspaceClient(dbclient):
                 futures = [executor.submit(self.apply_acl_on_object, dir_acl_str, acl_dir_error_logger, checkpoint_dir_acl_set) for dir_acl_str in dir_acls_fp]
                 concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
                 propagate_exceptions(futures)
-        print("Completed import ACLs of Notebooks and Directories")
+
+        acl_repo_error_logger = logging_utils.get_error_logger(
+            wmconstants.WM_IMPORT, wmconstants.WORKSPACE_REPO_ACL_OBJECT, self.get_export_dir())
+        checkpoint_repo_acl_set = self._checkpoint_service.get_checkpoint_key_set(
+            wmconstants.WM_IMPORT, wmconstants.WORKSPACE_REPO_ACL_OBJECT)
+
+        with open(repo_acl_logs) as repo_acls_fp:
+            with ThreadPoolExecutor(max_workers=num_parallel) as executor:
+                futures = [
+                    executor.submit(self.apply_acl_on_object, repo_acl_str, acl_repo_error_logger, checkpoint_repo_acl_set)
+                    for repo_acl_str in repo_acls_fp]
+                concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
+                propagate_exceptions(futures)
+
+        print("Completed import ACLs of Repos, Notebooks and Directories")
 
     def get_current_users(self):
         """
@@ -686,7 +754,7 @@ class WorkspaceClient(dbclient):
                 return False
         return True
 
-    def import_current_workspace_items(self,artifact_dir='artifacts/'):
+    def import_current_workspace_items(self, artifact_dir='artifacts/'):
         src_dir = self.get_export_dir() + artifact_dir
         error_logger = logging_utils.get_error_logger(wmconstants.WM_IMPORT, wmconstants.WORKSPACE_NOTEBOOK_OBJECT,
                                                       self.get_export_dir())
@@ -814,3 +882,42 @@ class WorkspaceClient(dbclient):
             futures = [executor.submit(_upload_all_files, walk[0], walk[1], walk[2]) for walk in self.walk(src_dir)]
             concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
             propagate_exceptions(futures)
+
+    def import_all_repos(self, repo_log_file="repos.log", num_parallel=1):
+        dir_repo_logs = self.get_export_dir() + repo_log_file
+
+        # check to see if git creds are set up- repo import will fail if not
+        git_cred_api_path = "/git-credentials"
+        resp = self.get(git_cred_api_path)
+        if not resp.get("credentials", None):
+            logging.info("Repo import will be skipped; repos can only be imported if Git credentials are first set up.")
+            logging.info("To import repos separately, please run repo_importer.py")
+            return
+
+        repo_error_logger = logging_utils.get_error_logger(
+            wmconstants.WM_IMPORT, wmconstants.WORKSPACE_REPO_OBJECT, self.get_export_dir())
+        checkpoint_repo_set = self._checkpoint_service.get_checkpoint_key_set(
+            wmconstants.WM_IMPORT, wmconstants.WORKSPACE_REPO_OBJECT)
+
+        with open(dir_repo_logs) as repo_fp:
+            with ThreadPoolExecutor(max_workers=num_parallel) as executor:
+                futures = [
+                    executor.submit(self.create_repo, repo_str, repo_error_logger,
+                                    checkpoint_repo_set)
+                    for repo_str in repo_fp]
+                concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
+                propagate_exceptions(futures)
+
+    def create_repo(self, repo_str, error_logger, checkpoint_repo_set):
+        api_path = '/repos'
+        repo_json = json.loads(repo_str)
+        repo_url = repo_json.get('url', None)
+        if repo_url:
+            logging.info("Repo: {0}".format(repo_json.get('path', '')))
+            resp = self.post(api_path, repo_json)
+            if logging_utils.check_error(resp):
+                logging_utils.log_response_error(error_logger, resp)
+            else:
+                checkpoint_repo_set.write(repo_url)
+        else:
+            logging.info(f"Could not import repo {repo_json.get('path', '')}; only remote repos can be created via API.")

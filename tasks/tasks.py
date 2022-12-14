@@ -183,6 +183,7 @@ class NotebookImportTask(AbstractTask):
                     'Overwrite notebooks only supports the SOURCE format. See Rest API docs for details')
         ws_c.import_all_workspace_items(archive_missing=self.args.archive_missing,
                                         num_parallel=self.client_config["num_parallel"])
+        ws_c.import_all_repos(num_parallel=self.client_config["num_parallel"])
 
 
 class ClustersExportTask(AbstractTask):
