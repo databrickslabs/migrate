@@ -87,13 +87,14 @@ Support Matrix for Import and Export Operations:
 |--------------------|------------|-------------|
 | Users / Groups     | Supported  | Supported   |
 | Clusters (w/ ACLs) | Supported  | Supported   |
-| Notebooks          | Supported  | Supported   |
-| Notebooks ACLs     | Supported  | Supported   |
+| Notebooks (w/ ACLs)| Supported  | Supported   |
+| Repos (w/ ACLs)    | Supported  | Supported   |
 | Metastore          | Supported  | Supported   |
 | Jobs (w/ ACLs)     | Supported  | Supported   |
 | Libraries          | Supported  | Unsupported |
 | Secrets            | Supported  | Supported   |
 | Table ACLs         | Supported  | Supported   |
+| DBFS Mounts        | Supported  | Unsupported |
 | ML Models          | Supported* | Supported*  |
 
 > **Note on MLFlow Migration:**  
