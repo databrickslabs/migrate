@@ -19,8 +19,10 @@ SECRET_OBJECT = "secrets"
 MLFLOW_EXPERIMENT_OBJECT = "mlflow_experiments"
 MLFLOW_EXPERIMENT_PERMISSION_OBJECT = "mlflow_experiments_permissions"
 MLFLOW_RUN_OBJECT = "mlflow_runs"
+
 # Migration pipeline placeholder constants
 MIGRATION_PIPELINE_OBJECT_TYPE = "tasks"
+IGNORE_ERROR_LIST = ['RESOURCE_ALREADY_EXISTS', 'FEATURE_DISABLED']
 
 # Actions
 WM_EXPORT = "export"

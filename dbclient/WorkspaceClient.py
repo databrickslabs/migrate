@@ -665,10 +665,10 @@ class WorkspaceClient(dbclient):
                 api_args = {'access_control_list': access_control_list}
                 resp = self.patch(api_path, api_args)
 
+                # if skipping non-existing users, add error code to allowlist
+                ignore_error_list = wmconstants.IGNORE_ERROR_LIST
                 if self.skip_missing_users:
-                    ignore_error_list = ["RESOURCE_DOES_NOT_EXIST", "RESOURCE_ALREADY_EXISTS"]
-                else:
-                    ignore_error_list = ["RESOURCE_ALREADY_EXISTS"]
+                    ignore_error_list.append("RESOURCE_DOES_NOT_EXIST")
 
                 if logging_utils.check_error(resp, ignore_error_list):
                     logging_utils.log_response_error(error_logger, resp)
