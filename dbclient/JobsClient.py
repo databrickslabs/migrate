@@ -186,7 +186,19 @@ class JobsClient(ClustersClient):
                 create_resp = self.post('/jobs/create', job_settings)
                 if logging_utils.check_error(create_resp):
                     logging.info("Resetting job to use default cluster configs due to expired configurations.")
-                    job_settings['new_cluster'] = self.get_jobs_default_cluster_conf()
+                    if job_settings.get("format", "") == "MULTI_TASK":
+
+                        # if an MTJ has a cluster that no longer exists, use the default configuration for all tasks
+                        updated_tasks = []
+                        for task in job_settings.get("tasks"):
+                            if task.get("existing_cluster_id", None):
+                                task.pop("existing_cluster_id")
+                            task["new_cluster"] = self.get_jobs_default_cluster_conf()
+                            updated_tasks.append(task)
+                        job_settings["tasks"] = updated_tasks
+                    else:
+                        job_settings['new_cluster'] = self.get_jobs_default_cluster_conf()
+
                     create_resp_retry = self.post('/jobs/create', job_settings)
                     if not logging_utils.log_response_error(error_logger, create_resp_retry):
                         if 'job_id' in job_conf:
