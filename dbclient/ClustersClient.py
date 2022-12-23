@@ -469,8 +469,11 @@ class ClustersClient(dbclient):
                 if ip_arn not in list_of_profiles:
                     print("Importing arn: {0}".format(ip_arn))
                     resp = self.post('/instance-profiles/add', {'instance_profile_arn': ip_arn})
-                    if not logging_utils.log_response_error(error_logger, resp):
+                    if not logging_utils.check_error(resp):
                         import_profiles_count += 1
+                    else:
+                        logging.info(f"Failed instance profile import for {ip_arn}")
+                        logging_utils.log_response_error(error_logger, resp)
                 else:
                     logging.info("Skipping since profile already exists: {0}".format(ip_arn))
         return import_profiles_count
