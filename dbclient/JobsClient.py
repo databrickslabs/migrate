@@ -159,6 +159,7 @@ class JobsClient(ClustersClient):
                 else:
                     new_cluster_conf = cluster_conf
                 settings['new_cluster'] = new_cluster_conf
+            return settings
 
         with open(jobs_log, 'r') as fp, open(job_map_log, 'w') as jm_fp:
             for line in fp:
@@ -178,8 +179,19 @@ class JobsClient(ClustersClient):
                 if 'format' not in job_settings or job_settings.get('format') == 'SINGLE_TASK':
                     adjust_ids_for_cluster(job_settings)
                 else:
+                    mod_task_settings = []
                     for task_settings in job_settings.get('job_clusters', []):
                         adjust_ids_for_cluster(task_settings)
+                    if mod_task_settings:
+                        job_settings['job_clusters'] = mod_task_settings
+                        mod_task_settings = []
+
+                    # multi-task jobs may have existing_cluster_id per task
+                    for task_settings in job_settings.get('tasks', []):
+                        adjust_ids_for_cluster(task_settings)
+                    if mod_task_settings:
+                        logging.info(f"mod_task_settings: {mod_task_settings}")
+                        job_settings['tasks'] = mod_task_settings
 
                 logging.info("Current Job Name: {0}".format(job_conf['settings']['name']))
                 # creator can be none if the user is no longer in the org. see our docs page
