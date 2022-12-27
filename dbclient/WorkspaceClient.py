@@ -917,9 +917,9 @@ class WorkspaceClient(dbclient):
         if repo_url:
             logging.info("Repo: {0}".format(repo_json.get('path', '')))
             resp = self.post(api_path, repo_json)
-            if (resp['error_code'] == "RESOURCE_DOES_NOT_EXIST") and \
-                (resp['http_status_code'] == 404):
-                parent_directory = re.sub(r"^RESOURCE_DOES_NOT_EXIST: Parent directory ", '', resp['message'])
+            if (resp.get('error_code') == "RESOURCE_DOES_NOT_EXIST") and \
+                (resp.get('http_status_code') == 404):
+                parent_directory = re.sub(r"^RESOURCE_DOES_NOT_EXIST: Parent directory ", '', resp.get('message'))
                 parent_directory = re.sub(r" does not exist.$", '', parent_directory)
                 if re.fullmatch(
                     r'/Repos/([A-Za-z0-9]+[.-_])*[A-Za-z0-9]+@[A-Za-z0-9-]+(\.[A-Z|a-z]{2,})+', parent_directory
