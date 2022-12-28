@@ -30,6 +30,7 @@ class ClustersClient(dbclient):
                       'spark_env_vars',
                       'autotermination_minutes',
                       'enable_elastic_disk',
+                      'driver_instance_pool_id',
                       'instance_pool_id',
                       'policy_id',
                       'pinned_by_user_name',
@@ -57,8 +58,23 @@ class ClustersClient(dbclient):
             cluster_json.pop('driver_node_type_id', None)
             cluster_json.pop('enable_elastic_disk', None)
             # map old pool ids to new pool ids
-            old_pool_id = cluster_json['instance_pool_id']
-            cluster_json['instance_pool_id'] = pool_id_dict.get[old_pool_id]
+            old_pool_id = cluster_json.get('instance_pool_id')
+            new_pool_id = pool_id_dict.get(old_pool_id)
+            if old_pool_id and new_pool_id:
+                cluster_json['instance_pool_id'] = new_pool_id
+            else:
+                logging.warning(f"Instance pool mapped to src/dest :{old_pool_id}/{new_pool_id} is not available.It may have been deleted; cluster will use defaults.")
+                cluster_json.pop("instance_pool_id")
+
+            old_driver_pool_id = cluster_json.get('driver_instance_pool_id')
+            if old_driver_pool_id:
+                new_driver_pool_id = pool_id_dict.get(old_driver_pool_id)
+                if new_driver_pool_id:
+                    cluster_json['driver_instance_pool_id'] = new_driver_pool_id
+                else:
+                    logging.warning(f"Driver Instance pool mapped to src/dest :{old_driver_pool_id}/{new_driver_pool_id} is not available.It may have been deleted; cluster will use defaults.")
+                    cluster_json.pop("instance_pool_id")
+                    cluster_json.pop("driver_instance_pool_id")
 
         if not is_job_cluster:
             # add custom tag for original cluster creator for cost tracking

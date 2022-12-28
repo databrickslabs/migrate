@@ -78,7 +78,7 @@ class JobsClient(ClustersClient):
             else:
                 raise RuntimeError("Import job has failed. Refer to the previous log messages to investigate.")
 
-    def log_job_configs(self, users_list=None, groups_list = None, log_file='jobs.log', acl_file='acl_jobs.log'):
+    def log_job_configs(self, users_list=None, groups_list=None, log_file='jobs.log', acl_file='acl_jobs.log'):
         """
         log all job configs and the ACLs for each job
         :param users_list: a list of users / emails to filter the results upon (optional for group exports)
@@ -142,13 +142,13 @@ class JobsClient(ClustersClient):
                 old_cid = settings['existing_cluster_id']
                 # set new cluster id for existing cluster attribute
                 new_cid = cluster_mapping.get(old_cid, None)
-                if not new_cid:
-                    logging.info("Existing cluster has been removed. Resetting job to use new cluster.")
+                if new_cid:
+                    settings['existing_cluster_id'] = new_cid
+                else:
+                    logging.warning(f"Existing cluster with Id : {old_cid} has been removed. Resetting job to use new cluster.")
                     settings.pop('existing_cluster_id')
                     settings['new_cluster'] = self.get_jobs_default_cluster_conf()
-                else:
-                    settings['existing_cluster_id'] = new_cid
-            else:  # new cluster config
+            elif 'new_cluster' in settings:  # new cluster config
                 cluster_conf = settings['new_cluster']
                 if 'policy_id' in cluster_conf:
                     old_policy_id = cluster_conf['policy_id']
@@ -159,6 +159,10 @@ class JobsClient(ClustersClient):
                 else:
                     new_cluster_conf = cluster_conf
                 settings['new_cluster'] = new_cluster_conf
+            elif 'job_cluster_key' in settings: #multi task job tasks using shared clusters.
+                logging.info(f"Task setting uses shared job_cluster with job_cluster_key: {settings['job_cluster_key']}.")
+            else:
+                logging.warning("Task/Job setting doesn't have any existing cluster/new cluster/job_cluster_key configured.")
 
         with open(jobs_log, 'r') as fp, open(job_map_log, 'w') as jm_fp:
             for line in fp:
@@ -180,6 +184,8 @@ class JobsClient(ClustersClient):
                 else:
                     for task_settings in job_settings.get('job_clusters', []):
                         adjust_ids_for_cluster(task_settings)
+                    for task_settings in job_settings.get('tasks', []):
+                        adjust_ids_for_cluster(task_settings)
 
                 logging.info("Current Job Name: {0}".format(job_conf['settings']['name']))
                 # creator can be none if the user is no longer in the org. see our docs page
@@ -187,7 +193,6 @@ class JobsClient(ClustersClient):
                 if logging_utils.check_error(create_resp):
                     logging.info("Resetting job to use default cluster configs due to expired configurations.")
                     if job_settings.get("format", "") == "MULTI_TASK":
-
                         # if an MTJ has a cluster that no longer exists, use the default configuration for all tasks
                         updated_tasks = []
                         for task in job_settings.get("tasks"):
@@ -211,7 +216,6 @@ class JobsClient(ClustersClient):
                         checkpoint_job_configs_set.write(job_conf["job_id"])
                     _job_map = {"old_id": job_conf["job_id"], "new_id": str(create_resp["job_id"])}
                     jm_fp.write(json.dumps(_job_map) + '\n')
-
 
         # update the jobs with their ACLs
         with open(acl_jobs_log, 'r') as acl_fp:
@@ -238,12 +242,11 @@ class JobsClient(ClustersClient):
         log_file = self.get_export_dir() + log_file
         job_map_file = self.get_export_dir() + job_map_file
 
-
         if not os.path.exists(log_file) or not os.path.exists(job_map_file):
             raise ValueError('Jobs log and jobs id map must exist to map jobs to previous existing jobs ids')
 
         job_map_log = self._load_job_id_map(job_map_file)
-        
+
         with open(log_file, 'r') as fp:
             for line in fp:
                 job_conf = json.loads(line)
