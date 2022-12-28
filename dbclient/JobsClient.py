@@ -181,16 +181,15 @@ class JobsClient(ClustersClient):
                 else:
                     mod_task_settings = []
                     for task_settings in job_settings.get('job_clusters', []):
-                        adjust_ids_for_cluster(task_settings)
-                    if mod_task_settings:
+                        mod_task_settings.append(adjust_ids_for_cluster(task_settings))
+                    if len(mod_task_settings) > 0:
                         job_settings['job_clusters'] = mod_task_settings
                         mod_task_settings = []
 
                     # multi-task jobs may have existing_cluster_id per task
                     for task_settings in job_settings.get('tasks', []):
-                        adjust_ids_for_cluster(task_settings)
-                    if mod_task_settings:
-                        logging.info(f"mod_task_settings: {mod_task_settings}")
+                        mod_task_settings.append(adjust_ids_for_cluster(task_settings))
+                    if len(mod_task_settings) > 0:
                         job_settings['tasks'] = mod_task_settings
 
                 logging.info("Current Job Name: {0}".format(job_conf['settings']['name']))
