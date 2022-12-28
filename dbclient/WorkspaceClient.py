@@ -1,4 +1,6 @@
 import base64
+import re
+
 from dbclient import *
 import wmconstants
 import concurrent
@@ -915,6 +917,20 @@ class WorkspaceClient(dbclient):
         if repo_url:
             logging.info("Repo: {0}".format(repo_json.get('path', '')))
             resp = self.post(api_path, repo_json)
+            if (resp.get('error_code') == "RESOURCE_DOES_NOT_EXIST") and \
+                (resp.get('http_status_code') == 404):
+                parent_directory = re.sub(r"^RESOURCE_DOES_NOT_EXIST: Parent directory ", '', resp.get('message'))
+                parent_directory = re.sub(r" does not exist.$", '', parent_directory)
+                if re.fullmatch(
+                    r'/Repos/.+\@.+', parent_directory
+                ):
+                    logging.info(f"Creating parent directory {parent_directory}")
+                    resp2 = self.post('/workspace/mkdirs', {"path": parent_directory})
+                    if logging_utils.check_error(resp2):
+                        logging_utils.log_response_error(error_logger, resp2)
+                    else:
+                        logging.info(f"2nd attempt to create: {repo_json.get('path', '')}")
+                        resp = self.post(api_path, repo_json)
             if logging_utils.check_error(resp):
                 logging_utils.log_response_error(error_logger, resp)
             else:
