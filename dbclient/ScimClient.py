@@ -439,8 +439,31 @@ class ScimClient(dbclient):
                         elif self.is_group(m):
                             this_group_id = current_group_ids.get(m['display'])
                             member_id_list.append(this_group_id)
+                        elif self.is_member_a_service_principal(m):
+                            logging.info(
+                                f"Importing Service Principal - AppId: {m['display']}, userId: {m['value']}")
+                            payload_service_principal = {
+                                "schemas": ["urn:ietf:params:scim:schemas:core:2.0:ServicePrincipal"],
+                                "applicationId": m['display'],
+                                "displayName": m['display'], # you can also change this to SPN AppId - m['display']
+                                "groups": [
+                                    {
+                                        "value": group_name
+                                    }
+                                ],
+                                "entitlements": [
+                                    {
+                                        "value": "allow-cluster-create"
+                                    }
+                                ]
+                            }
+                            add_azure_spns = self.post(
+                                '/preview/scim/v2/ServicePrincipals', payload_service_principal)
+                            logging_utils.log_response_error(
+                                error_logger, add_azure_spns)
                         else:
-                            logging.info("Skipping service principal members and other identities not within users/groups")
+                            logging.info(
+                                "Skipping other identities not within users/service_principal_users/groups")
                     add_members_json = self.get_member_args(member_id_list)
                     group_id = current_group_ids[group_name]
                     add_resp = self.patch('/preview/scim/v2/Groups/{0}'.format(group_id), add_members_json)
