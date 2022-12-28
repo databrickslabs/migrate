@@ -922,7 +922,7 @@ class WorkspaceClient(dbclient):
                 parent_directory = re.sub(r"^RESOURCE_DOES_NOT_EXIST: Parent directory ", '', resp.get('message'))
                 parent_directory = re.sub(r" does not exist.$", '', parent_directory)
                 if re.fullmatch(
-                    r'/Repos/([A-Za-z0-9]+[.-_])*[A-Za-z0-9]+@[A-Za-z0-9-]+(\.[A-Z|a-z]{2,})+', parent_directory
+                    r'/Repos/.+\@.+', parent_directory
                 ):
                     logging.info(f"Creating parent directory {parent_directory}")
                     resp2 = self.post('/workspace/mkdirs', {"path": parent_directory})
