@@ -53,15 +53,13 @@ class ScimClient(dbclient):
                 with open(single_user_log, 'w') as fp:
                     fp.write(json.dumps(user) + '\n')
         if not found_user:
-            logging.error(
-                "User not found. Emails are case sensitive. Please verify email address")
+            logging.error("User not found. Emails are case sensitive. Please verify email address")
 
     def import_single_user(self, user_email, log_file='single_user.log', num_parallel=4):
         single_user_log = self.get_export_dir() + log_file
         checkpoint_users_set = self._checkpoint_service.get_checkpoint_key_set(
             wmconstants.WM_IMPORT, wmconstants.USER_OBJECT)
-        resp = self.import_users(
-            single_user_log, logging.getLogger(), checkpoint_users_set, num_parallel)
+        resp = self.import_users(single_user_log, logging.getLogger(), checkpoint_users_set, num_parallel)
 
     def get_users_from_log(self, users_log='users.log'):
         """
@@ -154,19 +152,14 @@ class ScimClient(dbclient):
         for group_name in group_name_list:
             group_details = group_dict[group_name]
             members_list = group_details.get('members', [])
-            filtered_users = list(
-                filter(lambda y: 'Users' in y.get('$ref', None), members_list))
-            filtered_sub_groups = list(
-                filter(lambda y: 'Groups' in y.get('$ref', None), members_list))
+            filtered_users = list(filter(lambda y: 'Users' in y.get('$ref', None), members_list))
+            filtered_sub_groups = list(filter(lambda y: 'Groups' in y.get('$ref', None), members_list))
             if filtered_sub_groups:
-                sub_group_names = list(
-                    map(lambda z: z.get('display'), filtered_sub_groups))
+                sub_group_names = list(map(lambda z: z.get('display'), filtered_sub_groups))
                 group_name_list.extend(sub_group_names)
-            member_id_list.extend(
-                list(map(lambda y: y['value'], filtered_users)))
+            member_id_list.extend(list(map(lambda y: y['value'], filtered_users)))
             with open(group_dir + group_name, "w") as fp:
-                # removing the roles field from the groups arg
-                group_details.pop('roles', None)
+                group_details.pop('roles', None)  # removing the roles field from the groups arg
                 fp.write(json.dumps(self.add_username_to_group(group_details)))
         users_log = self.get_export_dir() + users_logfile
         user_names_list = []
@@ -175,10 +168,8 @@ class ScimClient(dbclient):
                 logging.info('Exporting', mid)
                 api = f'/preview/scim/v2/Users/{mid}'
                 user_resp = self.get(api)
-                # remove roles since those can change during the migration
-                user_resp.pop('roles', None)
-                # remove unnecessary params
-                user_resp.pop('http_status_code', None)
+                user_resp.pop('roles', None)  # remove roles since those can change during the migration
+                user_resp.pop('http_status_code', None)  # remove unnecessary params
                 user_names_list.append(user_resp.get('userName'))
                 u_fp.write(json.dumps(user_resp) + '\n')
         return user_names_list
@@ -227,8 +218,7 @@ class ScimClient(dbclient):
         # assign group role ACLs, which are only available via SCIM apis
         group_ids = self.get_current_group_ids()
         if not os.path.exists(group_dir):
-            logging.info(
-                "No groups defined. Skipping group entitlement assignment")
+            logging.info("No groups defined. Skipping group entitlement assignment")
             return
         groups = self.listdir(group_dir)
         for group_name in groups:
@@ -237,18 +227,15 @@ class ScimClient(dbclient):
                 entitlements = group_data.get('entitlements', None)
                 if entitlements:
                     g_id = group_ids[group_name]
-                    update_entitlements = self.assign_entitlements_args(
-                        entitlements)
-                    up_resp = self.patch(
-                        f'/preview/scim/v2/Groups/{g_id}', update_entitlements)
+                    update_entitlements = self.assign_entitlements_args(entitlements)
+                    up_resp = self.patch(f'/preview/scim/v2/Groups/{g_id}', update_entitlements)
                     logging_utils.log_response_error(error_logger, up_resp)
 
     def assign_group_roles(self, group_dir, error_logger):
         # assign group role ACLs, which are only available via SCIM apis
         group_ids = self.get_current_group_ids()
         if not os.path.exists(group_dir):
-            logging.info(
-                "No groups defined. Skipping group entitlement assignment")
+            logging.info("No groups defined. Skipping group entitlement assignment")
             return
         groups = self.listdir(group_dir)
         for group_name in groups:
@@ -258,16 +245,13 @@ class ScimClient(dbclient):
                 if roles:
                     g_id = group_ids[group_name]
                     update_roles = self.assign_roles_args(roles)
-                    up_resp = self.patch(
-                        f'/preview/scim/v2/Groups/{g_id}', update_roles)
+                    up_resp = self.patch(f'/preview/scim/v2/Groups/{g_id}', update_roles)
                     logging_utils.log_response_error(error_logger, up_resp)
                 entitlements = group_data.get('entitlements', None)
                 if entitlements:
                     g_id = group_ids[group_name]
-                    update_entitlements = self.assign_entitlements_args(
-                        entitlements)
-                    up_resp = self.patch(
-                        f'/preview/scim/v2/Groups/{g_id}', update_entitlements)
+                    update_entitlements = self.assign_entitlements_args(entitlements)
+                    up_resp = self.patch(f'/preview/scim/v2/Groups/{g_id}', update_entitlements)
                     logging_utils.log_response_error(error_logger, up_resp)
 
     def get_current_group_ids(self):
@@ -303,8 +287,7 @@ class ScimClient(dbclient):
         """
         user_log = self.get_export_dir() + user_log_file
         if not os.path.exists(user_log):
-            logging.info(
-                "Skipping user entitlement assignment. Logfile does not exist")
+            logging.info("Skipping user entitlement assignment. Logfile does not exist")
             return
         with open(user_log, 'r') as fp:
             # loop through each user in the file
@@ -318,10 +301,8 @@ class ScimClient(dbclient):
                 # get the current registered user id
                 user_id = current_user_ids[user['userName']]
                 if user_entitlements:
-                    entitlements_args = self.assign_entitlements_args(
-                        user_entitlements)
-                    update_resp = self.patch(
-                        f'/preview/scim/v2/Users/{user_id}', entitlements_args)
+                    entitlements_args = self.assign_entitlements_args(user_entitlements)
+                    update_resp = self.patch(f'/preview/scim/v2/Users/{user_id}', entitlements_args)
                     logging_utils.log_response_error(error_logger, update_resp)
 
     def assign_user_roles(self, current_user_ids, error_logger, user_log_file='users.log'):
@@ -335,13 +316,11 @@ class ScimClient(dbclient):
         """
         user_log = self.get_export_dir() + user_log_file
         if not os.path.exists(user_log):
-            logging.info(
-                "Skipping user entitlement assignment. Logfile does not exist")
+            logging.info("Skipping user entitlement assignment. Logfile does not exist")
             return
         # keys to filter from the user log to get the user / role mapping
         old_role_keys = ('userName', 'roles')
-        cur_role_keys = ('schemas', 'userName',
-                         'entitlements', 'roles', 'groups')
+        cur_role_keys = ('schemas', 'userName', 'entitlements', 'roles', 'groups')
         # get current user id of the new environment, k,v = email, id
         with open(user_log, 'r') as fp:
             # loop through each user in the file
@@ -354,8 +333,7 @@ class ScimClient(dbclient):
                 # get the current registered user id
                 user_id = current_user_ids[user['userName']]
                 # get the current users settings
-                cur_user = self.get(
-                    '/preview/scim/v2/Users/{0}'.format(user_id))
+                cur_user = self.get('/preview/scim/v2/Users/{0}'.format(user_id))
                 # get the current users IAM roles
                 current_roles = cur_user.get('roles', None)
                 if current_roles:
@@ -372,8 +350,7 @@ class ScimClient(dbclient):
                 if roles_needed:
                     # get the json to add the roles to the user profile
                     patch_roles = self.add_roles_arg(roles_needed)
-                    update_resp = self.patch(
-                        f'/preview/scim/v2/Users/{user_id}', patch_roles)
+                    update_resp = self.patch(f'/preview/scim/v2/Users/{user_id}', patch_roles)
                     logging_utils.log_response_error(error_logger, update_resp)
 
     @staticmethod
@@ -392,7 +369,7 @@ class ScimClient(dbclient):
             "Operations": [{
                 "op": "add",
                 "value": {"members": member_id_list_json}
-            }
+                }
             ]
         }
         return add_members_args
@@ -440,7 +417,6 @@ class ScimClient(dbclient):
         current_group_ids = self.get_current_group_ids()
         # dict of { old_user_id : email }
         old_user_emails = self.get_old_user_emails()
-
         for group_name in groups:
             with open(group_dir + group_name, 'r') as fp:
                 members = json.loads(fp.read()).get('members', None)
@@ -452,16 +428,14 @@ class ScimClient(dbclient):
                         if self.is_user(m):
                             try:
                                 old_email = old_user_emails[m['value']]
-                                this_user_id = current_user_ids.get(
-                                    old_email, '')
+                                this_user_id = current_user_ids.get(old_email, '')
                                 if not this_user_id:
                                     error_logger.error(f'Unable to find user {old_email} in the new workspace. '
-                                                       f'This users email case has changed and needs to be updated with '
-                                                       f'the --replace-old-email and --update-new-email options')
+                                                     f'This users email case has changed and needs to be updated with '
+                                                     f'the --replace-old-email and --update-new-email options')
                                 member_id_list.append(this_user_id)
                             except KeyError:
-                                error_logger.error(
-                                    f"Error adding member {m} to group {group_name}")
+                                error_logger.error(f"Error adding member {m} to group {group_name}")
                         elif self.is_group(m):
                             this_group_id = current_group_ids.get(m['display'])
                             member_id_list.append(this_group_id)
@@ -492,21 +466,18 @@ class ScimClient(dbclient):
                                 "Skipping other identities not within users/service_principal_users/groups")
                     add_members_json = self.get_member_args(member_id_list)
                     group_id = current_group_ids[group_name]
-                    add_resp = self.patch(
-                        '/preview/scim/v2/Groups/{0}'.format(group_id), add_members_json)
+                    add_resp = self.patch('/preview/scim/v2/Groups/{0}'.format(group_id), add_members_json)
                     logging_utils.log_response_error(error_logger, add_resp)
 
     def import_users(self, user_log, error_logger, checkpoint_set, num_parallel):
         # first create the user identities with the required fields
-        create_keys = ('emails', 'entitlements',
-                       'displayName', 'name', 'userName')
+        create_keys = ('emails', 'entitlements', 'displayName', 'name', 'userName')
         if not os.path.exists(user_log):
             logging.info("No users to import.")
             return
         with open(user_log, 'r') as fp:
             with ThreadPoolExecutor(max_workers=num_parallel) as executor:
-                futures = [executor.submit(self._import_users_helper, user_data,
-                                           create_keys, checkpoint_set, error_logger) for user_data in fp]
+                futures = [executor.submit(self._import_users_helper, user_data, create_keys, checkpoint_set, error_logger) for user_data in fp]
                 concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
                 propagate_exceptions(futures)
 
@@ -532,8 +503,7 @@ class ScimClient(dbclient):
                 user = json.loads(line)
                 userName = user['userName']
                 if userName not in current_user_ids:
-                    error_logger.error(
-                        f"Failed to create {user} in destination workspace \n")
+                    error_logger.error(f"Failed to create {user} in destination workspace \n")
 
     def import_all_users_and_groups(self, user_log_file='users.log', group_log_dir='groups/'):
         self.import_all_users(user_log_file)
@@ -546,20 +516,17 @@ class ScimClient(dbclient):
         user_error_logger = logging_utils.get_error_logger(
             wmconstants.WM_IMPORT, wmconstants.USER_OBJECT, self.get_export_dir())
 
-        self.import_users(user_log, user_error_logger,
-                          checkpoint_users_set, num_parallel)
+        self.import_users(user_log, user_error_logger, checkpoint_users_set, num_parallel)
         current_user_ids = self.get_user_id_mapping()
         self.log_failed_users(current_user_ids, user_log, user_error_logger)
         # assign the users to IAM roles if on AWS
         if self.is_aws():
             logging.info("Update user role assignments")
-            self.assign_user_roles(
-                current_user_ids, user_error_logger, user_log_file)
+            self.assign_user_roles(current_user_ids, user_error_logger, user_log_file)
 
         # need to separate role assignment and entitlements to support Azure
         logging.info("Updating users entitlements")
-        self.assign_user_entitlements(
-            current_user_ids, user_error_logger, user_log_file)
+        self.assign_user_entitlements(current_user_ids, user_error_logger, user_log_file)
 
     def import_all_groups(self, group_log_dir='groups/'):
         group_error_logger = logging_utils.get_error_logger(
