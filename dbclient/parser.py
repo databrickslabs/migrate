@@ -461,6 +461,9 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
     parser.add_argument('--silent', action='store_true', default=False,
                         help='Silent all logging of export operations.')
 
+    parser.add_argument('--verbose', action='store_true', default=False,
+                        help='Verbose logging')
+
     parser.add_argument('--no-ssl-verification', action='store_true',
                         help='Set Verify=False when making http requests.')
 
@@ -550,4 +553,5 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
 
     parser.add_argument('--groups-to-keep', nargs='+', type=str, default=[],
                         help='List of groups (and therefore users/notebooks) to keep if specified')
+
     return parser
