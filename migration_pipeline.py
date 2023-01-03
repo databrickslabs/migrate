@@ -55,6 +55,8 @@ def build_pipeline(args) -> Pipeline:
     client_config['base_dir'] = client_config['export_dir']
     client_config['export_dir'] = os.path.join(client_config['base_dir'], session) + '/'
 
+    client_config['verbose'] = args.verbose
+
     if not args.dry_run:
         os.makedirs(client_config['export_dir'], exist_ok=True)
 
