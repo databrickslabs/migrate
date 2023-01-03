@@ -190,7 +190,7 @@ class dbclient:
             self._local.session = session
         return self._local.session
 
-    def get(self, endpoint, json_params=None, version='2.0', print_json=False, do_not_throw=False):
+    def get(self, endpoint, json_params=None, version='2.0', print_json=False, do_not_throw=False, timeout=10):
         if version:
             ver = version
         while True:
@@ -198,9 +198,13 @@ class dbclient:
             if self.is_verbose():
                 print("Get: {0}".format(full_endpoint))
             if json_params:
-                raw_results = self.req_session().get(full_endpoint, headers=self._token, params=json_params, verify=self._verify_ssl)
+                raw_results = self.req_session().get(
+                    full_endpoint, headers=self._token, params=json_params, verify=self._verify_ssl, timeout=timeout
+                )
             else:
-                raw_results = self.req_session().get(full_endpoint, headers=self._token, verify=self._verify_ssl)
+                raw_results = self.req_session().get(
+                    full_endpoint, headers=self._token, verify=self._verify_ssl, timeout=timeout
+                )
 
             if self._should_retry_with_new_token(raw_results):
                 continue
@@ -218,7 +222,7 @@ class dbclient:
             results['http_status_code'] = http_status_code
             return results
 
-    def http_req(self, http_type, endpoint, json_params, version='2.0', print_json=False, files_json=None):
+    def http_req(self, http_type, endpoint, json_params, version='2.0', print_json=False, files_json=None, timeout=10):
         if version:
             ver = version
         while True:
@@ -228,17 +232,25 @@ class dbclient:
             if json_params:
                 if http_type == 'post':
                     if files_json:
-                        raw_results = self.req_session().post(full_endpoint, headers=self._token,
-                                                    data=json_params, files=files_json, verify=self._verify_ssl)
+                        raw_results = self.req_session().post(
+                            full_endpoint, headers=self._token, data=json_params, files=files_json,
+                            verify=self._verify_ssl, timeout=timeout
+                        )
                     else:
-                        raw_results = self.req_session().post(full_endpoint, headers=self._token,
-                                                    json=json_params, verify=self._verify_ssl)
+                        raw_results = self.req_session().post(
+                            full_endpoint, headers=self._token, json=json_params, verify=self._verify_ssl,
+                            timeout=timeout
+                        )
                 if http_type == 'put':
-                    raw_results = self.req_session().put(full_endpoint, headers=self._token,
-                                               json=json_params, verify=self._verify_ssl)
+                    raw_results = self.req_session().put(
+                        full_endpoint, headers=self._token, json=json_params, verify=self._verify_ssl,
+                        timeout=timeout
+                    )
                 if http_type == 'patch':
-                    raw_results = self.req_session().patch(full_endpoint, headers=self._token,
-                                                 json=json_params, verify=self._verify_ssl)
+                    raw_results = self.req_session().patch(
+                        full_endpoint, headers=self._token, json=json_params, verify=self._verify_ssl,
+                        timeout=timeout
+                    )
             else:
                 print("Must have a payload in json_args param.")
                 return {}
