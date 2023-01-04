@@ -102,7 +102,8 @@ class HiveClient(ClustersClient):
         # check if the database location / path is the default DBFS path
         table_name = os.path.basename(local_table_path)
         is_db_default_path = db_path.startswith('dbfs:/user/hive/warehouse')
-        if (not is_db_default_path) and (not self.is_table_location_defined(local_table_path)):
+        ddl_statement = self.get_ddl_by_keyword_group(local_table_path)
+        if (not is_db_default_path) and (not self.is_table_location_defined(local_table_path)) and (not self.is_ddl_a_view(ddl_statement)):
             # the LOCATION attribute is not defined and the Database has a custom location defined
             # therefore we need to add it to the DDL, e.g. dbfs:/db_path/table_name
             table_path = db_path + '/' + table_name
