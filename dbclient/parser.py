@@ -554,4 +554,7 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
     parser.add_argument('--groups-to-keep', nargs='+', type=str, default=[],
                         help='List of groups (and therefore users/notebooks) to keep if specified')
 
+    parser.add_argument('--timeout', type=float, default=10,
+                        help='Timeout for the calls to Databricks\' REST API, in seconds, defaults to 10')
+
     return parser
