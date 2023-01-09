@@ -57,6 +57,8 @@ def build_pipeline(args) -> Pipeline:
 
     client_config['verbose'] = args.verbose
 
+    client_config['timeout'] = args.timeout
+
     if not args.dry_run:
         os.makedirs(client_config['export_dir'], exist_ok=True)
 
