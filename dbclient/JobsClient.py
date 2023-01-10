@@ -148,7 +148,7 @@ class JobsClient(ClustersClient):
                     settings['new_cluster'] = self.get_jobs_default_cluster_conf()
                 else:
                     settings['existing_cluster_id'] = new_cid
-            else:  # new cluster config
+            elif 'new_cluster' in settings:  # new cluster config
                 cluster_conf = settings['new_cluster']
                 if 'policy_id' in cluster_conf:
                     old_policy_id = cluster_conf['policy_id']
