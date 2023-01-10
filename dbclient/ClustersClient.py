@@ -270,10 +270,10 @@ class ClustersClient(dbclient):
                     # add original creator tag to help with DBU tracking
                     if 'custom_tags' in cluster_conf:
                         tags = cluster_conf['custom_tags']
-                        tags['OriginalCreator'] = cluster_creator
+                        tags['OriginalCreator'] = self.normalize_tag_value(cluster_creator)
                         cluster_conf['custom_tags'] = tags
                     else:
-                        cluster_conf['custom_tags'] = {'OriginalCreator': cluster_creator}
+                        cluster_conf['custom_tags'] = {'OriginalCreator': self.normalize_tag_value(cluster_creator)}
                     new_cluster_conf = cluster_conf
                 print("Creating cluster: {0}".format(new_cluster_conf['cluster_name']))
                 cluster_resp = self.post('/clusters/create', new_cluster_conf)
@@ -741,3 +741,5 @@ class ClustersClient(dbclient):
             raise RuntimeError("Cluster is terminated. Please check EVENT history for details")
         return cid
 
+    def normalize_tag_value(self, value: str):
+        return value.replace("@", "_at_")
