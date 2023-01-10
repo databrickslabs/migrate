@@ -135,16 +135,6 @@ def create_grants_df(database_name: str,object_type: str, object_key: str):
   
 
 def create_table_ACLSs_df_for_databases(database_names: List[str], include_catalog: bool):
-  
-  # TODO check Catalog heuristic:
-  #  if all databases are exported, we include the Catalog grants as well
-  #. if only a few databases are exported: we exclude the Catalog
-  # if database_names is None or database_names == '':
-  #   database_names = get_database_names()
-  #   include_catalog = True
-  # else:
-  #   include_catalog = False
-    
   num_databases_processed = len(database_names)
   num_tables_or_views_processed = 0
 
@@ -211,10 +201,13 @@ databases_raw = dbutils.widgets.get("Databases")
 output_path = dbutils.widgets.get("OutputPath")
 
 if databases_raw.rstrip() == '':
+  # TODO check Catalog heuristic:
+  #  if all databases are exported, we include the Catalog grants as well
   databases = get_database_names()
   include_catalog = True
   print(f"Exporting all databases")
 else:
+  #. if only a few databases are exported: we exclude the Catalog
   databases = [x.rstrip().lstrip() for x in databases_raw.split(",")]
   include_catalog = False
   print(f"Exporting the following databases: {databases}")
