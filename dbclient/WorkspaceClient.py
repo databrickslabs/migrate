@@ -447,7 +447,7 @@ class WorkspaceClient(dbclient):
         num_nbs = 0
         if self.is_verbose():
             logging.info("Listing: {0}".format(get_args['path']))
-        if items is not None:
+        if items:
             # list all the users folders only
             folders = self.filter_workspace_items(items, 'DIRECTORY')
             # should be no notebooks, but lets filter and can check later
@@ -522,7 +522,7 @@ class WorkspaceClient(dbclient):
                         if num_nbs_plus:
                             num_nbs += num_nbs_plus
         # log all repos
-        if repos_log_writer is not None:
+        if repos_log_writer and repos:
             for repo in repos:
                 repo_path = repo.get('path', "")
                 if not checkpoint_set.contains(repo_path) and not repo_path.startswith(tuple(exclude_prefixes)):

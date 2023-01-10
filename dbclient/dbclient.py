@@ -67,6 +67,7 @@ class dbclient:
         self._local = threading.local()
         self._retry_total = configs['retry_total']
         self._retry_backoff = configs['retry_backoff']
+        self._timeout = configs['timeout']
         if configs['debug']:
             logging.getLogger("urllib3").setLevel(logging.DEBUG)
         if self._verify_ssl:
@@ -99,6 +100,9 @@ class dbclient:
 
     def get_file_format(self):
         return self._file_format
+
+    def get_timeout(self):
+        return self._timeout
 
     def is_source_file_format(self):
         if self._file_format == 'SOURCE':
@@ -190,7 +194,7 @@ class dbclient:
             self._local.session = session
         return self._local.session
 
-    def get(self, endpoint, json_params=None, version='2.0', print_json=False, do_not_throw=False, timeout=10):
+    def get(self, endpoint, json_params=None, version='2.0', print_json=False, do_not_throw=False):
         if version:
             ver = version
         while True:
@@ -199,11 +203,12 @@ class dbclient:
                 print("Get: {0}".format(full_endpoint))
             if json_params:
                 raw_results = self.req_session().get(
-                    full_endpoint, headers=self._token, params=json_params, verify=self._verify_ssl, timeout=timeout
+                    full_endpoint, headers=self._token, params=json_params, verify=self._verify_ssl,
+                    timeout=self.get_timeout()
                 )
             else:
                 raw_results = self.req_session().get(
-                    full_endpoint, headers=self._token, verify=self._verify_ssl, timeout=timeout
+                    full_endpoint, headers=self._token, verify=self._verify_ssl, timeout=self.get_timeout()
                 )
 
             if self._should_retry_with_new_token(raw_results):
@@ -222,7 +227,7 @@ class dbclient:
             results['http_status_code'] = http_status_code
             return results
 
-    def http_req(self, http_type, endpoint, json_params, version='2.0', print_json=False, files_json=None, timeout=10):
+    def http_req(self, http_type, endpoint, json_params, version='2.0', print_json=False, files_json=None):
         if version:
             ver = version
         while True:
@@ -234,22 +239,22 @@ class dbclient:
                     if files_json:
                         raw_results = self.req_session().post(
                             full_endpoint, headers=self._token, data=json_params, files=files_json,
-                            verify=self._verify_ssl, timeout=timeout
+                            verify=self._verify_ssl, timeout=self.get_timeout()
                         )
                     else:
                         raw_results = self.req_session().post(
                             full_endpoint, headers=self._token, json=json_params, verify=self._verify_ssl,
-                            timeout=timeout
+                            timeout=self.get_timeout()
                         )
                 if http_type == 'put':
                     raw_results = self.req_session().put(
                         full_endpoint, headers=self._token, json=json_params, verify=self._verify_ssl,
-                        timeout=timeout
+                        timeout=self.get_timeout()
                     )
                 if http_type == 'patch':
                     raw_results = self.req_session().patch(
                         full_endpoint, headers=self._token, json=json_params, verify=self._verify_ssl,
-                        timeout=timeout
+                        timeout=self.get_timeout()
                     )
             else:
                 print("Must have a payload in json_args param.")
