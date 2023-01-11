@@ -138,6 +138,11 @@ class JobsClient(ClustersClient):
             wmconstants.WM_IMPORT, wmconstants.JOB_OBJECT)
 
         def adjust_ids_for_cluster(settings): #job_settings or task_settings
+            """
+            The task setting may have existing_cluster_id/new_cluster/job_cluster_key for cluster settings.
+            The job level setting may have existing_cluster_id/new_cluster for cluster settings.
+            Adjust cluster settings for existing_cluster_id and new_cluster scenario.
+            """
             if 'existing_cluster_id' in settings:
                 old_cid = settings['existing_cluster_id']
                 # set new cluster id for existing cluster attribute
@@ -148,7 +153,7 @@ class JobsClient(ClustersClient):
                     settings['new_cluster'] = self.get_jobs_default_cluster_conf()
                 else:
                     settings['existing_cluster_id'] = new_cid
-            else:  # new cluster config
+            elif 'new_cluster' in settings:  # new cluster config
                 cluster_conf = settings['new_cluster']
                 if 'policy_id' in cluster_conf:
                     old_policy_id = cluster_conf['policy_id']
