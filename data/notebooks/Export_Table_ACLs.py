@@ -134,17 +134,7 @@ def create_grants_df(database_name: str,object_type: str, object_key: str):
   return grants_df
   
 
-def create_table_ACLSs_df_for_databases(database_names: List[str]):
-  
-  # TODO check Catalog heuristic:
-  #  if all databases are exported, we include the Catalog grants as well
-  #. if only a few databases are exported: we exclude the Catalog
-  if database_names is None or database_names == '':
-    database_names = get_database_names()
-    include_catalog = True
-  else:
-    include_catalog = False
-    
+def create_table_ACLSs_df_for_databases(database_names: List[str], include_catalog: bool):
   num_databases_processed = len(database_names)
   num_tables_or_views_processed = 0
 
@@ -201,35 +191,53 @@ def create_table_ACLSs_df_for_databases(database_names: List[str]):
 # COMMAND ----------
 
 # DBTITLE 1,Run Export
+def chunks(lst, n):
+  """Yield successive n-sized chunks from lst."""
+  for i in range(0, len(lst), n):
+    yield lst[i:i + n]
+
+
 databases_raw = dbutils.widgets.get("Databases")
 output_path = dbutils.widgets.get("OutputPath")
 
 if databases_raw.rstrip() == '':
-  databases = None
+  # TODO check Catalog heuristic:
+  #  if all databases are exported, we include the Catalog grants as well
+  databases = get_database_names()
+  include_catalog = True
   print(f"Exporting all databases")
 else:
+  #. if only a few databases are exported: we exclude the Catalog
   databases = [x.rstrip().lstrip() for x in databases_raw.split(",")]
+  include_catalog = False
   print(f"Exporting the following databases: {databases}")
 
+counter = 1
+for databases_chunks in chunks(databases, 1):
+  table_ACLs_df, num_databases_processed, num_tables_or_views_processed = create_table_ACLSs_df_for_databases(
+    databases_chunks, include_catalog
+  )
 
-table_ACLs_df,num_databases_processed, num_tables_or_views_processed = create_table_ACLSs_df_for_databases(databases)
+  print(
+    f"{datetime.datetime.now()} total number processed chunk {counter}: databases: {num_databases_processed}, tables or views: {num_tables_or_views_processed}")
+  print(f"{datetime.datetime.now()} writing table ACLs to {output_path}")
 
-print(f"{datetime.datetime.now()} total number processed: databases: {num_databases_processed}, tables or views: {num_tables_or_views_processed}")
-print(f"{datetime.datetime.now()} writing table ACLs to {output_path}")
+  # with table ACLS active, I direct write to DBFS is not allowed, so we store
+  # the dateframe as a table for single zipped JSON file sorted, for consitent file diffs
+  (
+    table_ACLs_df
+      # .coalesce(1)
+      .selectExpr("Database", "Principal", "ActionTypes", "ObjectType", "ObjectKey", "ExportTimestamp")
+      # .sort("Database","Principal","ObjectType","ObjectKey")
+      .write
+      .format("JSON")
+      .option("compression", "gzip")
+      .mode("append" if counter > 1 else "overwrite")
+      .save(output_path)
+  )
 
-# with table ACLS active, I direct write to DBFS is not allowed, so we store
-# the dateframe as a table for single zipped JSON file sorted, for consitent file diffs
-(
-  table_ACLs_df
- .coalesce(1)
- .selectExpr("Database","Principal","ActionTypes","ObjectType","ObjectKey","ExportTimestamp")
- .sort("Database","Principal","ObjectType","ObjectKey")
- .write
- .format("JSON")
- .option("compression","gzip")
- .mode("overwrite")
- .save(output_path)
-)
+  counter += 1
+  include_catalog = False
 
 
 # COMMAND ----------
