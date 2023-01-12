@@ -334,6 +334,9 @@ class dbclient:
                                   'permission_level': permissions})
                 if permissions == 'IS_OWNER':
                     current_owner = member.get('user_name')
+            elif 'service_principal_name' in member:
+                acls_list.append({'service_principal_name': member.get('service_principal_name'),
+                                  'permission_level': permissions})
             else:
                 if member.get('group_name') != 'admins':
                     acls_list.append({'group_name': member.get('group_name'),
