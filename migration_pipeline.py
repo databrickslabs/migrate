@@ -143,7 +143,7 @@ def build_import_pipeline(client_config, checkpoint_service, args) -> Pipeline:
     import_instance_profiles = pipeline.add_task(InstanceProfileImportTask(client_config, checkpoint_service, wmconstants.INSTANCE_PROFILES in skip_tasks))
     import_users = pipeline.add_task(UserImportTask(client_config, checkpoint_service, wmconstants.USERS in skip_tasks), [import_instance_profiles])
     import_groups = pipeline.add_task(GroupImportTask(client_config, checkpoint_service, wmconstants.GROUPS in skip_tasks), [import_users])
-    import_notebooks = pipeline.add_task(NotebookImportTask(client_config, checkpoint_service, args, wmconstants.NOTEBOOKS in skip_tasks), [import_groups])
+    import_notebooks = pipeline.add_task(WorkspaceImportTask(client_config, checkpoint_service, args, wmconstants.NOTEBOOKS in skip_tasks), [import_groups])
     import_workspace_acls = pipeline.add_task(WorkspaceACLImportTask(client_config, checkpoint_service, wmconstants.WORKSPACE_ACLS in skip_tasks), [import_notebooks])
     import_secrets = pipeline.add_task(SecretImportTask(client_config, checkpoint_service, wmconstants.SECRETS in skip_tasks), [import_groups])
     import_instance_pools = pipeline.add_task(InstancePoolsImportTask(client_config, args, checkpoint_service, wmconstants.INSTANCE_POOLS in skip_tasks), [import_secrets])

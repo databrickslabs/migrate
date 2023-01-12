@@ -178,14 +178,14 @@ class WorkspaceACLImportTask(AbstractTask):
         ws_c.import_workspace_acls(num_parallel=1)
 
 
-class NotebookImportTask(AbstractTask):
-    """Task that imports all notebooks.
+class WorkspaceImportTask(AbstractTask):
+    """Task that imports all workspace folders and notebooks.
 
     The behavior is equivalent to `$ python import_db.py --workspace`, which lives in main function of
     import_db.py.
     """
     def __init__(self, client_config, checkpoint_service, args, skip=False):
-        super().__init__("import_notebooks", wmconstants.WM_IMPORT, wmconstants.WORKSPACE_NOTEBOOK_OBJECT, skip)
+        super().__init__("import_workspace", wmconstants.WM_IMPORT, wmconstants.WORKSPACE_NOTEBOOK_OBJECT, skip)
         self.client_config = client_config
         self.checkpoint_service = checkpoint_service
         self.args = args
