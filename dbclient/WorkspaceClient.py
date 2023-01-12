@@ -817,7 +817,7 @@ class WorkspaceClient(dbclient):
     def import_all_workspace_items(self, artifact_dir='artifacts/',
                                    archive_missing=False, num_parallel=4):
         """
-        import all notebooks into a new workspace. Walks the entire artifacts/ directory in parallel, and also
+        import folders and notebooks into a new workspace. Walks the entire artifacts/ directory in parallel, and also
         upload all the files in each of the directories in parallel.
 
         WARNING: Because it parallelizes both on directory walking and file uploading, it can spawn as many threads as
