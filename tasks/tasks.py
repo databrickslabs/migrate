@@ -128,6 +128,22 @@ class WorkspaceACLExportTask(AbstractTask):
         ws_c.log_all_workspace_acls(num_parallel=self.client_config["num_parallel"])
 
 
+class WorkspaceDirectoryExportTask(AbstractTask):
+    """Task that exports all directories, creating them locally.
+
+    The behavior is equivalent to `$ python export_db.py --workspace_dirs`, which lives in main function of
+    export_db.py.
+    """
+    def __init__(self, client_config, checkpoint_service, skip=False):
+        super().__init__("export_workspace_dirs", wmconstants.WM_EXPORT, wmconstants.WORKSPACE_DIRECTORY_OBJECT, skip)
+        self.client_config = client_config
+        self.checkpoint_service = checkpoint_service
+
+    def run(self):
+        ws_c = WorkspaceClient(self.client_config, self.checkpoint_service)
+        ws_c.export_dirs()
+
+
 class NotebookExportTask(AbstractTask):
     """Task that download all notebooks.
 
