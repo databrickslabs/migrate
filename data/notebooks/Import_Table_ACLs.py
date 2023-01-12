@@ -190,6 +190,12 @@ else:
   l = [ str(o) for o in error_causing_sqls ]
   print("\n".join(l))
 
+# COMMAND ----------
+
+# DBTITLE 1,Nicer error output
+if len(error_causing_sqls) != 0:
+  l = [ {'sql': str(o.get('sql')), 'error': str(o.get('error'))} for o in error_causing_sqls ]
+  display(spark.createDataFrame(l))
 
 # COMMAND ----------
 
