@@ -303,6 +303,34 @@ class WorkspaceClient(dbclient):
                     self.apply_acl_on_object(dir_acl_str, acl_dir_error_logger)
         self.set_export_dir(original_export_dir)
 
+    def export_dirs(self, ws_dir_log_file='user_dirs.log', ws_dir='artifacts/'):
+        """
+        Loop through all directory paths in the logfile and create directories in local workspace dir
+        :param ws_log_file: logfile for all directory paths in the workspace
+        :param ws_dir: export directory
+        """
+        checkpoint_dir_set = self._checkpoint_service.get_checkpoint_key_set(
+            wmconstants.WM_EXPORT, wmconstants.WORKSPACE_DIRECTORY_OBJECT)
+        ws_dir_log = self.get_export_dir() + ws_dir_log_file
+        notebook_error_logger = logging_utils.get_error_logger(
+            wmconstants.WM_EXPORT, wmconstants.WORKSPACE_DIRECTORY_OBJECT, self.get_export_dir())
+        if not os.path.exists(ws_dir_log):
+            raise Exception("Run --workspace first to download full log of all directories.")
+        with open(ws_dir_log) as ws_dir_fp:
+            for ws_dir_str in ws_dir_fp:
+                dir_path = json.loads(ws_dir_str).get('path', None).rstrip('\n')
+                if checkpoint_dir_set.contains(ws_dir_str):
+                    continue
+                if self.is_verbose():
+                    print("Creating directory: {0}".format(dir_path))
+                try:
+                    os.makedirs(self.get_export_dir() + ws_dir + dir_path, exist_ok=True)
+                    checkpoint_dir_set.write(ws_dir_str)
+                except Exception as e:
+                    notebook_error_logger.error(f"Cannot export workspace directory {dir_path} locally")
+                    notebook_error_logger.exception(e)
+
+
     def download_notebooks(self, ws_log_file='user_workspace.log', ws_dir='artifacts/', num_parallel=4):
         """
         Loop through all notebook paths in the logfile and download individual notebooks
