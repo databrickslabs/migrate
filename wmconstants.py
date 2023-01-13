@@ -1,5 +1,6 @@
 # List of all objectTypes that we export / import in WM
 USER_OBJECT = "users"
+SERVICE_PRINCIPAL_OBJECT = "service_principals"
 INSTANCE_PROFILE_OBJECT = "instance_profiles"
 GROUP_OBJECT = "groups"
 WORKSPACE_ITEM_LOG_OBJECT = "workspace_item_log"

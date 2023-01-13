@@ -650,6 +650,25 @@ class ScimClient(dbclient):
         logging.info("Updating users entitlements")
         self.assign_user_entitlements(current_user_ids, user_error_logger, user_log_file)
 
+    def import_all_service_principals(self, service_principals_log_file='service_principals.log', num_parallel=4):
+        checkpoint_sp_set = self._checkpoint_service.get_checkpoint_key_set(
+            wmconstants.WM_IMPORT, wmconstants.SERVICE_PRINCIPAL_OBJECT)
+        sp_log = self.get_export_dir() + service_principals_log_file
+        sp_error_logger = logging_utils.get_error_logger(
+            wmconstants.WM_IMPORT, wmconstants.SERVICE_PRINCIPAL_OBJECT, self.get_export_dir())
+        self.import_service_principals(sp_log, sp_error_logger, checkpoint_sp_set, num_parallel)
+        current_sp_ids = self.get_service_principal_id_mapping()
+        self.log_failed_service_principals(current_sp_ids, sp_log, sp_error_logger)
+
+        # assign the service principals to IAM roles if on AWS
+        if self.is_aws():
+            logging.info("Update service principal role assignments")
+            self.assign_service_principal_roles(current_sp_ids, sp_error_logger, service_principals_log_file)
+
+        # need to separate role assignment and entitlements to support Azure
+        logging.info("Updating service principal entitlements")
+        self.assign_service_principal_entitlements(current_sp_ids, sp_error_logger, service_principals_log_file)
+
     def import_all_groups(self, group_log_dir='groups/'):
         group_error_logger = logging_utils.get_error_logger(
             wmconstants.WM_IMPORT, wmconstants.GROUP_OBJECT, self.get_export_dir())
