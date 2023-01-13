@@ -496,6 +496,7 @@ class ScimClient(dbclient):
         # dict of { group_name : group_id }
         groups = self.listdir(group_dir)
         current_group_ids = self.get_current_group_ids()
+        current_service_principal_ids = self.get_service_principal_id_mapping()
         # dict of { old_user_id : email }
         old_user_emails = self.get_old_user_emails()
         for group_name in groups:
@@ -521,27 +522,11 @@ class ScimClient(dbclient):
                             this_group_id = current_group_ids.get(m['display'])
                             member_id_list.append(this_group_id)
                         elif self.is_member_a_service_principal(m):
-                            logging.info(
-                                f"Importing Service Principal - AppId: {m['display']}, userId: {m['value']}")
-                            payload_service_principal = {
-                                "schemas": ["urn:ietf:params:scim:schemas:core:2.0:ServicePrincipal"],
-                                "applicationId": m['display'],
-                                "displayName": m['display'], # you can also change this to SPN AppId - m['display']
-                                "groups": [
-                                    {
-                                        "value": group_name
-                                    }
-                                ],
-                                "entitlements": [
-                                    {
-                                        "value": "allow-cluster-create"
-                                    }
-                                ]
-                            }
-                            add_azure_spns = self.post(
-                                '/preview/scim/v2/ServicePrincipals', payload_service_principal)
-                            logging_utils.log_response_error(
-                                error_logger, add_azure_spns)
+                            if m['value'] not in current_service_principal_ids:
+                                error_logger.error(f"Service Principal {m['display']} ({m['value']}) has no mapping (not migrated) so it can't be added to group {group_name}")
+                                continue
+                            this_service_principal_id = current_service_principal_ids[m['value']]
+                            member_id_list.append(this_service_principal_id)
                         else:
                             logging.info(
                                 "Skipping other identities not within users/service_principal_users/groups")
