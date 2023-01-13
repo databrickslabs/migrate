@@ -6,6 +6,7 @@ import json
 import wmconstants
 import concurrent
 from concurrent.futures import ThreadPoolExecutor
+from thread_safe_writer import ThreadSafeWriter
 from threading_utils import propagate_exceptions
 
 class ScimClient(dbclient):
@@ -196,6 +197,16 @@ class ScimClient(dbclient):
                 user_id_dict[user['userName']] = user['id']
             return user_id_dict
         return None
+
+    def get_service_principal_id_mapping(self, sp_mapping_logfile='service_principals_app_id_mapping.log'):
+        # return a dict of the former service principal app mapping to the app id in the new env
+        sp_app_id_dict = {}
+        with open(self.get_export_dir() + sp_mapping_logfile, 'r') as fp:
+            for sp in fp:
+                sp = json.loads(sp)
+                sp_app_id_dict[sp['exported_id']] = sp['current_id']
+        return sp_app_id_dict
+
 
     def get_old_user_emails(self, users_logfile='users.log'):
         # return a dictionary of { old_id : email } from the users log
@@ -571,10 +582,53 @@ class ScimClient(dbclient):
                 user = json.loads(line)
                 userName = user['userName']
                 if userName not in current_user_ids:
-                    error_logger.error(f"Failed to create {user} in destination workspace \n")
+                    error_logger.error(f"Failed to create user {user} in destination workspace \n")
 
-    def import_all_users_service_principals_and_groups(self, user_log_file='users.log', group_log_dir='groups/'):
+    def import_service_principals(self, service_principal_log, error_logger, checkpoint_set, num_parallel):
+        # first create the service principal identities with the required fields
+        create_keys = ('entitlements', 'displayName')
+        sp_mapping_writer = ThreadSafeWriter(self.get_export_dir() + "service_principals_app_id_mapping.log", "w")
+        try:
+            if not os.path.exists(service_principal_log):
+                logging.info("No service principals to import.")
+                return
+            with open(service_principal_log, 'r') as fp:
+                with ThreadPoolExecutor(max_workers=num_parallel) as executor:
+                    futures = [executor.submit(self._import_service_principals_helper, sp_data, create_keys, sp_mapping_writer, checkpoint_set, error_logger) for sp_data in fp]
+                    concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
+                    propagate_exceptions(futures)
+        finally:
+            sp_mapping_writer.close()
+
+    def _import_service_principals_helper(self, sp_data, create_keys, sp_mapping_writer, checkpoint_set, error_logger):
+        sp = json.loads(sp_data)
+        display_name = sp['displayName']
+        app_id = sp['applicationId']
+        sp_id = sp['id']
+        if not checkpoint_set.contains(app_id):
+            logging.info("Creating service_principal: {0} (app_id {1} id {2} in origin)".format(display_name, app_id, sp_id))
+            sp_create = {k: sp[k] for k in create_keys if k in sp}
+            create_resp = self.post('/preview/scim/v2/ServicePrincipals', sp_create)
+            if not logging_utils.log_response_error(error_logger, create_resp):
+                new_sp_id = create_resp['id']
+                mapping = {"display_name": display_name, "exported_id": sp_id, "current_id": new_sp_id}
+                sp_mapping_writer.write(json.dumps(mapping) + '\n')
+                checkpoint_set.write(display_name)
+
+    def log_failed_service_principals(self, current_service_principal_ids, sp_log, error_logger):
+        with open(sp_log, 'r') as fp:
+            # loop through each service principal in the file
+            for line in fp:
+                sp = json.loads(line)
+                sp_id = sp['id']
+                app_id = sp['applicationId']
+                display_name = sp['displayName']
+                if sp_id not in current_service_principal_ids:
+                    error_logger.error(f"Failed to create service principal {app_id} - {display_name} in destination workspace \n")
+
+    def import_all_users_service_principals_and_groups(self, user_log_file='users.log', service_principals_log_file='service_principals.log', group_log_dir='groups/'):
         self.import_all_users(user_log_file)
+        self.import_all_service_principals(service_principals_log_file)
         self.import_all_groups(group_log_dir)
 
     def import_all_users(self, user_log_file='users.log', num_parallel=4):
