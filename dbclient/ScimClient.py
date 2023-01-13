@@ -318,6 +318,32 @@ class ScimClient(dbclient):
                     update_resp = self.patch(f'/preview/scim/v2/Users/{user_id}', entitlements_args)
                     logging_utils.log_response_error(error_logger, update_resp)
 
+    def assign_service_principal_entitlements(self, current_service_principal_ids, error_logger, service_principal_log_file='service_principals.log'):
+        """
+        assign service principal entitlements to allow cluster create, job create, sql analytics etc
+        :param service_principal_log_file: exported service principal log file
+        :param current_service_principal_app_ids: dict of the app id mapping to the new env
+        """
+        sp_log = self.get_export_dir() + service_principal_log_file
+        if not os.path.exists(sp_log):
+            logging.info("Skipping service principal entitlement assignment. Logfile does not exist")
+            return
+        with open(sp_log, 'r') as fp:
+            # loop through each service principal in the file
+            for line in fp:
+                sp = json.loads(line)
+                sp_id = sp['id']
+                if sp_id not in current_service_principal_ids:
+                    continue
+                # add the service principal entitlements
+                sp_entitlements = sp.get('entitlements', None)
+                # get the current service principal app id
+                new_id = current_service_principal_ids[sp_id]
+                if sp_entitlements:
+                    entitlements_args = self.assign_entitlements_args(sp_entitlements)
+                    update_resp = self.patch(f'/preview/scim/v2/ServicePrincipals/{new_id}', entitlements_args)
+                    logging_utils.log_response_error(error_logger, update_resp)
+
     def assign_user_roles(self, current_user_ids, error_logger, user_log_file='users.log'):
         """
         assign user roles that are missing after adding group assignment
@@ -364,6 +390,37 @@ class ScimClient(dbclient):
                     # get the json to add the roles to the user profile
                     patch_roles = self.add_roles_arg(roles_needed)
                     update_resp = self.patch(f'/preview/scim/v2/Users/{user_id}', patch_roles)
+                    logging_utils.log_response_error(error_logger, update_resp)
+
+    def assign_service_principal_roles(self, current_service_principal_ids, error_logger, service_principal_log_file='service_principals.log'):
+        """
+        assign service principal roles that are missing after adding group assignment
+        Note: There is a limitation in the exposed API. If a service principal is assigned a role permission & the permission
+        is granted via a group, we can't distinguish the difference. Only group assignment will be migrated.
+        :param service_principal_log_file: logfile of all service principal properties
+        :param current_service_principal_ids: dict of the mapping from origin id to the id in the new env
+        :return:
+        """
+        sp_log = self.get_export_dir() + service_principal_log_file
+        if not os.path.exists(sp_log):
+            logging.info("Skipping service principal entitlement assignment. Logfile does not exist")
+            return
+        with open(sp_log, 'r') as fp:
+            for line in fp:
+                sp = json.loads(line)
+                if sp['id'] not in current_service_principal_ids:
+                    continue
+                sp_roles = sp.get("roles", {})
+                role_values = set([y['value'] for y in sp_roles])
+                cur_sp_id = current_service_principal_ids[sp['id']]
+                cur_sp = self.get(f"/preview/scim/v2/ServicePrincipals/{cur_sp_id}")
+                cur_roles = cur_sp.get('roles', {})
+                cur_role_values = set([x['value'] for x in cur_roles])
+                roles_needed = list(role_values - cur_role_values)
+                if roles_needed:
+                    # get the json to add the roles to the user profile
+                    patch_roles = self.add_roles_arg(roles_needed)
+                    update_resp = self.patch(f'/preview/scim/v2/ServicePrincipals/{cur_sp_id}', patch_roles)
                     logging_utils.log_response_error(error_logger, update_resp)
 
     @staticmethod
@@ -506,7 +563,6 @@ class ScimClient(dbclient):
             create_resp = self.post('/preview/scim/v2/Users', user_create)
             if not logging_utils.log_response_error(error_logger, create_resp):
                 checkpoint_set.write(user_name)
-
 
     def log_failed_users(self, current_user_ids, user_log, error_logger):
         with open(user_log, 'r') as fp:
