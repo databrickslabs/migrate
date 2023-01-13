@@ -41,6 +41,19 @@ class ScimClient(dbclient):
         else:
             logging.info("Users returned an empty object")
 
+    def log_all_service_principals(self, log_file='service_principals.log'):
+        sp_log = self.get_export_dir() + log_file
+        service_principals = self.get('/preview/scim/v2/ServicePrincipals').get('Resources', None)
+        if service_principals:
+            with open(sp_log, "w") as fp:
+                for x in service_principals:
+                    if x["active"] == True:
+                        fp.write(json.dumps(x) + '\n')
+                    else:
+                        logging.info(f"Skipping inactive service principal {x['applicationId']} - {x['displayName']}")
+        else:
+            logging.info("ServicePrincipals returned an empty object")
+
     def log_single_user(self, user_email, log_file='single_user.log'):
         single_user_log = self.get_export_dir() + log_file
         users = self.get_active_users()
@@ -493,7 +506,6 @@ class ScimClient(dbclient):
             create_resp = self.post('/preview/scim/v2/Users', user_create)
             if not logging_utils.log_response_error(error_logger, create_resp):
                 checkpoint_set.write(user_name)
-
 
 
     def log_failed_users(self, current_user_ids, user_log, error_logger):
