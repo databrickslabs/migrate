@@ -517,7 +517,7 @@ class ScimClient(dbclient):
                 if userName not in current_user_ids:
                     error_logger.error(f"Failed to create {user} in destination workspace \n")
 
-    def import_all_users_and_groups(self, user_log_file='users.log', group_log_dir='groups/'):
+    def import_all_users_service_principals_and_groups(self, user_log_file='users.log', group_log_dir='groups/'):
         self.import_all_users(user_log_file)
         self.import_all_groups(group_log_dir)
 
