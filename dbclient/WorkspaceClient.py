@@ -312,7 +312,7 @@ class WorkspaceClient(dbclient):
         checkpoint_dir_set = self._checkpoint_service.get_checkpoint_key_set(
             wmconstants.WM_EXPORT, wmconstants.WORKSPACE_DIRECTORY_OBJECT)
         ws_dir_log = self.get_export_dir() + ws_dir_log_file
-        notebook_error_logger = logging_utils.get_error_logger(
+        workspace_dir_error_logger = logging_utils.get_error_logger(
             wmconstants.WM_EXPORT, wmconstants.WORKSPACE_DIRECTORY_OBJECT, self.get_export_dir())
         if not os.path.exists(ws_dir_log):
             raise Exception("Run --workspace first to download full log of all directories.")
@@ -327,8 +327,8 @@ class WorkspaceClient(dbclient):
                     os.makedirs(self.get_export_dir() + ws_dir + dir_path, exist_ok=True)
                     checkpoint_dir_set.write(ws_dir_str)
                 except Exception as e:
-                    notebook_error_logger.error(f"Cannot export workspace directory {dir_path} locally")
-                    notebook_error_logger.exception(e)
+                    workspace_dir_error_logger.error(f"Cannot export workspace directory {dir_path} locally")
+                    workspace_dir_error_logger.exception(e)
 
 
     def download_notebooks(self, ws_log_file='user_workspace.log', ws_dir='artifacts/', num_parallel=4):
