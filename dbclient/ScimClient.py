@@ -210,19 +210,21 @@ class ScimClient(dbclient):
             return user_id_dict
         return None
 
-    def get_service_principal_id_mapping(self, sp_mapping_logfile='service_principals_id_mapping.log'):
+    @staticmethod
+    def get_service_principal_id_mapping(export_dir, sp_mapping_logfile='service_principals_id_mapping.log'):
         # return a dict of the former service principal app mapping to the app id in the new env
         sp_app_id_dict = {}
-        with open(self.get_export_dir() + sp_mapping_logfile, 'r') as fp:
+        with open(export_dir + sp_mapping_logfile, 'r') as fp:
             for sp in fp:
                 sp = json.loads(sp)
                 sp_app_id_dict[sp['exported_id']] = sp['current_id']
         return sp_app_id_dict
 
-    def get_service_principal_app_id_mapping(self, sp_mapping_logfile='service_principals_id_mapping.log'):
+    @staticmethod
+    def get_service_principal_app_id_mapping(export_dir, sp_mapping_logfile='service_principals_id_mapping.log'):
         # return a dict of the former service principal app mapping to the app id in the new env
         sp_app_id_dict = {}
-        with open(self.get_export_dir() + sp_mapping_logfile, 'r') as fp:
+        with open(export_dir + sp_mapping_logfile, 'r') as fp:
             for sp in fp:
                 sp = json.loads(sp)
                 sp_app_id_dict[sp['exported_app_id']] = sp['current_app_id']
@@ -527,7 +529,7 @@ class ScimClient(dbclient):
         # dict of { group_name : group_id }
         groups = self.listdir(group_dir)
         current_group_ids = self.get_current_group_ids()
-        current_service_principal_ids = self.get_service_principal_id_mapping()
+        current_service_principal_ids = self.get_service_principal_id_mapping(self.get_export_dir())
         # dict of { old_user_id : email }
         old_user_emails = self.get_old_user_emails()
         for group_name in groups:
@@ -689,7 +691,7 @@ class ScimClient(dbclient):
         sp_error_logger = logging_utils.get_error_logger(
             wmconstants.WM_IMPORT, wmconstants.SERVICE_PRINCIPAL_OBJECT, self.get_export_dir())
         self.import_service_principals(sp_log, sp_error_logger, checkpoint_sp_set, map_existing_by_name, num_parallel)
-        current_sp_ids = self.get_service_principal_id_mapping()
+        current_sp_ids = self.get_service_principal_id_mapping(self.get_export_dir())
         self.log_failed_service_principals(current_sp_ids, sp_log, sp_error_logger)
 
         # assign the service principals to IAM roles if on AWS
