@@ -65,7 +65,7 @@ def main():
             print("Complete Instance Profile Export Time: " + str(timedelta(seconds=end - start)))
 
     if args.workspace:
-        print("Export the complete workspace at {0}".format(now))
+        print("Export the complete workspace structure at {0}".format(now))
         ws_c = WorkspaceClient(client_config, checkpoint_service)
         start = timer()
         # log notebooks and libraries
@@ -83,6 +83,13 @@ def main():
         ws_c.log_all_workspace_acls(num_parallel=args.num_parallel)
         end = timer()
         print("Complete Workspace Permission Export Time: " + str(timedelta(seconds=end - start)))
+
+    if args.workspace_dirs:
+        print("Export the complete workspace directories at {0}".format(now))
+        ws_c = WorkspaceClient(client_config, checkpoint_service)
+        start = timer()
+        # create artifacts/ folder structure
+        ws_c.export_dirs()
 
     if args.download:
         print("Starting complete workspace download at {0}".format(now))
