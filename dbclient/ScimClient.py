@@ -207,6 +207,14 @@ class ScimClient(dbclient):
                 sp_app_id_dict[sp['exported_id']] = sp['current_id']
         return sp_app_id_dict
 
+    def get_service_principal_app_id_mapping(self, sp_mapping_logfile='service_principals_id_mapping.log'):
+        # return a dict of the former service principal app mapping to the app id in the new env
+        sp_app_id_dict = {}
+        with open(self.get_export_dir() + sp_mapping_logfile, 'r') as fp:
+            for sp in fp:
+                sp = json.loads(sp)
+                sp_app_id_dict[sp['exported_app_id']] = sp['current_app_id']
+        return sp_app_id_dict
 
     def get_old_user_emails(self, users_logfile='users.log'):
         # return a dictionary of { old_id : email } from the users log
@@ -596,7 +604,8 @@ class ScimClient(dbclient):
             create_resp = self.post('/preview/scim/v2/ServicePrincipals', sp_create)
             if not logging_utils.log_response_error(error_logger, create_resp):
                 new_sp_id = create_resp['id']
-                mapping = {"display_name": display_name, "exported_id": sp_id, "current_id": new_sp_id}
+                new_sp_app_id = create_resp['applicationId']
+                mapping = {"display_name": display_name, "exported_id": sp_id, "current_id": new_sp_id, "exported_app_id": app_id, "current_app_id": new_sp_app_id}
                 sp_mapping_writer.write(json.dumps(mapping) + '\n')
                 checkpoint_set.write(display_name)
 
