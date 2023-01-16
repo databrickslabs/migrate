@@ -198,7 +198,7 @@ class ScimClient(dbclient):
             return user_id_dict
         return None
 
-    def get_service_principal_id_mapping(self, sp_mapping_logfile='service_principals_app_id_mapping.log'):
+    def get_service_principal_id_mapping(self, sp_mapping_logfile='service_principals_id_mapping.log'):
         # return a dict of the former service principal app mapping to the app id in the new env
         sp_app_id_dict = {}
         with open(self.get_export_dir() + sp_mapping_logfile, 'r') as fp:
@@ -572,7 +572,7 @@ class ScimClient(dbclient):
     def import_service_principals(self, service_principal_log, error_logger, checkpoint_set, num_parallel):
         # first create the service principal identities with the required fields
         create_keys = ('entitlements', 'displayName')
-        sp_mapping_writer = ThreadSafeWriter(self.get_export_dir() + "service_principals_app_id_mapping.log", "w")
+        sp_mapping_writer = ThreadSafeWriter(self.get_export_dir() + "service_principals_id_mapping.log", "w")
         try:
             if not os.path.exists(service_principal_log):
                 logging.info("No service principals to import.")
