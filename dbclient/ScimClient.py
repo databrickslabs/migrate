@@ -108,6 +108,18 @@ class ScimClient(dbclient):
             return True
         return False
 
+    @staticmethod
+    def are_service_principal_names_unique(service_principals_log_path):
+        with open(service_principals_log_path, 'r') as fp:
+            service_principals = {}
+            for line in fp:
+                sp = json.loads(line)
+                name = sp['displayName']
+                if name in service_principals:
+                    return False
+                service_principals[name] = sp
+        return True
+
     def add_username_to_group(self, group_json):
         # add the userName field to json since ids across environments may not match
         members = group_json.get('members', [])
@@ -214,6 +226,17 @@ class ScimClient(dbclient):
             for sp in fp:
                 sp = json.loads(sp)
                 sp_app_id_dict[sp['exported_app_id']] = sp['current_app_id']
+        return sp_app_id_dict
+
+    def get_current_service_principals_by_name(self):
+        # return a dict of the current service principal app mapping to the id and app id in the new env
+        # raises an exception if there is a duplicate name
+        sp_app_id_dict = {}
+        sp_list = self.get('/preview/scim/v2/ServicePrincipals').get('Resources', {})
+        for sp in sp_list:
+            if sp['displayName'] in sp_app_id_dict:
+                raise Exception(f"Duplicate service principal name {sp['displayName']} in destination workspace")
+            sp_app_id_dict[sp['displayName']] = {'id': sp['id'], 'applicationId': sp['applicationId']}
         return sp_app_id_dict
 
     def get_old_user_emails(self, users_logfile='users.log'):
@@ -577,7 +600,7 @@ class ScimClient(dbclient):
                 if userName not in current_user_ids:
                     error_logger.error(f"Failed to create user {user} in destination workspace \n")
 
-    def import_service_principals(self, service_principal_log, error_logger, checkpoint_set, num_parallel):
+    def import_service_principals(self, service_principal_log, error_logger, checkpoint_set, map_existing_by_name, num_parallel):
         # first create the service principal identities with the required fields
         create_keys = ('entitlements', 'displayName')
         sp_mapping_writer = ThreadSafeWriter(self.get_export_dir() + "service_principals_id_mapping.log", "w")
@@ -585,29 +608,44 @@ class ScimClient(dbclient):
             if not os.path.exists(service_principal_log):
                 logging.info("No service principals to import.")
                 return
+            if map_existing_by_name:
+                if not self.are_service_principal_names_unique(service_principal_log):
+                    msg = "Cannot map service principals by name if their names in origin are not unique"
+                    error_logger.error(msg)
+                    raise Exception(msg)
+                existing_sps_by_name = self.get_current_service_principals_by_name()
+            else:
+                existing_sps_by_name = {}
+                
             with open(service_principal_log, 'r') as fp:
                 with ThreadPoolExecutor(max_workers=num_parallel) as executor:
-                    futures = [executor.submit(self._import_service_principals_helper, sp_data, create_keys, sp_mapping_writer, checkpoint_set, error_logger) for sp_data in fp]
+                    futures = [executor.submit(self._import_service_principals_helper, sp_data, create_keys, sp_mapping_writer, checkpoint_set, error_logger, existing_sps_by_name) for sp_data in fp]
                     concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
                     propagate_exceptions(futures)
         finally:
             sp_mapping_writer.close()
 
-    def _import_service_principals_helper(self, sp_data, create_keys, sp_mapping_writer, checkpoint_set, error_logger):
+    def _import_service_principals_helper(self, sp_data, create_keys, sp_mapping_writer, checkpoint_set, error_logger, existing_sps_by_name):
         sp = json.loads(sp_data)
         display_name = sp['displayName']
         app_id = sp['applicationId']
         sp_id = sp['id']
         if not checkpoint_set.contains(app_id):
-            logging.info("Creating service_principal: {0} (app_id {1} id {2} in origin)".format(display_name, app_id, sp_id))
-            sp_create = {k: sp[k] for k in create_keys if k in sp}
-            create_resp = self.post('/preview/scim/v2/ServicePrincipals', sp_create)
-            if not logging_utils.log_response_error(error_logger, create_resp):
+            if display_name in existing_sps_by_name:
+                new_sp_id = existing_sps_by_name[display_name]['id']
+                new_sp_app_id = existing_sps_by_name[display_name]['applicationId']
+                logging.info(f"Skipping service principal creation: found existing service_principal {display_name} with id {new_sp_id}, app id {new_sp_app_id}")
+            else:
+                logging.info("Creating service_principal: {0} (app_id {1} id {2} in origin)".format(display_name, app_id, sp_id))
+                sp_create = {k: sp[k] for k in create_keys if k in sp}
+                create_resp = self.post('/preview/scim/v2/ServicePrincipals', sp_create)
+                if logging_utils.log_response_error(error_logger, create_resp):
+                    return
                 new_sp_id = create_resp['id']
                 new_sp_app_id = create_resp['applicationId']
-                mapping = {"display_name": display_name, "exported_id": sp_id, "current_id": new_sp_id, "exported_app_id": app_id, "current_app_id": new_sp_app_id}
-                sp_mapping_writer.write(json.dumps(mapping) + '\n')
-                checkpoint_set.write(display_name)
+            mapping = {"display_name": display_name, "exported_id": sp_id, "current_id": new_sp_id, "exported_app_id": app_id, "current_app_id": new_sp_app_id}
+            sp_mapping_writer.write(json.dumps(mapping) + '\n')
+            checkpoint_set.write(display_name)
 
     def log_failed_service_principals(self, current_service_principal_ids, sp_log, error_logger):
         with open(sp_log, 'r') as fp:
@@ -644,13 +682,13 @@ class ScimClient(dbclient):
         logging.info("Updating users entitlements")
         self.assign_user_entitlements(current_user_ids, user_error_logger, user_log_file)
 
-    def import_all_service_principals(self, service_principals_log_file='service_principals.log', num_parallel=4):
+    def import_all_service_principals(self, service_principals_log_file='service_principals.log', map_existing_by_name=False, num_parallel=4):
         checkpoint_sp_set = self._checkpoint_service.get_checkpoint_key_set(
             wmconstants.WM_IMPORT, wmconstants.SERVICE_PRINCIPAL_OBJECT)
         sp_log = self.get_export_dir() + service_principals_log_file
         sp_error_logger = logging_utils.get_error_logger(
             wmconstants.WM_IMPORT, wmconstants.SERVICE_PRINCIPAL_OBJECT, self.get_export_dir())
-        self.import_service_principals(sp_log, sp_error_logger, checkpoint_sp_set, num_parallel)
+        self.import_service_principals(sp_log, sp_error_logger, checkpoint_sp_set, map_existing_by_name, num_parallel)
         current_sp_ids = self.get_service_principal_id_mapping()
         self.log_failed_service_principals(current_sp_ids, sp_log, sp_error_logger)
 
