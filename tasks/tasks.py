@@ -102,7 +102,7 @@ class ServicePrincipalImportTask(AbstractTask):
 
     def run(self):
         scim_c = ScimClient(self.client_config, self.checkpoint_service)
-        scim_c.import_all_service_principals(num_parallel=self.client_config["num_parallel"])
+        scim_c.import_all_service_principals(map_existing_by_name=self.client_config["map_service_principals_by_name"], num_parallel=self.client_config["num_parallel"])
 
 
 class GroupImportTask(AbstractTask):
