@@ -133,6 +133,7 @@ class JobsClient(ClustersClient):
             return
         # get an old cluster id to new cluster id mapping object
         cluster_mapping = self.get_cluster_id_mapping()
+        service_principal_app_id_mapping = ScimClient.get_service_principal_app_id_mapping(self.get_export_dir())
         old_2_new_policy_ids = self.get_new_policy_id_dict()  # dict { old_policy_id : new_policy_id }
         checkpoint_job_configs_set = self._checkpoint_service.get_checkpoint_key_set(
             wmconstants.WM_IMPORT, wmconstants.JOB_OBJECT)
@@ -240,7 +241,10 @@ class JobsClient(ClustersClient):
                 job_path = f'jobs/{current_job_id}'  # contains `/jobs/{job_id}` path
                 api = f'/preview/permissions/{job_path}'
                 # get acl permissions for jobs
-                acl_perms = self.build_acl_args(acl_conf['access_control_list'], True)
+                acl = acl_conf['access_control_list']
+                # map service principals to their new ids
+                acl = ScimClient.map_service_principals_in_acl(acl, service_principal_app_id_mapping, error_logger)
+                acl_perms = self.build_acl_args(acl, True)
                 acl_create_args = {'access_control_list': acl_perms}
                 acl_resp = self.patch(api, acl_create_args)
                 if not logging_utils.log_response_error(error_logger, acl_resp) and 'object_id' in acl_conf:
