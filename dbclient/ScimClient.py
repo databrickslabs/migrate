@@ -230,6 +230,17 @@ class ScimClient(dbclient):
                 sp_app_id_dict[sp['exported_app_id']] = sp['current_app_id']
         return sp_app_id_dict
 
+    @staticmethod
+    def map_service_principals_in_acl(acl, service_principal_app_id_mapping, error_logger):
+        for i, acl_entry in enumerate(acl):
+            app_id = acl_entry.get('service_principal_name', None)
+            if app_id:
+                acl_entry['service_principal_name'] = service_principal_app_id_mapping.get(app_id, None)
+                if not acl_entry['service_principal_name']:
+                    error_logger.error(f"Service principal {app_id} not found in service principal mapping (not migrated?). Skipping ACL import.")
+                    del acl[i]
+        return acl
+
     def get_current_service_principals_by_name(self):
         # return a dict of the current service principal app mapping to the id and app id in the new env
         # raises an exception if there is a duplicate name
