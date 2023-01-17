@@ -5,6 +5,7 @@ import time
 import logging_utils
 import wmconstants
 from dbclient import *
+from functools import cached_property
 
 
 class ClustersClient(dbclient):
@@ -299,7 +300,7 @@ class ClustersClient(dbclient):
                     continue
                 cluster_name = data['cluster_name']
                 print(f'Applying acl for {cluster_name}')
-                acl_args = {'access_control_list' : self.build_acl_args(data['access_control_list'])}
+                acl_args = {'access_control_list' : self.build_acl_args(data['access_control_list'], error_logger)}
                 cid = self.get_cluster_id_by_name(cluster_name)
                 if cid is None:
                     error_message = f'Cluster id must exist in new env for cluster_name: {cluster_name}. ' \
@@ -424,7 +425,7 @@ class ClustersClient(dbclient):
                     p_acl = json.loads(x)
                     if 'object_id' in p_acl and checkpoint_cluster_policies_set.contains(p_acl['object_id']):
                         continue
-                    acl_create_args = {'access_control_list': self.build_acl_args(p_acl['access_control_list'])}
+                    acl_create_args = {'access_control_list': self.build_acl_args(p_acl['access_control_list'], error_logger)}
                     policy_id = id_map[p_acl['name']]
                     api = f'/permissions/cluster-policies/{policy_id}'
                     resp = self.put(api, acl_create_args)
@@ -740,4 +741,12 @@ class ClustersClient(dbclient):
         if c_state['state'] == 'TERMINATED':
             raise RuntimeError("Cluster is terminated. Please check EVENT history for details")
         return cid
+
+    @cached_property
+    def service_principal_app_id_mapping(self):
+        return ScimClient.get_service_principal_app_id_mapping(self.get_export_dir())
+
+    def build_acl_args(self, full_acl_list, error_logger, is_jobs=False):
+        full_acl_list = ScimClient.map_service_principals_in_acl(full_acl_list, self.service_principal_app_id_mapping, error_logger)
+        super().build_acl_args(full_acl_list, is_jobs)
 
