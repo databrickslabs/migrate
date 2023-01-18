@@ -318,7 +318,7 @@ class WorkspaceClient(dbclient):
             raise Exception("Run --workspace first to download full log of all directories.")
         with open(ws_dir_log) as ws_dir_fp:
             for ws_dir_str in ws_dir_fp:
-                dir_path = json.loads(ws_dir_str).get('path', None).rstrip('\n')
+                dir_path = json.loads(ws_dir_str)['path'].rstrip('\n')
                 if checkpoint_dir_set.contains(ws_dir_str):
                     continue
                 if self.is_verbose():
