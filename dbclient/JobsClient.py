@@ -100,8 +100,11 @@ class JobsClient(ClustersClient):
         jobs_log = self.get_export_dir() + log_file
         acl_jobs_log = self.get_export_dir() + acl_file
         error_logger = logging_utils.get_error_logger(wmconstants.WM_EXPORT, wmconstants.JOB_OBJECT, self.get_export_dir())
-        failed_log_file = logging_utils.get_error_log_file(
+        failed_job_log_file = logging_utils.get_error_log_file(
             wmconstants.WM_EXPORT, wmconstants.JOB_OBJECT, self.get_export_dir()
+        )
+        failed_acl_log_file = logging_utils.get_error_log_file(
+            wmconstants.WM_EXPORT, wmconstants.JOB_ACL_OBJECT, self.get_export_dir()
         )
         # pinned by cluster_user is a flag per cluster
         jl_full = self.get_jobs_list(False)
@@ -112,7 +115,8 @@ class JobsClient(ClustersClient):
             jl = jl_full
         with open(jobs_log, "w") as log_fp, \
                 open(acl_jobs_log, 'w') as acl_fp, \
-                open(failed_log_file, "w") as failed_log_fp:
+                open(failed_job_log_file, "w") as failed_log_fp, \
+                open(failed_acl_log_file, "w") as failed_acl_log_file:
             for x in jl:
                 job_id = x['job_id']
                 new_job_name = x['settings']['name'] + ':::' + str(job_id)
@@ -146,6 +150,7 @@ class JobsClient(ClustersClient):
                         # job_acl is malformed, the job is written to error output file
                         logging.error(f"The following job id {job_id} has malformed permissions: {json.dumps(job_perms)}")
                         failed_log_fp.write(json.dumps(x) + '\n')
+                        failed_acl_log_file.write(json.dumps(job_perms) + '\n')
 
     def import_job_configs(self, log_file='jobs.log', acl_file='acl_jobs.log', job_map_file='job_id_map.log'):
         jobs_log = self.get_export_dir() + log_file
@@ -153,6 +158,8 @@ class JobsClient(ClustersClient):
         job_map_log = self.get_export_dir() + job_map_file
         error_logger = logging_utils.get_error_logger(
             wmconstants.WM_IMPORT, wmconstants.JOB_OBJECT, self.get_export_dir())
+        job_acl_error_logger = logging_utils.get_error_logger(
+            wmconstants.WM_IMPORT, wmconstants.JOB_ACL_OBJECT, self.get_export_dir())
         if not os.path.exists(jobs_log):
             logging.info("No job configurations to import.")
             return
@@ -263,10 +270,13 @@ class JobsClient(ClustersClient):
                 acl_perms = self.build_acl_args(acl_conf['access_control_list'], True)
                 acl_create_args = {'access_control_list': acl_perms}
                 acl_resp = self.patch(api, acl_create_args)
-                if not logging_utils.log_response_error(error_logger, acl_resp) and 'object_id' in acl_conf:
+                if not logging_utils.log_response_error(job_acl_error_logger, acl_resp) and 'object_id' in acl_conf:
                     checkpoint_job_configs_set.write(acl_conf['object_id'])
                 else:
-                    raise RuntimeError("Import job has failed. Refer to the previous log messages to investigate.")
+                    if self.is_skip_failed():
+                        logging.error(f"Skipped {acl_conf}")
+                    else:
+                        raise RuntimeError("Import job has failed. Refer to the previous log messages to investigate.")
         # update the imported job names
         self.update_imported_job_names(error_logger, checkpoint_job_configs_set)
 
