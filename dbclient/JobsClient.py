@@ -131,9 +131,6 @@ class JobsClient(ClustersClient):
                             for permission in acl.get("all_permissions"):
                                 if permission.get("permission_level") == "IS_OWNER":
                                     valid_acl = True
-                                    # TODO remove
-                                    # if acl.get("user_name") == "lorenzo.rubio@databricks.com":
-                                    #     valid_acl = False
                     if valid_acl:
                         # job and job_acl are fine, writing both to the output files
                         log_fp.write(json.dumps(x) + '\n')
