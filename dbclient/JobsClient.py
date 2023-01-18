@@ -147,6 +147,9 @@ class JobsClient(ClustersClient):
                         logging_utils.log_response_error(acl_error_logger, {
                             'error': message
                         })
+                        logging_utils.log_response_error(error_logger, {
+                            'error': message, 'json': json.dumps(x)
+                        })
 
     def import_job_configs(self, log_file='jobs.log', acl_file='acl_jobs.log', job_map_file='job_id_map.log'):
         jobs_log = self.get_export_dir() + log_file
