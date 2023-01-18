@@ -1,3 +1,4 @@
+import json
 import os
 import logging
 import logging_utils
@@ -99,6 +100,9 @@ class JobsClient(ClustersClient):
         jobs_log = self.get_export_dir() + log_file
         acl_jobs_log = self.get_export_dir() + acl_file
         error_logger = logging_utils.get_error_logger(wmconstants.WM_EXPORT, wmconstants.JOB_OBJECT, self.get_export_dir())
+        failed_log_file = logging_utils.get_error_log_file(
+            wmconstants.WM_EXPORT, wmconstants.JOB_OBJECT, self.get_export_dir()
+        )
         # pinned by cluster_user is a flag per cluster
         jl_full = self.get_jobs_list(False)
         if users_list:
@@ -106,7 +110,9 @@ class JobsClient(ClustersClient):
             jl = list(filter(lambda x: x.get('creator_user_name', '') in users_list, jl_full))
         else:
             jl = jl_full
-        with open(jobs_log, "w") as log_fp, open(acl_jobs_log, 'w') as acl_fp:
+        with open(jobs_log, "w") as log_fp, \
+                open(acl_jobs_log, 'w') as acl_fp, \
+                open(failed_log_file, "w") as failed_log_fp:
             for x in jl:
                 job_id = x['job_id']
                 new_job_name = x['settings']['name'] + ':::' + str(job_id)
@@ -116,11 +122,30 @@ class JobsClient(ClustersClient):
                 job_settings['name'] = new_job_name
                 # reset the original struct with the new settings
                 x['settings'] = job_settings
-                log_fp.write(json.dumps(x) + '\n')
+
+                # get ACLs and check that the job has one owner before writing
                 job_perms = self.get(f'/preview/permissions/jobs/{job_id}')
                 if not logging_utils.log_response_error(error_logger, job_perms):
-                    job_perms['job_name'] = new_job_name
-                    acl_fp.write(json.dumps(job_perms) + '\n')
+                    valid_acl = False
+                    acls = job_perms.get("access_control_list")
+                    if acls:
+                        for acl in acls:
+                            for permission in acl.get("all_permissions"):
+                                if permission.get("permission_level") == "IS_OWNER":
+                                    valid_acl = True
+                                    # TODO remove
+                                    # if acl.get("user_name") == "lorenzo.rubio@databricks.com":
+                                    #     valid_acl = False
+                    if valid_acl:
+                        # job and job_acl are fine, writing both to the output files
+                        log_fp.write(json.dumps(x) + '\n')
+
+                        job_perms['job_name'] = new_job_name
+                        acl_fp.write(json.dumps(job_perms) + '\n')
+                    else:
+                        # job_acl is malformed, the job is written to error output file
+                        logging.error(f"The following job id {job_id} has malformed permissions: {json.dumps(job_perms)}")
+                        failed_log_fp.write(json.dumps(x) + '\n')
 
     def import_job_configs(self, log_file='jobs.log', acl_file='acl_jobs.log', job_map_file='job_id_map.log'):
         jobs_log = self.get_export_dir() + log_file
