@@ -38,7 +38,7 @@ def main():
     now = str(datetime.now())
 
     if args.users:
-        print("Import all users and groups at {0}".format(now))
+        print("Import all users, service principals and groups at {0}".format(now))
         scim_c = ScimClient(client_config, checkpoint_service)
         if client_config['is_aws']:
             print("Start import of instance profiles first to ensure they exist...")
@@ -48,7 +48,7 @@ def main():
             end = timer()
             print("Complete Instance Profile Import Time: " + str(timedelta(seconds=end - start)))
         start = timer()
-        scim_c.import_all_users_and_groups()
+        scim_c.import_all_users_service_principals_and_groups()
         end = timer()
         print("Complete Users and Groups Import Time: " + str(timedelta(seconds=end - start)))
 
@@ -227,7 +227,7 @@ def main():
         print("Importing Groups from logs")
         start = timer()
         scim_c = ScimClient(client_config, checkpoint_service)
-        scim_c.import_all_users_and_groups()
+        scim_c.import_all_users_service_principals_and_groups()
         user_names = scim_c.get_users_from_log()
         print('Export users notebooks:', user_names)
         ws_c = WorkspaceClient(client_config, WorkspaceClient)

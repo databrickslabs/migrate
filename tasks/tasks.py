@@ -40,6 +40,19 @@ class UserExportTask(AbstractTask):
         scim_c.log_all_users()
 
 
+class ServicePrincipalExportTask(AbstractTask):
+    """Task that exports service principals."""
+
+    def __init__(self, client_config, checkpoint_service, skip=False):
+        super().__init__("export_service_principals", wmconstants.WM_EXPORT, wmconstants.SERVICE_PRINCIPALS, skip)
+        self.client_config = client_config
+        self.checkpoint_service = checkpoint_service
+
+    def run(self):
+        scim_c = ScimClient(self.client_config, self.checkpoint_service)
+        scim_c.log_all_service_principals()
+
+
 class GroupExportTask(AbstractTask):
     """Task that exports groups."""
 
@@ -77,6 +90,19 @@ class UserImportTask(AbstractTask):
     def run(self):
         scim_c = ScimClient(self.client_config, self.checkpoint_service)
         scim_c.import_all_users(num_parallel=self.client_config["num_parallel"])
+
+
+class ServicePrincipalImportTask(AbstractTask):
+    """Task that imports service principals."""
+
+    def __init__(self, client_config, checkpoint_service, skip=False):
+        super().__init__("import_service_principals", wmconstants.WM_IMPORT, wmconstants.SERVICE_PRINCIPAL_OBJECT, skip)
+        self.client_config = client_config
+        self.checkpoint_service = checkpoint_service
+
+    def run(self):
+        scim_c = ScimClient(self.client_config, self.checkpoint_service)
+        scim_c.import_all_service_principals(num_parallel=self.client_config["num_parallel"])
 
 
 class GroupImportTask(AbstractTask):

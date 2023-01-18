@@ -1,5 +1,6 @@
 # List of all objectTypes that we export / import in WM
 USER_OBJECT = "users"
+SERVICE_PRINCIPAL_OBJECT = "service_principals"
 INSTANCE_PROFILE_OBJECT = "instance_profiles"
 GROUP_OBJECT = "groups"
 WORKSPACE_ITEM_LOG_OBJECT = "workspace_item_log"
@@ -32,6 +33,7 @@ WM_VALIDATE = "validate"
 # List of task objects in a pipeline
 INSTANCE_PROFILES = "instance_profiles"
 USERS = "users"
+SERVICE_PRINCIPALS = "service_principals"
 GROUPS = "groups"
 WORKSPACE_ITEM_LOG = "workspace_item_log"
 WORKSPACE_ACLS = "workspace_acls"

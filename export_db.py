@@ -43,13 +43,18 @@ def main():
     now = str(datetime.now())
 
     if args.users:
-        print("Export all users and groups at {0}".format(now))
+        print("Export all users, service principals and groups at {0}".format(now))
         scim_c = ScimClient(client_config, checkpoint_service)
         start = timer()
         # log all users
         scim_c.log_all_users()
         end = timer()
         print("Complete Users Export Time: " + str(timedelta(seconds=end - start)))
+        start = timer()
+        # log all service principals
+        scim_c.log_all_service_principals()
+        end = timer()
+        print("Complete Service Principals Export Time: " + str(timedelta(seconds=end - start)))
         start = timer()
         # log all groups
         scim_c.log_all_groups()

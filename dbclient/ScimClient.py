@@ -6,6 +6,7 @@ import json
 import wmconstants
 import concurrent
 from concurrent.futures import ThreadPoolExecutor
+from thread_safe_writer import ThreadSafeWriter
 from threading_utils import propagate_exceptions
 
 class ScimClient(dbclient):
@@ -40,6 +41,19 @@ class ScimClient(dbclient):
                     fp.write(json.dumps(x) + '\n')
         else:
             logging.info("Users returned an empty object")
+
+    def log_all_service_principals(self, log_file='service_principals.log'):
+        sp_log = self.get_export_dir() + log_file
+        service_principals = self.get('/preview/scim/v2/ServicePrincipals').get('Resources', None)
+        if service_principals:
+            with open(sp_log, "w") as fp:
+                for x in service_principals:
+                    if x["active"] == True:
+                        fp.write(json.dumps(x) + '\n')
+                    else:
+                        logging.info(f"Skipping inactive service principal {x['applicationId']} - {x['displayName']}")
+        else:
+            logging.info("ServicePrincipals returned an empty object")
 
     def log_single_user(self, user_email, log_file='single_user.log'):
         single_user_log = self.get_export_dir() + log_file
@@ -184,6 +198,24 @@ class ScimClient(dbclient):
             return user_id_dict
         return None
 
+    def get_service_principal_id_mapping(self, sp_mapping_logfile='service_principals_id_mapping.log'):
+        # return a dict of the former service principal app mapping to the app id in the new env
+        sp_app_id_dict = {}
+        with open(self.get_export_dir() + sp_mapping_logfile, 'r') as fp:
+            for sp in fp:
+                sp = json.loads(sp)
+                sp_app_id_dict[sp['exported_id']] = sp['current_id']
+        return sp_app_id_dict
+
+    def get_service_principal_app_id_mapping(self, sp_mapping_logfile='service_principals_id_mapping.log'):
+        # return a dict of the former service principal app mapping to the app id in the new env
+        sp_app_id_dict = {}
+        with open(self.get_export_dir() + sp_mapping_logfile, 'r') as fp:
+            for sp in fp:
+                sp = json.loads(sp)
+                sp_app_id_dict[sp['exported_app_id']] = sp['current_app_id']
+        return sp_app_id_dict
+
     def get_old_user_emails(self, users_logfile='users.log'):
         # return a dictionary of { old_id : email } from the users log
         users_log = self.get_export_dir() + users_logfile
@@ -305,6 +337,32 @@ class ScimClient(dbclient):
                     update_resp = self.patch(f'/preview/scim/v2/Users/{user_id}', entitlements_args)
                     logging_utils.log_response_error(error_logger, update_resp)
 
+    def assign_service_principal_entitlements(self, current_service_principal_ids, error_logger, service_principal_log_file='service_principals.log'):
+        """
+        assign service principal entitlements to allow cluster create, job create, sql analytics etc
+        :param service_principal_log_file: exported service principal log file
+        :param current_service_principal_app_ids: dict of the app id mapping to the new env
+        """
+        sp_log = self.get_export_dir() + service_principal_log_file
+        if not os.path.exists(sp_log):
+            logging.info("Skipping service principal entitlement assignment. Logfile does not exist")
+            return
+        with open(sp_log, 'r') as fp:
+            # loop through each service principal in the file
+            for line in fp:
+                sp = json.loads(line)
+                sp_id = sp['id']
+                if sp_id not in current_service_principal_ids:
+                    continue
+                # add the service principal entitlements
+                sp_entitlements = sp.get('entitlements', None)
+                # get the current service principal app id
+                new_id = current_service_principal_ids[sp_id]
+                if sp_entitlements:
+                    entitlements_args = self.assign_entitlements_args(sp_entitlements)
+                    update_resp = self.patch(f'/preview/scim/v2/ServicePrincipals/{new_id}', entitlements_args)
+                    logging_utils.log_response_error(error_logger, update_resp)
+
     def assign_user_roles(self, current_user_ids, error_logger, user_log_file='users.log'):
         """
         assign user roles that are missing after adding group assignment
@@ -351,6 +409,37 @@ class ScimClient(dbclient):
                     # get the json to add the roles to the user profile
                     patch_roles = self.add_roles_arg(roles_needed)
                     update_resp = self.patch(f'/preview/scim/v2/Users/{user_id}', patch_roles)
+                    logging_utils.log_response_error(error_logger, update_resp)
+
+    def assign_service_principal_roles(self, current_service_principal_ids, error_logger, service_principal_log_file='service_principals.log'):
+        """
+        assign service principal roles that are missing after adding group assignment
+        Note: There is a limitation in the exposed API. If a service principal is assigned a role permission & the permission
+        is granted via a group, we can't distinguish the difference. Only group assignment will be migrated.
+        :param service_principal_log_file: logfile of all service principal properties
+        :param current_service_principal_ids: dict of the mapping from origin id to the id in the new env
+        :return:
+        """
+        sp_log = self.get_export_dir() + service_principal_log_file
+        if not os.path.exists(sp_log):
+            logging.info("Skipping service principal entitlement assignment. Logfile does not exist")
+            return
+        with open(sp_log, 'r') as fp:
+            for line in fp:
+                sp = json.loads(line)
+                if sp['id'] not in current_service_principal_ids:
+                    continue
+                sp_roles = sp.get("roles", {})
+                role_values = set([y['value'] for y in sp_roles])
+                cur_sp_id = current_service_principal_ids[sp['id']]
+                cur_sp = self.get(f"/preview/scim/v2/ServicePrincipals/{cur_sp_id}")
+                cur_roles = cur_sp.get('roles', {})
+                cur_role_values = set([x['value'] for x in cur_roles])
+                roles_needed = list(role_values - cur_role_values)
+                if roles_needed:
+                    # get the json to add the roles to the user profile
+                    patch_roles = self.add_roles_arg(roles_needed)
+                    update_resp = self.patch(f'/preview/scim/v2/ServicePrincipals/{cur_sp_id}', patch_roles)
                     logging_utils.log_response_error(error_logger, update_resp)
 
     @staticmethod
@@ -415,6 +504,7 @@ class ScimClient(dbclient):
         # dict of { group_name : group_id }
         groups = self.listdir(group_dir)
         current_group_ids = self.get_current_group_ids()
+        current_service_principal_ids = self.get_service_principal_id_mapping()
         # dict of { old_user_id : email }
         old_user_emails = self.get_old_user_emails()
         for group_name in groups:
@@ -440,27 +530,11 @@ class ScimClient(dbclient):
                             this_group_id = current_group_ids.get(m['display'])
                             member_id_list.append(this_group_id)
                         elif self.is_member_a_service_principal(m):
-                            logging.info(
-                                f"Importing Service Principal - AppId: {m['display']}, userId: {m['value']}")
-                            payload_service_principal = {
-                                "schemas": ["urn:ietf:params:scim:schemas:core:2.0:ServicePrincipal"],
-                                "applicationId": m['display'],
-                                "displayName": m['display'], # you can also change this to SPN AppId - m['display']
-                                "groups": [
-                                    {
-                                        "value": group_name
-                                    }
-                                ],
-                                "entitlements": [
-                                    {
-                                        "value": "allow-cluster-create"
-                                    }
-                                ]
-                            }
-                            add_azure_spns = self.post(
-                                '/preview/scim/v2/ServicePrincipals', payload_service_principal)
-                            logging_utils.log_response_error(
-                                error_logger, add_azure_spns)
+                            if m['value'] not in current_service_principal_ids:
+                                error_logger.error(f"Service Principal {m['display']} ({m['value']}) has no mapping (not migrated) so it can't be added to group {group_name}")
+                                continue
+                            this_service_principal_id = current_service_principal_ids[m['value']]
+                            member_id_list.append(this_service_principal_id)
                         else:
                             logging.info(
                                 "Skipping other identities not within users/service_principal_users/groups")
@@ -494,8 +568,6 @@ class ScimClient(dbclient):
             if not logging_utils.log_response_error(error_logger, create_resp):
                 checkpoint_set.write(user_name)
 
-
-
     def log_failed_users(self, current_user_ids, user_log, error_logger):
         with open(user_log, 'r') as fp:
             # loop through each user in the file
@@ -503,10 +575,54 @@ class ScimClient(dbclient):
                 user = json.loads(line)
                 userName = user['userName']
                 if userName not in current_user_ids:
-                    error_logger.error(f"Failed to create {user} in destination workspace \n")
+                    error_logger.error(f"Failed to create user {user} in destination workspace \n")
 
-    def import_all_users_and_groups(self, user_log_file='users.log', group_log_dir='groups/'):
+    def import_service_principals(self, service_principal_log, error_logger, checkpoint_set, num_parallel):
+        # first create the service principal identities with the required fields
+        create_keys = ('entitlements', 'displayName')
+        sp_mapping_writer = ThreadSafeWriter(self.get_export_dir() + "service_principals_id_mapping.log", "w")
+        try:
+            if not os.path.exists(service_principal_log):
+                logging.info("No service principals to import.")
+                return
+            with open(service_principal_log, 'r') as fp:
+                with ThreadPoolExecutor(max_workers=num_parallel) as executor:
+                    futures = [executor.submit(self._import_service_principals_helper, sp_data, create_keys, sp_mapping_writer, checkpoint_set, error_logger) for sp_data in fp]
+                    concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
+                    propagate_exceptions(futures)
+        finally:
+            sp_mapping_writer.close()
+
+    def _import_service_principals_helper(self, sp_data, create_keys, sp_mapping_writer, checkpoint_set, error_logger):
+        sp = json.loads(sp_data)
+        display_name = sp['displayName']
+        app_id = sp['applicationId']
+        sp_id = sp['id']
+        if not checkpoint_set.contains(app_id):
+            logging.info("Creating service_principal: {0} (app_id {1} id {2} in origin)".format(display_name, app_id, sp_id))
+            sp_create = {k: sp[k] for k in create_keys if k in sp}
+            create_resp = self.post('/preview/scim/v2/ServicePrincipals', sp_create)
+            if not logging_utils.log_response_error(error_logger, create_resp):
+                new_sp_id = create_resp['id']
+                new_sp_app_id = create_resp['applicationId']
+                mapping = {"display_name": display_name, "exported_id": sp_id, "current_id": new_sp_id, "exported_app_id": app_id, "current_app_id": new_sp_app_id}
+                sp_mapping_writer.write(json.dumps(mapping) + '\n')
+                checkpoint_set.write(display_name)
+
+    def log_failed_service_principals(self, current_service_principal_ids, sp_log, error_logger):
+        with open(sp_log, 'r') as fp:
+            # loop through each service principal in the file
+            for line in fp:
+                sp = json.loads(line)
+                sp_id = sp['id']
+                app_id = sp['applicationId']
+                display_name = sp['displayName']
+                if sp_id not in current_service_principal_ids:
+                    error_logger.error(f"Failed to create service principal {app_id} - {display_name} in destination workspace \n")
+
+    def import_all_users_service_principals_and_groups(self, user_log_file='users.log', service_principals_log_file='service_principals.log', group_log_dir='groups/'):
         self.import_all_users(user_log_file)
+        self.import_all_service_principals(service_principals_log_file)
         self.import_all_groups(group_log_dir)
 
     def import_all_users(self, user_log_file='users.log', num_parallel=4):
@@ -527,6 +643,25 @@ class ScimClient(dbclient):
         # need to separate role assignment and entitlements to support Azure
         logging.info("Updating users entitlements")
         self.assign_user_entitlements(current_user_ids, user_error_logger, user_log_file)
+
+    def import_all_service_principals(self, service_principals_log_file='service_principals.log', num_parallel=4):
+        checkpoint_sp_set = self._checkpoint_service.get_checkpoint_key_set(
+            wmconstants.WM_IMPORT, wmconstants.SERVICE_PRINCIPAL_OBJECT)
+        sp_log = self.get_export_dir() + service_principals_log_file
+        sp_error_logger = logging_utils.get_error_logger(
+            wmconstants.WM_IMPORT, wmconstants.SERVICE_PRINCIPAL_OBJECT, self.get_export_dir())
+        self.import_service_principals(sp_log, sp_error_logger, checkpoint_sp_set, num_parallel)
+        current_sp_ids = self.get_service_principal_id_mapping()
+        self.log_failed_service_principals(current_sp_ids, sp_log, sp_error_logger)
+
+        # assign the service principals to IAM roles if on AWS
+        if self.is_aws():
+            logging.info("Update service principal role assignments")
+            self.assign_service_principal_roles(current_sp_ids, sp_error_logger, service_principals_log_file)
+
+        # need to separate role assignment and entitlements to support Azure
+        logging.info("Updating service principal entitlements")
+        self.assign_service_principal_entitlements(current_sp_ids, sp_error_logger, service_principals_log_file)
 
     def import_all_groups(self, group_log_dir='groups/'):
         group_error_logger = logging_utils.get_error_logger(
