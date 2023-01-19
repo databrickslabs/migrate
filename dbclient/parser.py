@@ -442,6 +442,7 @@ def build_client_config(profile, url, token, args):
     config['num_parallel'] = args.num_parallel
     config['retry_total'] = args.retry_total
     config['retry_backoff'] = args.retry_backoff
+    config['map_service_principals_by_name'] = args.map_service_principals_by_name
     return config
 
 
@@ -478,6 +479,10 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
 
     parser.add_argument('--cluster-name', action='store', required=False,
                         help='Cluster name to export the metastore to a specific cluster. Cluster will be started.')
+
+    # User, service principals and group arguments
+    parser.add_argument('--map-service-principals-by-name', action='store_true',
+                        help='Try to map existing service principals by name instead of creating new ones by default. No name duplicates are allowed in origin or destination.')
 
     # Workspace arguments
     parser.add_argument('--notebook-format', type=NotebookFormat,
