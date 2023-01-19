@@ -268,17 +268,15 @@ class dbclient:
                 message = "Error: {0} request failed with code {1}\n{2}".format(
                     http_type, http_status_code, raw_results.text
                 )
-                error_json = {
-                    'http_status_code': raw_results.status_code,
-                    'error': raw_results.text,
-                    'url': full_endpoint,
-                    'json': json_params,
-                }
                 if self.is_skip_failed():
                     logging.error(message)
-                    return error_json
+                    return {
+                        'http_status_code': raw_results.status_code,
+                        'error': raw_results.text,
+                        'url': full_endpoint,
+                        'json': json_params,
+                    }
                 else:
-                    logging.error(error_json)
                     raise Exception(message)
             results = raw_results.json()
             if logging_utils.check_error(results):
