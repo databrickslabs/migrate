@@ -277,6 +277,12 @@ class dbclient:
                         'json': json_params,
                     }
                 else:
+                    logging.error({
+                        'http_status_code': raw_results.status_code,
+                        'error': raw_results.text,
+                        'url': full_endpoint,
+                        'json': json_params,
+                    })
                     raise Exception(message)
             results = raw_results.json()
             if logging_utils.check_error(results):
@@ -344,6 +350,11 @@ class dbclient:
                                   'permission_level': permissions})
                 if permissions == 'IS_OWNER':
                     current_owner = member.get('user_name')
+            elif 'service_principal_name' in member:
+                acls_list.append({'service_principal_name': member.get('service_principal_name'),
+                                  'permission_level': permissions})
+                if permissions == 'IS_OWNER':
+                    current_owner = member.get('service_principal_name')
             else:
                 if member.get('group_name') != 'admins':
                     acls_list.append({'group_name': member.get('group_name'),
