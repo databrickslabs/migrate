@@ -1,5 +1,6 @@
 import base64
 import re
+from functools import cached_property
 
 from dbclient import *
 import wmconstants
@@ -647,6 +648,10 @@ class WorkspaceClient(dbclient):
         end = timer()
         logging.info("Complete Repo ACLs Export Time: " + str(timedelta(seconds=end - start)))
 
+    @cached_property
+    def service_principal_app_id_mapping(self):
+        return ScimClient.get_service_principal_app_id_mapping(self.get_export_dir())
+
     def apply_acl_on_object(self, acl_str, error_logger, checkpoint_key_set):
         """
         apply the acl definition to the workspace object
@@ -690,6 +695,8 @@ class WorkspaceClient(dbclient):
                 return
             api_path = '/permissions' + object_id_with_type
             acl_list = object_acl.get('access_control_list', None)
+            # map service principals within the ACL to new application ids
+            acl_list = ScimClient.map_service_principals_in_acl(acl_list, self.service_principal_app_id_mapping, error_logger)
             access_control_list = self.build_acl_args(acl_list)
             if access_control_list:
                 api_args = {'access_control_list': access_control_list}
