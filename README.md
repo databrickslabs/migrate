@@ -88,7 +88,7 @@ Support Matrix for Import and Export Operations:
 | Users / Groups     | Supported  | Supported   |
 | Clusters (w/ ACLs) | Supported  | Supported   |
 | Notebooks (w/ ACLs)| Supported  | Supported   |
-| Repos (w/ ACLs)    | Supported  | Supported   |
+| Repos (w/ ACLs)    | Supported  | Supported*  |
 | Metastore          | Supported  | Supported   |
 | Jobs (w/ ACLs)     | Supported  | Supported   |
 | Libraries          | Supported  | Unsupported |
@@ -107,6 +107,9 @@ Support Matrix for Import and Export Operations:
 > **Note on User Migration:**  
 > During user / group import, users will be notified of the new workspace and account by default.
 > To disable this behavior, please contact your Databricks account team. 
+
+> **Note on Repos:**
+> Private repos cannot be imported. These should be added manually using the original user credentials.
 
 ---
 
