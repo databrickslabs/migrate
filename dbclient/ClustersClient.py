@@ -12,7 +12,7 @@ class ClustersClient(dbclient):
         super().__init__(configs)
         self._checkpoint_service = checkpoint_service
         self.groups_to_keep = configs.get("groups_to_keep", False)
-        self.skip_missing_users = configs['skip_missing_users']
+        self.skip_missing_users = configs.get('skip_missing_users', False)
 
     create_configs = {'num_workers',
                       'autoscale',
