@@ -188,12 +188,16 @@ def main():
         if not args.cluster_name:
             print("Please provide an existing cluster name w/ --cluster-name option\n")
             return
-        print("Export the secret scopes configs at {0}".format(now))
+        scope_names = args.scope_names if args.scope_names else None
+        print("Export the secret scopes configs at {0} for scope: {1}".format(now, scope_names))
         start = timer()
         sc = SecretsClient(client_config, checkpoint_service)
         # log job configs
-        sc.log_all_secrets(args.cluster_name)
-        sc.log_all_secrets_acls()
+        sc.log_all_secrets(args.cluster_name, secret_scopes=scope_names)
+        if not args.skip_scope_acl:
+            sc.log_all_secrets_acls()
+        else:
+            print("Skipping ACL Export")
         end = timer()
         print("Complete Secrets Export Time: " + str(timedelta(seconds=end - start)))
 
