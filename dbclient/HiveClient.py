@@ -379,8 +379,9 @@ class HiveClient(ClustersClient):
                 raise ValueError('Missing Database Attributes Log. Re-run metastore export')
             create_db_resp = self.create_database_db(db_name, ec_id, cid, database_attributes)
             if logging_utils.log_response_error(error_logger, create_db_resp):
-                logging.error(f"Failed to create database {db_name} during metastore import. Exiting Import.")
-                return
+                logging.error(f"Failed to create database {db_name} during metastore import. Check "
+                              f"failed_import_metastore.log for more details.")
+                continue
             db_path = database_attributes.get('Location')
             if os.path.isdir(local_db_path):
                 # all databases should be directories, no files at this level
