@@ -265,9 +265,19 @@ class dbclient:
 
             http_status_code = raw_results.status_code
             if http_status_code in dbclient.http_error_codes:
-                raise Exception("Error: {0} request failed with code {1}\n{2}".format(http_type,
-                                                                                      http_status_code,
-                                                                                      raw_results.text))
+                message = "Error: {0} request failed with code {1}\n{2}".format(
+                    http_type, http_status_code, raw_results.text
+                )
+                if self.is_skip_failed():
+                    logging.error(message)
+                    return {
+                        'http_status_code': raw_results.status_code,
+                        'error': raw_results.text,
+                        'url': full_endpoint,
+                        'json': json_params,
+                    }
+                else:
+                    raise Exception(message)
             results = raw_results.json()
             if logging_utils.check_error(results):
                 logging.warn(json.dumps(results) + '\n')
@@ -334,6 +344,11 @@ class dbclient:
                                   'permission_level': permissions})
                 if permissions == 'IS_OWNER':
                     current_owner = member.get('user_name')
+            elif 'service_principal_name' in member:
+                acls_list.append({'service_principal_name': member.get('service_principal_name'),
+                                  'permission_level': permissions})
+                if permissions == 'IS_OWNER':
+                    current_owner = member.get('service_principal_name')
             else:
                 if member.get('group_name') != 'admins':
                     acls_list.append({'group_name': member.get('group_name'),

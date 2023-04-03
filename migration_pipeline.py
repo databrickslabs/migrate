@@ -257,7 +257,7 @@ def build_validate_pipeline(client_config, checkpoint_service, args):
     #  ClustersExportTask
     add_diff_task("validate-clusters", "clusters.log", DiffConfig(
         primary_key="cluster_name",
-        ignored_keys=["cluster_id", "policy_id", "instance_pool_id", "spark_version"],
+        ignored_keys=["cluster_id", "policy_id", "instance_pool_id", "driver_instance_pool_id", "spark_version"],
         children={
             "aws_attributes": DiffConfig(
                 ignored_keys=["zone_id"]
