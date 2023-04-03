@@ -8,7 +8,7 @@ import wmconstants
 def set_default_logging(parent_dir, level=logging.INFO):
     os.makedirs(_get_log_dir(parent_dir), exist_ok=True)
     log_file = f"{_get_log_dir(parent_dir)}/wm_logs.log"
-    all_log_handler = logging.FileHandler(log_file)
+    all_log_handler = logging.FileHandler(log_file, encoding='utf-8')
     console_handler = logging.StreamHandler()
 
     logging.basicConfig(format="%(asctime)s;%(levelname)s;%(message)s",

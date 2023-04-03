@@ -22,7 +22,7 @@ class ScimClient(dbclient):
         user_log = self.get_export_dir() + log_file
         users = self.get('/preview/scim/v2/Users').get('Resources', None)
         if users:
-            with open(user_log, "w") as fp:
+            with open(user_log, "w", encoding="utf-8") as fp:
                 for x in users:
                     fullname = x.get('name', None)
 
@@ -50,7 +50,7 @@ class ScimClient(dbclient):
             if user_email == current_email:
                 found_user = True
                 logging.info(user)
-                with open(single_user_log, 'w') as fp:
+                with open(single_user_log, 'w', encoding="utf-8") as fp:
                     fp.write(json.dumps(user) + '\n')
         if not found_user:
             logging.error("User not found. Emails are case sensitive. Please verify email address")
@@ -70,7 +70,7 @@ class ScimClient(dbclient):
         """
         user_logfile = self.get_export_dir() + users_log
         username_list = []
-        with open(user_logfile, 'r') as fp:
+        with open(user_logfile, 'r', encoding="utf-8") as fp:
             for u in fp:
                 user_json = json.loads(u)
                 username_list.append(user_json.get('userName'))
@@ -126,7 +126,7 @@ class ScimClient(dbclient):
                 if group_name not in self.groups_to_keep:
                     continue
 
-            with open(group_dir + group_name, "w") as fp:
+            with open(group_dir + group_name, "w", encoding="utf-8") as fp:
                 fp.write(json.dumps(self.add_username_to_group(x)))
 
     @staticmethod
@@ -158,12 +158,12 @@ class ScimClient(dbclient):
                 sub_group_names = list(map(lambda z: z.get('display'), filtered_sub_groups))
                 group_name_list.extend(sub_group_names)
             member_id_list.extend(list(map(lambda y: y['value'], filtered_users)))
-            with open(group_dir + group_name, "w") as fp:
+            with open(group_dir + group_name, "w", encoding="utf-8") as fp:
                 group_details.pop('roles', None)  # removing the roles field from the groups arg
                 fp.write(json.dumps(self.add_username_to_group(group_details)))
         users_log = self.get_export_dir() + users_logfile
         user_names_list = []
-        with open(users_log, 'w') as u_fp:
+        with open(users_log, 'w', encoding="utf-8") as u_fp:
             for mid in member_id_list:
                 logging.info('Exporting', mid)
                 api = f'/preview/scim/v2/Users/{mid}'
@@ -188,7 +188,7 @@ class ScimClient(dbclient):
         # return a dictionary of { old_id : email } from the users log
         users_log = self.get_export_dir() + users_logfile
         email_dict = {}
-        with open(users_log, 'r') as fp:
+        with open(users_log, 'r', encoding="utf-8") as fp:
             for x in fp:
                 user = json.loads(x)
                 email_dict[user['id']] = user['userName']
@@ -222,7 +222,7 @@ class ScimClient(dbclient):
             return
         groups = self.listdir(group_dir)
         for group_name in groups:
-            with open(group_dir + group_name, 'r') as fp:
+            with open(group_dir + group_name, 'r', encoding="utf-8") as fp:
                 group_data = json.loads(fp.read())
                 entitlements = group_data.get('entitlements', None)
                 if entitlements:
@@ -239,7 +239,7 @@ class ScimClient(dbclient):
             return
         groups = self.listdir(group_dir)
         for group_name in groups:
-            with open(group_dir + group_name, 'r') as fp:
+            with open(group_dir + group_name, 'r', encoding="utf-8") as fp:
                 group_data = json.loads(fp.read())
                 roles = group_data.get('roles', None)
                 if roles:
@@ -289,7 +289,7 @@ class ScimClient(dbclient):
         if not os.path.exists(user_log):
             logging.info("Skipping user entitlement assignment. Logfile does not exist")
             return
-        with open(user_log, 'r') as fp:
+        with open(user_log, 'r', encoding="utf-8") as fp:
             # loop through each user in the file
             for line in fp:
                 user = json.loads(line)
@@ -322,7 +322,7 @@ class ScimClient(dbclient):
         old_role_keys = ('userName', 'roles')
         cur_role_keys = ('schemas', 'userName', 'entitlements', 'roles', 'groups')
         # get current user id of the new environment, k,v = email, id
-        with open(user_log, 'r') as fp:
+        with open(user_log, 'r', encoding="utf-8") as fp:
             # loop through each user in the file
             for line in fp:
                 user = json.loads(line)
@@ -418,7 +418,7 @@ class ScimClient(dbclient):
         # dict of { old_user_id : email }
         old_user_emails = self.get_old_user_emails()
         for group_name in groups:
-            with open(group_dir + group_name, 'r') as fp:
+            with open(group_dir + group_name, 'r', encoding="utf-8") as fp:
                 members = json.loads(fp.read()).get('members', None)
                 logging.info(f"Importing group {group_name} :")
                 if members:
@@ -475,13 +475,13 @@ class ScimClient(dbclient):
         if not os.path.exists(user_log):
             logging.info("No users to import.")
             return
-        with open(user_log, 'r') as fp:
+        with open(user_log, 'r', encoding="utf-8") as fp:
             with ThreadPoolExecutor(max_workers=num_parallel) as executor:
                 futures = [executor.submit(self._import_users_helper, user_data, create_keys, checkpoint_set, error_logger) for user_data in fp]
                 concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
                 propagate_exceptions(futures)
 
-        with open(self.get_export_dir() + "user_name_to_user_id.log", 'w') as fp:
+        with open(self.get_export_dir() + "user_name_to_user_id.log", 'w', encoding="utf-8") as fp:
             fp.write(json.dumps(self.get_user_id_mapping()))
 
     def _import_users_helper(self, user_data, create_keys, checkpoint_set, error_logger):
@@ -497,7 +497,7 @@ class ScimClient(dbclient):
 
 
     def log_failed_users(self, current_user_ids, user_log, error_logger):
-        with open(user_log, 'r') as fp:
+        with open(user_log, 'r', encoding="utf-8") as fp:
             # loop through each user in the file
             for line in fp:
                 user = json.loads(line)

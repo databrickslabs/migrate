@@ -37,7 +37,7 @@ class MLFlowClient(dbclient):
 
         start = timer()
         try:
-            with open(experiments_logfile, 'r') as fp:
+            with open(experiments_logfile, 'r', encoding="utf-8") as fp:
                 with ThreadPoolExecutor(max_workers=num_parallel) as executor:
                     futures = [executor.submit(self._get_mlflow_experiment_acls, acl_log_file_writer, experiment_str, checkpoint_key_set, error_logger) for experiment_str in fp]
                     concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
@@ -62,7 +62,7 @@ class MLFlowClient(dbclient):
         checkpoint_key_set = self._checkpoint_service.get_checkpoint_key_set(
             wmconstants.WM_IMPORT, wmconstants.MLFLOW_EXPERIMENT_PERMISSION_OBJECT)
         start = timer()
-        with open(acl_log_file, 'r') as fp:
+        with open(acl_log_file, 'r', encoding="utf-8") as fp:
             with ThreadPoolExecutor(max_workers=num_parallel) as executor:
                 futures = [executor.submit(self._put_mlflow_experiment_acl, acl_str, experiment_id_map, checkpoint_key_set, error_logger) for acl_str in fp]
                 concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
@@ -124,7 +124,7 @@ class MLFlowClient(dbclient):
         )
         start_date = start_date if start_date else datetime.now() - timedelta(days=30)
         start_time_epoch_ms = start_date.timestamp() * 1000
-        with open(experiments_logfile, 'r') as fp:
+        with open(experiments_logfile, 'r', encoding="utf-8") as fp:
             with ThreadPoolExecutor(max_workers=num_parallel) as executor:
                 futures = [executor.submit(self._export_runs_in_an_experiment, start_time_epoch_ms, log_sql_file, experiment_str, mlflow_runs_checkpointer, error_logger) for experiment_str in fp]
                 results = concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
@@ -192,7 +192,7 @@ class MLFlowClient(dbclient):
         # a workspace has explosive number of experiments. (e.g. 200K)
         experiments = self.client.list_experiments(view_type=ViewType.ALL)
         experiments_logfile = mlflow_experiments_dir + log_file
-        with open(experiments_logfile, 'w') as fp:
+        with open(experiments_logfile, 'w', encoding="utf-8") as fp:
             for experiment in experiments:
                fp.write(json.dumps(dict(experiment)) + '\n')
         end = timer()
@@ -214,7 +214,7 @@ class MLFlowClient(dbclient):
         id_map_thread_safe_writer = ThreadSafeWriter(experiments_id_map_file, 'a')
 
         try:
-            with open(experiments_logfile, 'r') as fp:
+            with open(experiments_logfile, 'r', encoding="utf-8") as fp:
                 with ThreadPoolExecutor(max_workers=num_parallel) as executor:
                     futures = [executor.submit(self._create_experiment, experiment_str, id_map_thread_safe_writer, mlflow_experiments_checkpointer, error_logger) for experiment_str in fp]
                     concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
@@ -443,7 +443,7 @@ class MLFlowClient(dbclient):
     def _load_experiment_id_map(self, experiment_id_map_log):
         id_map = {}
         # Parallelize this operation if this is too slow.
-        with open(experiment_id_map_log, 'r') as fp:
+        with open(experiment_id_map_log, 'r', encoding="utf-8") as fp:
             # str = {"old_id": "xxxxxxxxx", "new_id": "xxxxxxxx"}
             for single_id_map_str in fp:
                 single_id_map = json.loads(single_id_map_str)

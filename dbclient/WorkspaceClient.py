@@ -97,7 +97,7 @@ class WorkspaceClient(dbclient):
     @staticmethod
     def build_ws_lookup_table(success_ws_logfile):
         ws_hashmap = set()
-        with open(success_ws_logfile, 'r') as fp:
+        with open(success_ws_logfile, 'r', encoding='utf-8') as fp:
             for line in fp:
                 ws_hashmap.add(line.rstrip())
         return ws_hashmap
@@ -289,7 +289,7 @@ class WorkspaceClient(dbclient):
             wmconstants.WM_IMPORT, wmconstants.WORKSPACE_NOTEBOOK_ACL_OBJECT, self.get_export_dir())
         if os.path.exists(notebook_acl_logs):
             print(f"Importing the notebook acls for {username}")
-            with open(notebook_acl_logs) as nb_acls_fp:
+            with open(notebook_acl_logs, encoding='utf-8') as nb_acls_fp:
                 for nb_acl_str in nb_acls_fp:
                     self.apply_acl_on_object(nb_acl_str, acl_notebooks_error_logger)
 
@@ -298,7 +298,7 @@ class WorkspaceClient(dbclient):
             wmconstants.WM_IMPORT, wmconstants.WORKSPACE_DIRECTORY_ACL_OBJECT, self.get_export_dir())
         if os.path.exists(dir_acl_logs):
             print(f"Importing the directory acls for {username}")
-            with open(dir_acl_logs) as dir_acls_fp:
+            with open(dir_acl_logs, encoding='utf-8') as dir_acls_fp:
                 for dir_acl_str in dir_acls_fp:
                     self.apply_acl_on_object(dir_acl_str, acl_dir_error_logger)
         self.set_export_dir(original_export_dir)
@@ -318,7 +318,7 @@ class WorkspaceClient(dbclient):
         num_notebooks = 0
         if not os.path.exists(ws_log):
             raise Exception("Run --workspace first to download full log of all notebooks.")
-        with open(ws_log, "r") as fp:
+        with open(ws_log, "r", encoding='utf-8') as fp:
             # notebook log metadata file now contains object_id to help w/ ACL exports
             # pull the path from the data to download the individual notebook contents
             with ThreadPoolExecutor(max_workers=num_parallel) as executor:
@@ -565,7 +565,7 @@ class WorkspaceClient(dbclient):
             acl_resp.pop('http_status_code')
             writer.write(json.dumps(acl_resp) + '\n')
 
-        with open(read_log_path, 'r') as read_fp:
+        with open(read_log_path, 'r', encoding='utf-8') as read_fp:
             with ThreadPoolExecutor(max_workers=num_parallel) as executor:
                 futures = [executor.submit(_acl_log_helper, json_data) for json_data in read_fp]
                 concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
@@ -693,7 +693,7 @@ class WorkspaceClient(dbclient):
 
         checkpoint_notebook_acl_set = self._checkpoint_service.get_checkpoint_key_set(
             wmconstants.WM_IMPORT, wmconstants.WORKSPACE_NOTEBOOK_ACL_OBJECT)
-        with open(notebook_acl_logs) as nb_acls_fp:
+        with open(notebook_acl_logs, encoding="utf-8") as nb_acls_fp:
             with ThreadPoolExecutor(max_workers=num_parallel) as executor:
                 futures = [executor.submit(self.apply_acl_on_object, nb_acl_str, acl_notebooks_error_logger, checkpoint_notebook_acl_set) for nb_acl_str in nb_acls_fp]
                 concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
@@ -704,7 +704,7 @@ class WorkspaceClient(dbclient):
         checkpoint_dir_acl_set = self._checkpoint_service.get_checkpoint_key_set(
             wmconstants.WM_IMPORT, wmconstants.WORKSPACE_DIRECTORY_ACL_OBJECT)
 
-        with open(dir_acl_logs) as dir_acls_fp:
+        with open(dir_acl_logs, encoding='utf-8') as dir_acls_fp:
             with ThreadPoolExecutor(max_workers=num_parallel) as executor:
                 futures = [executor.submit(self.apply_acl_on_object, dir_acl_str, acl_dir_error_logger, checkpoint_dir_acl_set) for dir_acl_str in dir_acls_fp]
                 concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
@@ -715,7 +715,7 @@ class WorkspaceClient(dbclient):
         checkpoint_repo_acl_set = self._checkpoint_service.get_checkpoint_key_set(
             wmconstants.WM_IMPORT, wmconstants.WORKSPACE_REPO_ACL_OBJECT)
 
-        with open(repo_acl_logs) as repo_acls_fp:
+        with open(repo_acl_logs, encoding='utf-8') as repo_acls_fp:
             with ThreadPoolExecutor(max_workers=num_parallel) as executor:
                 futures = [
                     executor.submit(self.apply_acl_on_object, repo_acl_str, acl_repo_error_logger, checkpoint_repo_acl_set)
@@ -901,7 +901,7 @@ class WorkspaceClient(dbclient):
         checkpoint_repo_set = self._checkpoint_service.get_checkpoint_key_set(
             wmconstants.WM_IMPORT, wmconstants.WORKSPACE_REPO_OBJECT)
 
-        with open(dir_repo_logs) as repo_fp:
+        with open(dir_repo_logs, encoding='utf-8') as repo_fp:
             with ThreadPoolExecutor(max_workers=num_parallel) as executor:
                 futures = [
                     executor.submit(self.create_repo, repo_str, repo_error_logger,
