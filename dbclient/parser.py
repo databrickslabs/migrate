@@ -70,6 +70,23 @@ def get_login_credentials(creds_path='~/.databrickscfg', profile='DEFAULT'):
             'Unable to find credentials to load for profile. Profile only supports tokens.')
 
 
+def get_export_preparation_parser():
+    # update exported Azure files for compatibility with AWS
+    parser = argparse.ArgumentParser(description='Update exported Azure files for compatibility with AWS')
+
+    parser.add_argument('--set-export-dir', action='store', required=True,
+                        help='Set the base directory to export artifacts')
+
+    parser.add_argument('--session', action='store', default='', required=True,
+                        help='If set, the script resumes from latest checkpoint of given session; '
+                             'Otherwise, pipeline starts from beginning and creates a new session.')
+
+    parser.add_argument('--replace-email', action='store',
+                        help='Update old emails with new e-mails. Format old1@email:new1@email.com,old2@email.com:new2@email.com')
+
+    return parser
+
+
 def get_export_parser():
     # export workspace items
     parser = argparse.ArgumentParser(description='Export full workspace artifacts from Databricks')
