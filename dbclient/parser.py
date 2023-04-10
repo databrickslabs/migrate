@@ -557,4 +557,7 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
     parser.add_argument('--timeout', type=float, default=300.0,
                         help='Timeout for the calls to Databricks\' REST API, in seconds, defaults to 300.0 --use float e.g. 100.0 to make it bigger')
 
+    parser.add_argument('--last-session', action='store', default='',
+                        help='If set, the script compares current sesssion with the last session and only import updated and new notebooks.')
+
     return parser
