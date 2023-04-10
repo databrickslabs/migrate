@@ -339,7 +339,7 @@ usage: import_db.py [-h] [--users] [--workspace] [--workspace-top-level]
                     [--no-ssl-verification] [--silent] [--debug]
                     [--set-export-dir SET_EXPORT_DIR] [--pause-all-jobs]
                     [--unpause-all-jobs] [--import-pause-status]
-                    [--delete-all-jobs]
+                    [--delete-all-jobs] [--last-session]
                                         
 Import full workspace artifacts into Databricks
 
@@ -389,6 +389,8 @@ optional arguments:
   --unpause-all-jobs    Unpause all scheduled jobs
   --import-pause-status Import the pause status from jobs in the old workspace
   --delete-all-jobs     Delete all jobs
+  --last-session        
+                        The session to compare against. If set, the script compares current sesssion with the last session and only import updated and new notebooks. 
 ```
 
 ---

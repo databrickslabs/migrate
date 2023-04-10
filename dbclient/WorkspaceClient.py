@@ -12,6 +12,7 @@ from datetime import timedelta
 import logging_utils
 import logging
 import os
+from dbclient.common.WorkspaceDiff import *
 
 WS_LIST = "/workspace/list"
 WS_STATUS = "/workspace/get-status"
@@ -787,7 +788,7 @@ class WorkspaceClient(dbclient):
                     logging_utils.log_response_error(error_logger, resp_upload)
 
     def import_all_workspace_items(self, artifact_dir='artifacts/',
-                                   archive_missing=False, num_parallel=4):
+                                   archive_missing=False, num_parallel=4, last_session=""):
         """
         import all notebooks into a new workspace. Walks the entire artifacts/ directory in parallel, and also
         upload all the files in each of the directories in parallel.
@@ -798,10 +799,22 @@ class WorkspaceClient(dbclient):
         :param artifact_dir: notebook download directory
         :param failed_log: failed import log
         :param archive_missing: whether to put missing users into a /Archive/ top level directory
+        :param last_session: a previous session against which the current session will be compared. Only the changed ahd new notebooks will be imported if last_session is defiined.
         """
         src_dir = self.get_export_dir() + artifact_dir
         error_logger = logging_utils.get_error_logger(wmconstants.WM_IMPORT, wmconstants.WORKSPACE_NOTEBOOK_OBJECT,
                                                       self.get_export_dir())
+        
+        # Given previous exported artifacts, a list of changed and newly added notebooks will be logged at notebook_changes.log
+        nb_changes_log = os.path.join(self.get_export_dir(), "notebook_changes.log")
+        if last_session:
+            base_dir = os.path.split(os.path.normpath(self.get_export_dir()))[0]
+            last_src_dir = os.path.join(base_dir, last_session, artifact_dir)
+            # dcmp = dircmp(last_src_dir, src_dir)
+            with open(nb_changes_log, "w") as fp:
+                log_updated_new_files(last_src_dir, src_dir, fp)
+        
+        changes_since_last = read_file_changes(nb_changes_log)
 
         checkpoint_notebook_set = self._checkpoint_service.get_checkpoint_key_set(
             wmconstants.WM_IMPORT, wmconstants.WORKSPACE_NOTEBOOK_OBJECT)
@@ -862,6 +875,12 @@ class WorkspaceClient(dbclient):
                 ws_file_path = upload_dir + f
                 if checkpoint_notebook_set.contains(ws_file_path):
                     return
+                if changes_since_last:
+                    if local_file_path not in changes_since_last:
+                        print(f"Skipping {f} because it has not been changed.")
+                        return
+                    else:
+                        print(f"Importing {f} because it has been changed.")
                 # generate json args with binary data for notebook to upload to the workspace path
                 nb_input_args = self.get_user_import_args(local_file_path, ws_file_path)
                 # call import to the workspace
