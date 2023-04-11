@@ -807,14 +807,13 @@ class WorkspaceClient(dbclient):
         
         # Given previous exported artifacts, a list of changed and newly added notebooks will be logged at notebook_changes.log
         nb_changes_log = os.path.join(self.get_export_dir(), "notebook_changes.log")
+        changes_since_last = set()
         if last_session:
             base_dir = os.path.split(os.path.normpath(self.get_export_dir()))[0]
             last_src_dir = os.path.join(base_dir, last_session, artifact_dir)
-            # dcmp = dircmp(last_src_dir, src_dir)
             with open(nb_changes_log, "w") as fp:
                 log_updated_new_files(last_src_dir, src_dir, fp)
-        
-        changes_since_last = read_file_changes(nb_changes_log)
+            changes_since_last = read_file_changes(nb_changes_log)
 
         checkpoint_notebook_set = self._checkpoint_service.get_checkpoint_key_set(
             wmconstants.WM_IMPORT, wmconstants.WORKSPACE_NOTEBOOK_OBJECT)
