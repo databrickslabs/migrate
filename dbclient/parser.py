@@ -232,6 +232,12 @@ def get_export_parser():
 
     parser.add_argument('--exclude-work-item-prefixes', nargs='+', type=str, default=[],
                         help='List of prefixes to skip export for log_all_workspace_items')
+    
+    parser.add_argument('--timeout', type=float, default=300.0,
+                        help='Timeout for the calls to Databricks\' REST API, in seconds, defaults to 300.0 --use float e.g. 100.0 to make it bigger')
+
+    parser.add_argument('--skip-missing-users', action='store_true', default=False,
+                        help='Skip missing principles during import.')
     return parser
 
 
@@ -419,7 +425,9 @@ def build_client_config(profile, url, token, args):
               'verify_ssl': (not args.no_ssl_verification),
               'skip_failed': args.skip_failed,
               'debug': args.debug,
-              'file_format': str(args.notebook_format)
+              'file_format': str(args.notebook_format), 
+              'timeout':args.timeout, 
+              'skip_missing_users':args.skip_missing_users
               }
     # this option only exists during imports so we check for existence
     if 'overwrite_notebooks' in args:
