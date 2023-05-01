@@ -1,6 +1,7 @@
 import ast
 import os
 import base64
+import random
 import wmconstants
 import time
 from datetime import timedelta
@@ -132,7 +133,9 @@ class HiveClient(ClustersClient):
         f_size_bytes = os.path.getsize(local_table_path)
         if f_size_bytes > 1024 or has_unicode:
             # upload first to tmp DBFS path and apply
-            dbfs_path = '/tmp/migration/tmp_import_ddl.txt'
+            # generate a random hash since we are multi-threaded and would collide otherwise
+            file_hash = "%032x" % random.getrandbits(128)
+            dbfs_path = f'/tmp/migration/tmp_import_ddl_{file_hash}.txt'
             path_args = {'path': dbfs_path}
             del_resp = self.post('/dbfs/delete', path_args)
             if self.is_verbose():
@@ -143,6 +146,12 @@ class HiveClient(ClustersClient):
                 logging.info(put_resp)
             spark_big_ddl_cmd = f'with open("/dbfs{dbfs_path}", "r", encoding="utf-8") as fp: tmp_ddl = fp.read(); spark.sql(tmp_ddl)'
             ddl_results = self.submit_command(cid, ec_id, spark_big_ddl_cmd)
+
+            # clean up the temp file
+            del_resp = self.post('/dbfs/delete', path_args)
+            if self.is_verbose():
+                logging.info(del_resp)
+
             return ddl_results
         else:
             with open(local_table_path, "r", encoding="utf-8") as fp:
