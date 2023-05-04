@@ -209,6 +209,13 @@ class JobsClient(ClustersClient):
                     # set all imported jobs as paused
                     job_schedule['pause_status'] = 'PAUSED'
                     job_settings['schedule'] = job_schedule
+                job_schedule_continuous = job_settings.get("continuous", None)
+                if job_schedule_continuous: 
+                    # set all import jobs as paused
+                    job_schedule_continuous['pause_status'] = "PAUSED" 
+                    job_settings['continuous'] = job_schedule_continuous
+                
+                    
                 if 'format' not in job_settings or job_settings.get('format') == 'SINGLE_TASK':
                     adjust_ids_for_cluster(job_settings)
                 else:
