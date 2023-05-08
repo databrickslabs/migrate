@@ -339,7 +339,7 @@ usage: import_db.py [-h] [--users] [--workspace] [--workspace-top-level]
                     [--no-ssl-verification] [--silent] [--debug]
                     [--set-export-dir SET_EXPORT_DIR] [--pause-all-jobs]
                     [--unpause-all-jobs] [--import-pause-status]
-                    [--delete-all-jobs] [--last-session]
+                    [--delete-all-jobs] [--last-session] [--sort-views]
                                         
 Import full workspace artifacts into Databricks
 
@@ -391,6 +391,9 @@ optional arguments:
   --delete-all-jobs     Delete all jobs
   --last-session        
                         The session to compare against. If set, the script compares current sesssion with the last session and only import updated and new notebooks. 
+  --sort-views          
+                        Sort all views topologically based upon dependencies before importing. 
+                        e.g. if view A is created from view B, B will be imported before A. This will solve the cases when views are created from other views.
 ```
 
 ---

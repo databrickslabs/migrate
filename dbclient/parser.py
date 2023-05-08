@@ -390,6 +390,9 @@ def get_import_parser():
 
     parser.add_argument('--retry-backoff', type=float, default=1.0, help='Backoff factor to apply between retry attempts when making calls to Databricks API')
 
+    parser.add_argument('--sort-views', action='store_true', default=False,
+                        help='If True, the views will be sorted based upon dependencies before importing.')
+
     return parser
 
 
@@ -567,5 +570,8 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
 
     parser.add_argument('--last-session', action='store', default='',
                         help='If set, the script compares current sesssion with the last session and only import updated and new notebooks.')
+
+    parser.add_argument('--sort-views', action='store_true', default=False,
+                        help='If True, the views will be sorted based upon dependencies before importing.')
 
     return parser
