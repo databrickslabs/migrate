@@ -135,7 +135,7 @@ def execute_sql_statements(sqls):
     if sql:
       print(f"{sql};")
       try:
-#         spark.sql(sql)
+        spark.sql(sql)
         num_sucessfully_executed = num_sucessfully_executed+1
       except:
         error_causing_sqls.append({'sql': sql, 'error': sys.exc_info()})
