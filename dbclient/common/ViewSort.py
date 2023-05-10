@@ -2,22 +2,24 @@ from collections import deque
 import sqlparse
 from typing import Set, List
 from collections import defaultdict
-import os
+import os, re
 
 
-def extract_source_tables(ddl_query: str, all_views: Set[str]):
-    # Parse the DDL query with sqlparse
-    parsed = sqlparse.parse(ddl_query)[0]
-    identifiers = []
-    for token in parsed.tokens:
-      if isinstance(token, sqlparse.sql.Identifier):
-        if all_views:
-          if token.normalized in all_views:
-            identifiers.append(token.normalized)
-        else:
-          identifiers.append(token.normalized)
-    
-    return [tbl.replace('`', '') for tbl in identifiers]
+def extract_source_tables(ddl_query: str, all_valid_names: Set[str]):
+    """
+    Extracts table names from a SQL query that includes nested FROM statements.
+    Returns a list of unique table names in the order they appear in the query.
+    """
+    sql_query = ddl_query.replace("`", "")
+    table_names = set()
+    regex = r'\b(?:FROM|JOIN|UNION)\b\s+([\w.]+)'
+    matches = re.findall(regex, sql_query)
+    for match in matches:
+        table_name = match.lower()
+        if ((all_valid_names and table_name in all_valid_names) or (not all_valid_names)) \
+            and table_name not in table_names:
+            table_names.add(table_name)
+    return table_names
 
 def unpack_view_db_name(full_view_name: str):
    parts = full_view_name.split(".")

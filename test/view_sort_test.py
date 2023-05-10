@@ -50,3 +50,32 @@ AS SELECT
         with mock.patch("builtins.open", mock_open):
             deps = get_view_dependencies("/tmp/metastore_view", "default.test_view", {})
             assert deps == set(["db1.persons", "db2.person"])
+
+
+    def test_get_view_deps_nested(self):
+        view_ddl = """
+        CREATE VIEW test.view1 (
+  step_rank,
+  same_step_instance,
+  id,
+  t_cd)
+AS SELECT ROW_NUMBER() OVER (PARTITION BYID ORDER BY st_cd_start_date) AS step_rank,
+	ROW_NUMBER() OVER (PARTITION BY id, st_cd ORDER BY st_cd_start_date) AS same_step_instance,
+	id, 
+	st_cd,
+	st_cd_start_date,
+	st_cd_end_date,
+	datediff(st_cd_end_date, st_cd_start_date) AS step_duration
+    FROM (
+	SELECT id, st_cd, st_cd_start_date
+	FROM (
+		SELECT id, NVL(st_cd, 'Null') AS st_cd
+                		FROM test.view2 ch
+	) aa
+	WHERE Is_Boundry = 1) bb
+WHERE st_cd_start_date IS NOT NULL
+        """
+        mock_open = mock.mock_open(read_data=view_ddl)
+        with mock.patch("builtins.open", mock_open):
+            deps = get_view_dependencies("/tmp/metastore_view", "tdss.case_actn_hist_st_cd_instances", {})
+            assert len(deps) == 1 and next(iter(deps)) == "test.view2"

@@ -388,32 +388,32 @@ class HiveClient(ClustersClient):
             if not database_attributes:
                 logging.info(all_db_details_json)
                 raise ValueError('Missing Database Attributes Log. Re-run metastore export')
-            # create_db_resp = self.create_database_db(db_name, ec_id, cid, database_attributes)
-            # if logging_utils.log_response_error(error_logger, create_db_resp):
-            #     logging.error(f"Failed to create database {db_name} during metastore import. Check "
-            #                   f"failed_import_metastore.log for more details.")
-            #     continue
-            # db_path = database_attributes.get('Location')
-            # if os.path.isdir(local_db_path):
-            #     # all databases should be directories, no files at this level
-            #     # list all the tables in the database local dir
-            #     tables = self.listdir(local_db_path)
-            #     for tbl_name in tables:
-            #         # build the path for the table where the ddl is stored
-            #         full_table_name = f"{db_name}.{tbl_name}"
-            #         if not checkpoint_metastore_set.contains(full_table_name):
-            #             logging.info(f"Importing table {full_table_name}")
-            #             local_table_ddl = metastore_local_dir + db_name + '/' + tbl_name
-            #             if not self.move_table_view(db_name, tbl_name, local_table_ddl):
-            #                 # we hit a table ddl here, so we apply the ddl
-            #                 resp = self.apply_table_ddl(local_table_ddl, ec_id, cid, db_path, has_unicode)
-            #                 if not logging_utils.log_response_error(error_logger, resp):
-            #                     checkpoint_metastore_set.write(full_table_name)
-            #             else:
-            #                 logging.info(f'Moving view ddl to re-apply later: {db_name}.{tbl_name}')
-            # else:
-            #     logging.error("Error: Only databases should exist at this level: {0}".format(db_name))
-            # self.delete_dir_if_empty(metastore_view_dir + db_name)
+            create_db_resp = self.create_database_db(db_name, ec_id, cid, database_attributes)
+            if logging_utils.log_response_error(error_logger, create_db_resp):
+                logging.error(f"Failed to create database {db_name} during metastore import. Check "
+                              f"failed_import_metastore.log for more details.")
+                continue
+            db_path = database_attributes.get('Location')
+            if os.path.isdir(local_db_path):
+                # all databases should be directories, no files at this level
+                # list all the tables in the database local dir
+                tables = self.listdir(local_db_path)
+                for tbl_name in tables:
+                    # build the path for the table where the ddl is stored
+                    full_table_name = f"{db_name}.{tbl_name}"
+                    if not checkpoint_metastore_set.contains(full_table_name):
+                        logging.info(f"Importing table {full_table_name}")
+                        local_table_ddl = metastore_local_dir + db_name + '/' + tbl_name
+                        if not self.move_table_view(db_name, tbl_name, local_table_ddl):
+                            # we hit a table ddl here, so we apply the ddl
+                            resp = self.apply_table_ddl(local_table_ddl, ec_id, cid, db_path, has_unicode)
+                            if not logging_utils.log_response_error(error_logger, resp):
+                                checkpoint_metastore_set.write(full_table_name)
+                        else:
+                            logging.info(f'Moving view ddl to re-apply later: {db_name}.{tbl_name}')
+            else:
+                logging.error("Error: Only databases should exist at this level: {0}".format(db_name))
+            self.delete_dir_if_empty(metastore_view_dir + db_name)
         views_db_list = self.listdir(metastore_view_dir)
 
         if sort_views:
@@ -425,9 +425,11 @@ class HiveClient(ClustersClient):
                     views = self.listdir(local_view_db_path)
                     for v in views:
                         all_view_set.add(f"{db_name}.{v}")
+            logging.info(f"all views: {all_view_set}")
             # Build dependency graph of the views
             view_parents_dct = create_dependency_graph(metastore_view_dir, all_view_set)
             # Sort the views using the dependency graph
+            logging.info(f"view graph: {view_parents_dct}")
             sorted_views = sort_views_topology(view_parents_dct)
             logging.info(f"Importing order of views: {sorted_views}")
             # Import views in the sorted order
