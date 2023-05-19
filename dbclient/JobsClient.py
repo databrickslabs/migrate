@@ -14,7 +14,7 @@ class JobsClient(ClustersClient):
             cluster_json_file = 'data/default_jobs_cluster_azure.json'
         elif self.is_gcp():
             cluster_json_file = 'data/default_jobs_cluster_gcp.json'
-        with open(cluster_json_file, 'r') as fp:
+        with open(cluster_json_file, 'r', encoding="utf-8") as fp:
             cluster_json = json.loads(fp.read())
             return cluster_json
 
@@ -110,7 +110,7 @@ class JobsClient(ClustersClient):
             jl = list(filter(lambda x: x.get('creator_user_name', '') in users_list, jl_full))
         else:
             jl = jl_full
-        with open(jobs_log, "w") as log_fp, open(acl_jobs_log, 'w') as acl_fp:
+        with open(jobs_log, "w", encoding="utf-8") as log_fp, open(acl_jobs_log, 'w', encoding="utf-8") as acl_fp:
             for x in jl:
                 job_id = x['job_id']
                 new_job_name = x['settings']['name'] + ':::' + str(job_id)
@@ -194,7 +194,7 @@ class JobsClient(ClustersClient):
                 settings['new_cluster'] = new_cluster_conf
             return settings
 
-        with open(jobs_log, 'r') as fp, open(job_map_log, 'w') as jm_fp:
+        with open(jobs_log, 'r', encoding="utf-8") as fp, open(job_map_log, 'w', encoding="utf-8") as jm_fp:
             for line in fp:
                 job_conf = json.loads(line)
                 # need to do str(...), otherwise the job_id is recognized as integer which becomes
@@ -258,7 +258,7 @@ class JobsClient(ClustersClient):
 
 
         # update the jobs with their ACLs
-        with open(acl_jobs_log, 'r') as acl_fp:
+        with open(acl_jobs_log, 'r', encoding="utf-8") as acl_fp:
             job_id_by_name = self.get_job_id_by_name()
             for line in acl_fp:
                 acl_conf = json.loads(line)
@@ -291,7 +291,7 @@ class JobsClient(ClustersClient):
 
         job_map_log = self._load_job_id_map(job_map_file)
         
-        with open(log_file, 'r') as fp:
+        with open(log_file, 'r', encoding="utf-8") as fp:
             for line in fp:
                 job_conf = json.loads(line)
                 new_job_id = job_map_log[job_conf['job_id']]
@@ -302,7 +302,7 @@ class JobsClient(ClustersClient):
 
     def _load_job_id_map(self, job_id_map_log):
         id_map = {}
-        with open(job_id_map_log, 'r') as fp:
+        with open(job_id_map_log, 'r', encoding="utf-8") as fp:
             for single_id_map_str in fp:
                 single_id_map = json.loads(single_id_map_str)
                 id_map[single_id_map["old_id"]] = single_id_map["new_id"]

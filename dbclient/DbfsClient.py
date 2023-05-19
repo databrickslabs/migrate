@@ -16,7 +16,7 @@ class DbfsClient(ClustersClient):
             return 0
         else:
             i = 0
-            with open(fname) as fp:
+            with open(fname, encoding="utf-8") as fp:
                 for line in fp:
                     i += 1
             return i
@@ -42,7 +42,7 @@ class DbfsClient(ClustersClient):
         batch_size = 100    # batch size to iterate over databases
         num_of_buckets = (num_of_mounts // batch_size) + 1     # number of slices of the list to take
 
-        with open(dbfs_mount_logfile, 'w') as fp_log:
+        with open(dbfs_mount_logfile, 'w', encoding="utf-8") as fp_log:
             for m in range(0, num_of_buckets):
                 mounts_slice = 'print(all_mounts[{0}:{1}])'.format(batch_size*m, batch_size*(m+1))
                 results = self.submit_command(cid, ec_id, mounts_slice)

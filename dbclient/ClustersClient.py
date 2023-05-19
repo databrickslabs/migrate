@@ -200,7 +200,7 @@ class ClustersClient(dbclient):
             new_pools[p['instance_pool_name']] = p['instance_pool_id']
         # mapping id from old_pool_id to new_pool_id
         pool_mapping_dict = {}
-        with open(pool_log, 'r') as fp:
+        with open(pool_log, 'r', encoding="utf-8") as fp:
             for line in fp:
                 pool_conf = json.loads(line)
                 old_pool_id = pool_conf['instance_pool_id']
@@ -247,7 +247,7 @@ class ClustersClient(dbclient):
             current_id = policy['policy_id']
             current_policies_dict[current_name] = current_id
         policy_id_dict = {}
-        with open(policy_log, 'r') as fp:
+        with open(policy_log, 'r', encoding="utf-8") as fp:
             for line in fp:
                 policy_conf = json.loads(line)
                 policy_name = policy_conf['name']
@@ -273,7 +273,7 @@ class ClustersClient(dbclient):
         checkpoint_cluster_configs_set = self._checkpoint_service.get_checkpoint_key_set(
             wmconstants.WM_IMPORT, wmconstants.CLUSTER_OBJECT)
         # get instance pool id mappings
-        with open(cluster_log, 'r') as fp:
+        with open(cluster_log, 'r', encoding="utf-8") as fp:
             for line in fp:
                 cluster_conf = json.loads(line)
                 if 'cluster_id' in cluster_conf and checkpoint_cluster_configs_set.contains(cluster_conf['cluster_id']):
@@ -316,7 +316,7 @@ class ClustersClient(dbclient):
 
         # add cluster ACLs
         # loop through and reapply cluster ACLs
-        with open(acl_cluster_log, 'r') as acl_fp:
+        with open(acl_cluster_log, 'r', encoding="utf-8") as acl_fp:
             for x in acl_fp:
                 data = json.loads(x)
                 if 'object_id' in data and checkpoint_cluster_configs_set.contains(data['object_id']):
@@ -364,12 +364,12 @@ class ClustersClient(dbclient):
         """
         cluster_ids_to_change_creator = []
         original_creator_user_ids = []
-        with open(self.get_export_dir() + user_name_to_user_id_log_file, 'r') as fp:
+        with open(self.get_export_dir() + user_name_to_user_id_log_file, 'r', encoding="utf-8") as fp:
             user_name_to_user_id = json.loads(fp.read())
 
         old_to_new_cluster_mapping = self.get_cluster_id_mapping(cluster_log_file)
 
-        with open(self.get_export_dir() + cluster_log_file, 'r') as fp:
+        with open(self.get_export_dir() + cluster_log_file, 'r', encoding="utf-8") as fp:
             for line in fp:
                 cluster_conf = json.loads(line)
                 if 'creator_user_name' in cluster_conf and 'cluster_id' in cluster_conf:
@@ -384,12 +384,12 @@ class ClustersClient(dbclient):
                               original_cluster_creator +
                               " does not get logged for EditClusterOwner due to some problems.")
 
-        with open(self.get_export_dir() + cluster_ids_file, 'w') as fp:
+        with open(self.get_export_dir() + cluster_ids_file, 'w', encoding="utf-8") as fp:
             dumped_cluster_ids = json.dumps(cluster_ids_to_change_creator, separators=(',', ':'))
             # Remove the initial '[' and ']' for easier copy-paste.
             fp.write(dumped_cluster_ids.lstrip('[').rstrip(']'))
 
-        with open(self.get_export_dir() + creators_file, 'w') as fp:
+        with open(self.get_export_dir() + creators_file, 'w', encoding="utf-8") as fp:
             dumped_user_ids = json.dumps(original_creator_user_ids, separators=(',', ':'))
             # Remove the initial '[' and ']' for easier copy-paste.
             fp.write(dumped_user_ids.lstrip('[').rstrip(']'))
@@ -406,7 +406,7 @@ class ClustersClient(dbclient):
         # build dict with old cluster name to cluster id mapping
         if not os.path.exists(cluster_logfile):
             raise ValueError('Clusters log must exist to map clusters to previous existing cluster ids')
-        with open(cluster_logfile, 'r') as fp:
+        with open(cluster_logfile, 'r', encoding="utf-8") as fp:
             for line in fp:
                 conf = json.loads(line)
                 old_clusters[conf['cluster_name']] = conf['cluster_id']
@@ -427,7 +427,7 @@ class ClustersClient(dbclient):
         )
         # create the policies
         if os.path.exists(policies_log):
-            with open(policies_log, 'r') as policy_fp:
+            with open(policies_log, 'r', encoding="utf-8") as policy_fp:
                 for p in policy_fp:
                     policy_conf = json.loads(p)
                     if 'policy_id' in policy_conf and checkpoint_cluster_policies_set.contains(policy_conf['policy_id']):
@@ -442,7 +442,7 @@ class ClustersClient(dbclient):
                             checkpoint_cluster_policies_set.write(policy_conf['policy_id'])
 
             # ACLs are created by using the `access_control_list` key
-            with open(acl_policies_log, 'r') as acl_fp:
+            with open(acl_policies_log, 'r', encoding="utf-8") as acl_fp:
                 id_map = self.get_policy_id_by_name_dict()
                 for x in acl_fp:
                     p_acl = json.loads(x)
@@ -465,7 +465,7 @@ class ClustersClient(dbclient):
         if not os.path.exists(pool_log):
             logging.info("No instance pools to import.")
             return
-        with open(pool_log, 'r') as fp:
+        with open(pool_log, 'r', encoding="utf-8") as fp:
             for line in fp:
                 pool_conf = json.loads(line)
                 pool_resp = self.post('/instance-pools/create', pool_conf)
@@ -487,7 +487,7 @@ class ClustersClient(dbclient):
         else:
             list_of_profiles = []
         import_profiles_count = 0
-        with open(ip_log, "r") as fp:
+        with open(ip_log, "r", encoding="utf-8") as fp:
             for line in fp:
                 ip_arn = json.loads(line).get('instance_profile_arn', None)
                 if ip_arn not in list_of_profiles:
@@ -520,7 +520,7 @@ class ClustersClient(dbclient):
         # add _table_acls suffix to cluster config path if enable_table_acls is set
         cluster_json_postfix = '_table_acls' if enable_table_acls else ''
         if self.is_aws():
-            with open(f'{real_path}/../data/aws_cluster{cluster_json_postfix}.json', 'r') as fp:
+            with open(f'{real_path}/../data/aws_cluster{cluster_json_postfix}.json', 'r', encoding="utf-8") as fp:
                 cluster_json = json.loads(fp.read())
             if iam_role:
                 aws_attr = cluster_json['aws_attributes']
@@ -528,10 +528,10 @@ class ClustersClient(dbclient):
                 aws_attr['instance_profile_arn'] = iam_role
                 cluster_json['aws_attributes'] = aws_attr
         elif self.is_azure():
-            with open(f'{real_path}/../data/azure_cluster{cluster_json_postfix}.json', 'r') as fp:
+            with open(f'{real_path}/../data/azure_cluster{cluster_json_postfix}.json', 'r', encoding="utf-8") as fp:
                 cluster_json = json.loads(fp.read())
         elif self.is_gcp():
-            with open(f'{real_path}/../data/gcp_cluster{cluster_json_postfix}.json', 'r') as fp:
+            with open(f'{real_path}/../data/gcp_cluster{cluster_json_postfix}.json', 'r', encoding="utf-8") as fp:
                 cluster_json = json.loads(fp.read())
         # set the latest spark release regardless of defined cluster json
         # cluster_json['spark_version'] = version['key']
@@ -581,7 +581,7 @@ class ClustersClient(dbclient):
 
         # filter on these items as MVP of the cluster configs
         # https://docs.databricks.com/api/latest/clusters.html#request-structure
-        with open(cluster_log, 'w') as log_fp, open(acl_cluster_log, 'w') as acl_log_fp:
+        with open(cluster_log, 'w', encoding="utf-8") as log_fp, open(acl_cluster_log, 'w', encoding="utf-8") as acl_log_fp:
             for cluster_json in cluster_list:
                 run_properties = set(list(cluster_json.keys())) - self.create_configs
                 for p in run_properties:
@@ -629,7 +629,7 @@ class ClustersClient(dbclient):
         # log all cluster policy definitions
         policy_ids = {}
         policies_list = self.get('/policies/clusters/list').get('policies', [])
-        with open(policies_log, 'w') as fp:
+        with open(policies_log, 'w', encoding="utf-8") as fp:
             for x in policies_list:
                 policy_ids[x.get('policy_id')] = x.get('name')
                 fp.write(json.dumps(x) + '\n')
@@ -643,7 +643,7 @@ class ClustersClient(dbclient):
                                    group.get("display") in self.groups_to_keep]))
 
         # log cluster policy ACLs, which takes a policy id as arguments
-        with open(acl_policies_log, 'w') as acl_fp:
+        with open(acl_policies_log, 'w', encoding="utf-8") as acl_fp:
             for pid in policy_ids:
                 api = f'/preview/permissions/cluster-policies/{pid}'
                 perms = self.get(api)
@@ -665,7 +665,7 @@ class ClustersClient(dbclient):
         pool_log = self.get_export_dir() + log_file
         pools = self.get('/instance-pools/list').get('instance_pools', None)
         if pools:
-            with open(pool_log, "w") as fp:
+            with open(pool_log, "w", encoding="utf-8") as fp:
                 for x in pools:
                     fp.write(json.dumps(x) + '\n')
 
@@ -673,7 +673,7 @@ class ClustersClient(dbclient):
         ip_log = self.get_export_dir() + log_file
         ips = self.get('/instance-profiles/list').get('instance_profiles', None)
         if ips:
-            with open(ip_log, "w") as fp:
+            with open(ip_log, "w", encoding="utf-8") as fp:
                 for x in ips:
                     fp.write(json.dumps(x) + '\n')
 
@@ -701,7 +701,7 @@ class ClustersClient(dbclient):
         :return: cleaned list with automated clusters removed
         """
         clean_cluster_list = []
-        with open(self.get_export_dir() + log_file, 'w') as log_fp:
+        with open(self.get_export_dir() + log_file, 'w', encoding="utf-8") as log_fp:
             for cluster in cluster_list:
                 cluster_name = cluster['cluster_name']
                 if self.is_excluded_cluster(cluster_name):

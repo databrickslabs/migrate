@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import re
 
 from dbclient import *
@@ -12,6 +13,7 @@ from datetime import timedelta
 import logging_utils
 import logging
 import os
+from dbclient.common.WorkspaceDiff import *
 
 WS_LIST = "/workspace/list"
 WS_STATUS = "/workspace/get-status"
@@ -97,7 +99,7 @@ class WorkspaceClient(dbclient):
     @staticmethod
     def build_ws_lookup_table(success_ws_logfile):
         ws_hashmap = set()
-        with open(success_ws_logfile, 'r') as fp:
+        with open(success_ws_logfile, 'r', encoding='utf-8') as fp:
             for line in fp:
                 ws_hashmap.add(line.rstrip())
         return ws_hashmap
@@ -289,7 +291,7 @@ class WorkspaceClient(dbclient):
             wmconstants.WM_IMPORT, wmconstants.WORKSPACE_NOTEBOOK_ACL_OBJECT, self.get_export_dir())
         if os.path.exists(notebook_acl_logs):
             print(f"Importing the notebook acls for {username}")
-            with open(notebook_acl_logs) as nb_acls_fp:
+            with open(notebook_acl_logs, encoding='utf-8') as nb_acls_fp:
                 for nb_acl_str in nb_acls_fp:
                     self.apply_acl_on_object(nb_acl_str, acl_notebooks_error_logger)
 
@@ -298,7 +300,7 @@ class WorkspaceClient(dbclient):
             wmconstants.WM_IMPORT, wmconstants.WORKSPACE_DIRECTORY_ACL_OBJECT, self.get_export_dir())
         if os.path.exists(dir_acl_logs):
             print(f"Importing the directory acls for {username}")
-            with open(dir_acl_logs) as dir_acls_fp:
+            with open(dir_acl_logs, encoding='utf-8') as dir_acls_fp:
                 for dir_acl_str in dir_acls_fp:
                     self.apply_acl_on_object(dir_acl_str, acl_dir_error_logger)
         self.set_export_dir(original_export_dir)
@@ -318,7 +320,7 @@ class WorkspaceClient(dbclient):
         num_notebooks = 0
         if not os.path.exists(ws_log):
             raise Exception("Run --workspace first to download full log of all notebooks.")
-        with open(ws_log, "r") as fp:
+        with open(ws_log, "r", encoding='utf-8') as fp:
             # notebook log metadata file now contains object_id to help w/ ACL exports
             # pull the path from the data to download the individual notebook contents
             with ThreadPoolExecutor(max_workers=num_parallel) as executor:
@@ -357,10 +359,17 @@ class WorkspaceClient(dbclient):
             save_path = export_dir[:-1] + nb_path + '/'
         else:
             save_path = export_dir
-        save_filename = save_path + os.path.basename(notebook_path) + '.' + resp.get('file_type')
+
         # If the local path doesn't exist,we create it before we save the contents
         if not os.path.exists(save_path) and save_path:
             os.makedirs(save_path, exist_ok=True)
+
+        save_filename = save_path + os.path.basename(notebook_path) + '.' + resp.get('file_type')
+        if os.path.isfile(save_filename):
+            logging.warning(f"Notebook file {save_filename} already exists; please rename in source workspace. "
+                            f"Note that files are case-insensitive")
+            return {}
+
         with open(save_filename, "wb") as f:
             f.write(base64.b64decode(resp['content']))
         checkpoint_notebook_set.write(notebook_path)
@@ -565,7 +574,7 @@ class WorkspaceClient(dbclient):
             acl_resp.pop('http_status_code')
             writer.write(json.dumps(acl_resp) + '\n')
 
-        with open(read_log_path, 'r') as read_fp:
+        with open(read_log_path, 'r', encoding='utf-8') as read_fp:
             with ThreadPoolExecutor(max_workers=num_parallel) as executor:
                 futures = [executor.submit(_acl_log_helper, json_data) for json_data in read_fp]
                 concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
@@ -646,13 +655,19 @@ class WorkspaceClient(dbclient):
                     logging.info(f"User workspace does not exist: {obj_path}, skipping ACL")
                     return
             obj_status = self.get(WS_STATUS, {'path': obj_path})
+
+            if self.is_repo(obj_path):
+                if logging_utils.check_error(obj_status):
+                    logging.warning(f"Could not apply ACL to repo {obj_path}")
+                    return
+
             if logging_utils.log_response_error(error_logger, obj_status):
                 return
             logging.info("ws-stat: ", obj_status)
             current_obj_id = obj_status.get('object_id', None)
             if not current_obj_id:
-                error_logger.error(f'Object id missing from destination workspace: {obj_status}')
-                return
+                    error_logger.error(f'Object id missing from destination workspace: {obj_status}')
+                    return
             if object_type == 'directory':
                 object_id_with_type = f'/directories/{current_obj_id}'
             elif object_type == 'notebook':
@@ -693,7 +708,7 @@ class WorkspaceClient(dbclient):
 
         checkpoint_notebook_acl_set = self._checkpoint_service.get_checkpoint_key_set(
             wmconstants.WM_IMPORT, wmconstants.WORKSPACE_NOTEBOOK_ACL_OBJECT)
-        with open(notebook_acl_logs) as nb_acls_fp:
+        with open(notebook_acl_logs, encoding="utf-8") as nb_acls_fp:
             with ThreadPoolExecutor(max_workers=num_parallel) as executor:
                 futures = [executor.submit(self.apply_acl_on_object, nb_acl_str, acl_notebooks_error_logger, checkpoint_notebook_acl_set) for nb_acl_str in nb_acls_fp]
                 concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
@@ -704,7 +719,7 @@ class WorkspaceClient(dbclient):
         checkpoint_dir_acl_set = self._checkpoint_service.get_checkpoint_key_set(
             wmconstants.WM_IMPORT, wmconstants.WORKSPACE_DIRECTORY_ACL_OBJECT)
 
-        with open(dir_acl_logs) as dir_acls_fp:
+        with open(dir_acl_logs, encoding='utf-8') as dir_acls_fp:
             with ThreadPoolExecutor(max_workers=num_parallel) as executor:
                 futures = [executor.submit(self.apply_acl_on_object, dir_acl_str, acl_dir_error_logger, checkpoint_dir_acl_set) for dir_acl_str in dir_acls_fp]
                 concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
@@ -715,7 +730,7 @@ class WorkspaceClient(dbclient):
         checkpoint_repo_acl_set = self._checkpoint_service.get_checkpoint_key_set(
             wmconstants.WM_IMPORT, wmconstants.WORKSPACE_REPO_ACL_OBJECT)
 
-        with open(repo_acl_logs) as repo_acls_fp:
+        with open(repo_acl_logs, encoding='utf-8') as repo_acls_fp:
             with ThreadPoolExecutor(max_workers=num_parallel) as executor:
                 futures = [
                     executor.submit(self.apply_acl_on_object, repo_acl_str, acl_repo_error_logger, checkpoint_repo_acl_set)
@@ -787,7 +802,7 @@ class WorkspaceClient(dbclient):
                     logging_utils.log_response_error(error_logger, resp_upload)
 
     def import_all_workspace_items(self, artifact_dir='artifacts/',
-                                   archive_missing=False, num_parallel=4):
+                                   archive_missing=False, num_parallel=4, last_session=""):
         """
         import all notebooks into a new workspace. Walks the entire artifacts/ directory in parallel, and also
         upload all the files in each of the directories in parallel.
@@ -798,10 +813,20 @@ class WorkspaceClient(dbclient):
         :param artifact_dir: notebook download directory
         :param failed_log: failed import log
         :param archive_missing: whether to put missing users into a /Archive/ top level directory
+        :param last_session: a previous session against which the current session will be compared. Only the changed ahd new notebooks will be imported if last_session is defiined.
         """
         src_dir = self.get_export_dir() + artifact_dir
         error_logger = logging_utils.get_error_logger(wmconstants.WM_IMPORT, wmconstants.WORKSPACE_NOTEBOOK_OBJECT,
                                                       self.get_export_dir())
+        
+        # Given previous exported artifacts, a list of changed and newly added notebooks will be logged at notebook_changes.log
+        changes_since_last = set()
+        if last_session:
+            nb_changes_log = os.path.join(self.get_export_dir(), "notebook_changes.log")
+            base_dir = os.path.split(os.path.normpath(self.get_export_dir()))[0]
+            last_src_dir = os.path.join(base_dir, last_session, artifact_dir)
+            changes_since_last = get_updated_new_files(last_src_dir, src_dir)
+            log_file_changes(changes_since_last, nb_changes_log)
 
         checkpoint_notebook_set = self._checkpoint_service.get_checkpoint_key_set(
             wmconstants.WM_IMPORT, wmconstants.WORKSPACE_NOTEBOOK_OBJECT)
@@ -862,6 +887,12 @@ class WorkspaceClient(dbclient):
                 ws_file_path = upload_dir + f
                 if checkpoint_notebook_set.contains(ws_file_path):
                     return
+                if changes_since_last:
+                    if local_file_path not in changes_since_last:
+                        print(f"Skipping {f} because it has not been changed.")
+                        return
+                    else:
+                        print(f"Importing {f} because it has been changed.")
                 # generate json args with binary data for notebook to upload to the workspace path
                 nb_input_args = self.get_user_import_args(local_file_path, ws_file_path)
                 # call import to the workspace
@@ -901,7 +932,7 @@ class WorkspaceClient(dbclient):
         checkpoint_repo_set = self._checkpoint_service.get_checkpoint_key_set(
             wmconstants.WM_IMPORT, wmconstants.WORKSPACE_REPO_OBJECT)
 
-        with open(dir_repo_logs) as repo_fp:
+        with open(dir_repo_logs, encoding='utf-8') as repo_fp:
             with ThreadPoolExecutor(max_workers=num_parallel) as executor:
                 futures = [
                     executor.submit(self.create_repo, repo_str, repo_error_logger,

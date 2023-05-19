@@ -125,7 +125,11 @@ def build_import_pipeline(client_config, checkpoint_service, args) -> Pipeline:
                                                               -> log_workspace_items -> import_notebooks -> import_workspace_acls
                                                               -> import_metastore -> import_metastore_table_acls
     """
-    skip_tasks = args.skip_tasks
+    # allow skipping/keeping tasks for import in addition to export
+    if args.keep_tasks:
+        skip_tasks = [task for task in wmconstants.TASK_OBJECTS if task not in args.keep_tasks]
+    else:
+        skip_tasks = args.skip_tasks
 
     source_info_file = os.path.join(client_config['export_dir'], "source_info.txt")
     with open(source_info_file, 'r') as f:

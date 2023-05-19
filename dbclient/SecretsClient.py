@@ -7,7 +7,6 @@ import logging_utils
 import logging
 import wmconstants
 
-
 class SecretsClient(ClustersClient):
 
     def get_secret_scopes_list(self):
@@ -52,7 +51,7 @@ class SecretsClient(ClustersClient):
                 continue
             scopes_logfile = scopes_dir + scope_name
             try:
-                with open(scopes_logfile, 'w') as fp:
+                with open(scopes_logfile, 'w', encoding="utf-8") as fp:
                     for secret_json in secrets_list:
                         secret_name = secret_json.get('key')
                         b64_value = self.get_secret_value(scope_name, secret_name, cid, ec_id, error_logger)
@@ -66,12 +65,13 @@ class SecretsClient(ClustersClient):
                 else:
                     raise error
 
+
     def log_all_secrets_acls(self, log_name='secret_scopes_acls.log'):
         acls_file = self.get_export_dir() + log_name
         error_logger = logging_utils.get_error_logger(
             wmconstants.WM_EXPORT, wmconstants.SECRET_OBJECT, self.get_export_dir())
         scopes_list = self.get_secret_scopes_list()
-        with open(acls_file, 'w') as fp:
+        with open(acls_file, 'w', encoding="utf-8") as fp:
             for scope_json in scopes_list:
                 scope_name = scope_json.get('name', None)
                 resp = self.get('/secrets/acls/list', {'scope': scope_name})
@@ -84,8 +84,8 @@ class SecretsClient(ClustersClient):
     def load_acl_dict(self, acls_log_name='secret_scopes_acls.log'):
         acls_log = self.get_export_dir() + acls_log_name
         # create a dict by scope name to lookup and fetch the ACLs easily
-        acls_dict = {}  # d[scope_name] = {'MANAGED' : [list_of_members], 'READ': [list_of_members] .. }
-        with open(acls_log, 'r') as log_fp:
+        acls_dict = {} # d[scope_name] = {'MANAGED' : [list_of_members], 'READ': [list_of_members] .. }
+        with open(acls_log, 'r', encoding="utf-8") as log_fp:
             for acl in log_fp:
                 acl_json = json.loads(acl)
                 s_name = acl_json.get('scope_name')
@@ -99,7 +99,7 @@ class SecretsClient(ClustersClient):
                     else:
                         scope_perms[perm] = [principal]
                 acls_dict[s_name] = scope_perms
-        #        print(json.dumps(acls_dict, indent=True))
+#        print(json.dumps(acls_dict, indent=True))
         return acls_dict
 
     @staticmethod
@@ -171,7 +171,7 @@ class SecretsClient(ClustersClient):
                     else:
                         logging.info("Skipping ACL Updates for {}".format(scope_name))
                     # loop through the scope and create the k/v pairs
-                    with open(file_path, 'r') as fp:
+                with open(file_path, 'r', encoding="utf-8") as fp:
                         for s in fp:
                             s_dict = json.loads(s)
                             k = s_dict.get('name')

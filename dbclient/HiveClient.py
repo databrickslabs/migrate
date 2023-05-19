@@ -1,6 +1,7 @@
 import ast
 import os
 import base64
+import random
 import wmconstants
 import time
 from datetime import timedelta
@@ -19,7 +20,7 @@ class HiveClient(ClustersClient):
 
     @staticmethod
     def is_delta_table(local_path):
-        with open(local_path, 'r') as fp:
+        with open(local_path, 'r', encoding="utf-8") as fp:
             for line in fp:
                 lower_line = line.lower()
                 if lower_line.startswith('using delta'):
@@ -33,7 +34,7 @@ class HiveClient(ClustersClient):
         """
         ddl_statement = []
         parameter_group = []
-        with open(local_path, 'r') as fp:
+        with open(local_path, 'r', encoding="utf-8") as fp:
             for line in fp:
                 raw = line.rstrip()
                 if not raw:
@@ -80,7 +81,7 @@ class HiveClient(ClustersClient):
         ddl_statement = self.get_ddl_by_keyword_group(current_local_ddl_path)
         tmp_ddl_path = self.get_export_dir() + 'tmp_ddl.txt'
         return_tmp_file = False
-        with open(tmp_ddl_path, 'w') as fp:
+        with open(tmp_ddl_path, 'w', encoding="utf-8") as fp:
             for keyword_param in ddl_statement:
                 if keyword_param.startswith('OPTIONS'):
                     return_tmp_file = True
@@ -108,7 +109,7 @@ class HiveClient(ClustersClient):
             # therefore we need to add it to the DDL, e.g. dbfs:/db_path/table_name
             table_path = db_path + '/' + table_name
             location_stmt = f"\nLOCATION '{table_path}'"
-            with open(local_table_path, 'a') as fp:
+            with open(local_table_path, 'a', encoding="utf-8") as fp:
                 fp.write(location_stmt)
             return True
         return False
@@ -132,20 +133,28 @@ class HiveClient(ClustersClient):
         f_size_bytes = os.path.getsize(local_table_path)
         if f_size_bytes > 1024 or has_unicode:
             # upload first to tmp DBFS path and apply
-            dbfs_path = '/tmp/migration/tmp_import_ddl.txt'
+            # generate a random hash since we are multi-threaded and would collide otherwise
+            file_hash = "%032x" % random.getrandbits(128)
+            dbfs_path = f'/tmp/migration/tmp_import_ddl_{file_hash}.txt'
             path_args = {'path': dbfs_path}
             del_resp = self.post('/dbfs/delete', path_args)
             if self.is_verbose():
                 logging.info(del_resp)
-            file_content_json = {'files': open(local_table_path, 'r')}
+            file_content_json = {'files': open(local_table_path, 'r', encoding="utf-8")}
             put_resp = self.post('/dbfs/put', path_args, files_json=file_content_json)
             if self.is_verbose():
                 logging.info(put_resp)
-            spark_big_ddl_cmd = f'with open("/dbfs{dbfs_path}", "r") as fp: tmp_ddl = fp.read(); spark.sql(tmp_ddl)'
+            spark_big_ddl_cmd = f'with open("/dbfs{dbfs_path}", "r", encoding="utf-8") as fp: tmp_ddl = fp.read(); spark.sql(tmp_ddl)'
             ddl_results = self.submit_command(cid, ec_id, spark_big_ddl_cmd)
+
+            # clean up the temp file
+            del_resp = self.post('/dbfs/delete', path_args)
+            if self.is_verbose():
+                logging.info(del_resp)
+
             return ddl_results
         else:
-            with open(local_table_path, "r") as fp:
+            with open(local_table_path, "r", encoding="utf-8") as fp:
                 ddl_statement = fp.read()
                 spark_ddl_statement = self.get_spark_ddl(ddl_statement)
                 ddl_results = self.submit_command(cid, ec_id, spark_ddl_statement)
@@ -155,7 +164,7 @@ class HiveClient(ClustersClient):
         ip_log = self.get_export_dir() + log_file
         ips = self.get('/instance-profiles/list').get('instance_profiles', None)
         if ips:
-            with open(ip_log, "w") as fp:
+            with open(ip_log, "w", encoding="utf-8") as fp:
                 for x in ips:
                     fp.write(json.dumps(x) + '\n')
             return True
@@ -174,7 +183,7 @@ class HiveClient(ClustersClient):
     def get_database_detail_dict(self, db_log='database_details.log'):
         db_logfile = self.get_export_dir() + db_log
         all_db_json = {}
-        with open(db_logfile, 'r') as fp:
+        with open(db_logfile, 'r', encoding="utf-8") as fp:
             for x in fp:
                 db_json = json.loads(x)
                 db_json_keys = db_json.keys()
@@ -255,7 +264,7 @@ class HiveClient(ClustersClient):
         resp = self.set_desc_database_helper(cid, ec_id)
         if self.is_verbose():
             logging.info(resp)
-        with open(database_logfile, 'w') as fp:
+        with open(database_logfile, 'w', encoding="utf-8") as fp:
             db_json = self.get_desc_database_details(db_name, cid, ec_id)
             fp.write(json.dumps(db_json) + '\n')
         os.makedirs(self.get_export_dir() + metastore_dir + db_name, exist_ok=True)
@@ -293,7 +302,7 @@ class HiveClient(ClustersClient):
         resp = self.set_desc_database_helper(cid, ec_id)
         if self.is_verbose():
             logging.info(resp)
-        with open(database_logfile, 'w') as fp:
+        with open(database_logfile, 'w', encoding="utf-8") as fp:
             for db_name in all_dbs:
                 logging.info(f"Fetching details from database: {db_name}")
                 os.makedirs(self.get_export_dir() + metastore_dir + db_name, exist_ok=True)
@@ -322,7 +331,7 @@ class HiveClient(ClustersClient):
             return 0
         else:
             i = 0
-            with open(filename) as fp:
+            with open(filename, encoding="utf-8") as fp:
                 for line in fp:
                     i += 1
             return i
@@ -379,8 +388,9 @@ class HiveClient(ClustersClient):
                 raise ValueError('Missing Database Attributes Log. Re-run metastore export')
             create_db_resp = self.create_database_db(db_name, ec_id, cid, database_attributes)
             if logging_utils.log_response_error(error_logger, create_db_resp):
-                logging.error(f"Failed to create database {db_name} during metastore import. Exiting Import.")
-                return
+                logging.error(f"Failed to create database {db_name} during metastore import. Check "
+                              f"failed_import_metastore.log for more details.")
+                continue
             db_path = database_attributes.get('Location')
             if os.path.isdir(local_db_path):
                 # all databases should be directories, no files at this level
@@ -456,7 +466,7 @@ class HiveClient(ClustersClient):
         batch_size = 100    # batch size to iterate over databases
         num_of_buckets = (num_of_tables // batch_size) + 1     # number of slices of the list to take
 
-        with open(success_log_path, 'a') as sfp:
+        with open(success_log_path, 'a', encoding="utf-8") as sfp:
             for m in range(0, num_of_buckets):
                 tables_slice = 'print(all_tables[{0}:{1}])'.format(batch_size*m, batch_size*(m+1))
                 results = self.submit_command(cid, ec_id, tables_slice)
@@ -514,20 +524,20 @@ class HiveClient(ClustersClient):
             if logging_utils.log_response_error(error_logger, resp):
                 return False
             # save the ddl to the tmp path on dbfs
-            save_ddl_cmd = "with open('/dbfs/tmp/migration/tmp_export_ddl.txt', 'w') as fp: fp.write(ddl_str)"
+            save_ddl_cmd = "with open('/dbfs/tmp/migration/tmp_export_ddl.txt', 'w', encoding='utf-8') as fp: fp.write(ddl_str)"
             save_resp = self.submit_command(cid, ec_id, save_ddl_cmd)
             if logging_utils.log_response_error(error_logger, save_resp):
                 return False
             # read that data using the dbfs rest endpoint which can handle 2MB of text easily
             read_args = {'path': '/tmp/migration/tmp_export_ddl.txt'}
             read_resp = self.get('/dbfs/read', read_args)
-            with open(table_ddl_path, "w") as fp:
+            with open(table_ddl_path, "w", encoding="utf-8") as fp:
                 fp.write(base64.b64decode(read_resp.get('data')).decode('utf-8'))
             return True
         else:
             export_ddl_cmd = 'print(ddl_str)'
             ddl_resp = self.submit_command(cid, ec_id, export_ddl_cmd)
-            with open(table_ddl_path, "w") as fp:
+            with open(table_ddl_path, "w", encoding="utf-8") as fp:
                 fp.write(ddl_resp.get('data'))
             return True
 
@@ -543,11 +553,11 @@ class HiveClient(ClustersClient):
         if do_instance_profile_exist:
             logging.info("Instance profiles exist, retrying export of failed tables with each instance profile")
             err_log_list = []
-            with open(failed_metastore_log_path, 'r') as err_log:
+            with open(failed_metastore_log_path, 'r', encoding="utf-8") as err_log:
                 for table in err_log:
                     err_log_list.append(table)
 
-            with open(success_metastore_log_path, 'a') as sfp:
+            with open(success_metastore_log_path, 'a', encoding="utf-8") as sfp:
                 for iam_role in iam_roles_list:
                     self.edit_cluster(cid, iam_role)
                     ec_id = self.get_execution_context(cid)
@@ -571,7 +581,7 @@ class HiveClient(ClustersClient):
                                                                                            iam_role))
 
                     os.remove(failed_metastore_log_path)
-                    with open(failed_metastore_log_path, 'w') as fm:
+                    with open(failed_metastore_log_path, 'w', encoding="utf-8") as fm:
                         for table in err_log_list:
                             fm.write(table)
                     failed_count_after_retry = self.get_num_of_lines(failed_metastore_log_path)
@@ -584,7 +594,7 @@ class HiveClient(ClustersClient):
         fix_log = self.get_export_dir() + fix_table_log
         db_list = self.listdir(metastore_local_dir)
         num_of_tables = 0
-        with open(fix_log, 'w+') as fp:
+        with open(fix_log, 'w+', encoding="utf-8") as fp:
             for db_name in db_list:
                 local_db_path = metastore_local_dir + db_name
                 if os.path.isdir(local_db_path):
@@ -605,7 +615,7 @@ class HiveClient(ClustersClient):
             dbfs_path = '/tmp/migration/repair_ddl.log'
             logging.info(f"Uploading repair log to DBFS: {dbfs_path}")
             path_args = {'path': dbfs_path, 'overwrite': 'true'}
-            file_content_json = {'files': open(fix_log, 'r')}
+            file_content_json = {'files': open(fix_log, 'r', encoding="utf-8")}
             put_resp = self.post('/dbfs/put', path_args, files_json=file_content_json)
             if self.is_verbose():
                 logging.info(put_resp)
@@ -621,7 +631,7 @@ class HiveClient(ClustersClient):
         if not os.path.exists(repair_table_list):
             logging.info("No tables to repair")
             return
-        with open(repair_table_list, 'r') as fp, open(failed_repair_table_log, 'w') as failed_log_p:
+        with open(repair_table_list, 'r') as fp, open(failed_repair_table_log, 'w', encoding="utf-8") as failed_log_p:
             for line in fp:
                 fqdn_table = line.strip()
                 repair_cmd = f"""spark.sql("MSCK REPAIR TABLE {fqdn_table}")"""
