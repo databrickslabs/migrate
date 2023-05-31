@@ -442,8 +442,8 @@ def build_client_config(profile, url, token, args):
               'skip_failed': args.skip_failed,
               'debug': args.debug,
               'file_format': str(args.notebook_format), 
-              'timeout':args.timeout, 
-              'skip_missing_users':args.skip_missing_users
+              'timeout':args.timeout if 'timeout' in args else 86400,
+              'skip_missing_users':args.skip_missing_users if 'skip_missing_users' in args else True
               }
     # this option only exists during imports so we check for existence
     if 'overwrite_notebooks' in args:

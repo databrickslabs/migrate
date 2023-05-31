@@ -171,7 +171,7 @@ class SecretsClient(ClustersClient):
                     else:
                         logging.info("Skipping ACL Updates for {}".format(scope_name))
                     # loop through the scope and create the k/v pairs
-                with open(file_path, 'r', encoding="utf-8") as fp:
+                    with open(file_path, 'r', encoding="utf-8") as fp:
                         for s in fp:
                             s_dict = json.loads(s)
                             k = s_dict.get('name')
