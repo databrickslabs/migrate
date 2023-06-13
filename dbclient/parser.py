@@ -109,6 +109,14 @@ def get_export_parser():
     parser.add_argument('--secrets', action='store_true',
                         help='log all the secret scopes')
 
+    # get specific secret scope
+    parser.add_argument('--scope-names', type=str, action='store', nargs="+",
+                        help='log only the specified secret scope')
+
+    # Export Secret ACLs
+    parser.add_argument('--skip-scope-acl', action='store_true', default= False,
+                        help='Skip logging the secret ACLs during export')
+
     # get all mlflow experiments
     parser.add_argument('--mlflow-experiments', action='store_true',
                         help='log all the mlflow experiments')
@@ -326,6 +334,14 @@ def get_import_parser():
     parser.add_argument('--secrets', action='store_true',
                         help='Import all secret scopes')
 
+    # import only specific secret scope
+    parser.add_argument('--scope-names', type=str, action='store', nargs="+",
+                        help='import only the specified secret scope')
+
+    # Skip Importing Secret ACLs
+    parser.add_argument('--skip-scope-acl', action='store_true', default= False,
+                        help='Skip importing the secret ACLs during export')
+
     # import all mlflow experiments
     parser.add_argument('--mlflow-experiments', action='store_true',
                         help='Import all the mlflow experiments')
@@ -426,8 +442,8 @@ def build_client_config(profile, url, token, args):
               'skip_failed': args.skip_failed,
               'debug': args.debug,
               'file_format': str(args.notebook_format), 
-              'timeout':args.timeout, 
-              'skip_missing_users':args.skip_missing_users
+              'timeout':args.timeout if 'timeout' in args else 86400,
+              'skip_missing_users':args.skip_missing_users if 'skip_missing_users' in args else True
               }
     # this option only exists during imports so we check for existence
     if 'overwrite_notebooks' in args:
@@ -450,6 +466,7 @@ def build_client_config(profile, url, token, args):
     config['num_parallel'] = args.num_parallel
     config['retry_total'] = args.retry_total
     config['retry_backoff'] = args.retry_backoff
+    config['timeout'] = args.timeout if 'timeout' in args else 86400
     return config
 
 

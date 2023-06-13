@@ -254,6 +254,7 @@ $ python export_db.py --help
 usage: export_db.py [-h] [--users] [--workspace]
                     [--notebook-format {DBC,SOURCE,HTML}] [--download]
                     [--libs] [--clusters] [--jobs] [--metastore] [--secrets]
+                    [--scope-names SCOPE_NAMES [SCOPE_NAMES ...]] [--skip-scope-acl] 
                     [--metastore-unicode] [--cluster-name CLUSTER_NAME]
                     [--database DATABASE] [--iam IAM] [--skip-failed]
                     [--mounts] [--azure] [--profile PROFILE]
@@ -286,6 +287,10 @@ optional arguments:
   --metastore           log all the metastore table definitions
   --metastore-unicode   log all the metastore table definitions including
                         unicode characters
+  --secrets             log all the secret scopes                        
+  --scope-names SCOPE_NAMES [SCOPE_NAMES ...]
+                        log only the specified secret scope
+  --skip-scope-acl      Skip logging the secret ACLs during export                        
   --table-acls          log all table ACL grant and deny statements
   --cluster-name CLUSTER_NAME
                         Cluster name to export the metastore to a specific
@@ -335,6 +340,7 @@ usage: import_db.py [-h] [--users] [--workspace] [--workspace-top-level]
                     [--archive-missing] [--libs] [--clusters] [--jobs]
                     [--metastore] [--metastore-unicode] [--get-repair-log]
                     [--cluster-name CLUSTER_NAME] [--skip-failed] [--azure]
+                    [--secrets] [--scope-names SCOPE_NAMES [SCOPE_NAMES ...]] [--skip-scope-acl]                     
                     [--profile PROFILE] [--single-user SINGLE_USER]
                     [--no-ssl-verification] [--silent] [--debug]
                     [--set-export-dir SET_EXPORT_DIR] [--pause-all-jobs]
@@ -376,6 +382,10 @@ optional arguments:
                         cluster. Cluster will be started.
   --skip-failed         Skip missing users that do not exist when importing
                         user notebooks
+  --secrets             Import all secret scopes
+  --scope-names SCOPE_NAMES [SCOPE_NAMES ...]
+                        import only the specified secret scope
+  --skip-scope-acl      Skip importing the secret ACLs during export                        
   --azure               Run on Azure. (Default is AWS)
   --profile PROFILE     Profile to parse the credentials
   --no-ssl-verification

@@ -6,6 +6,7 @@ from checkpoint_service import CheckpointService
 import logging_utils
 import os
 
+
 # python 3.6
 def main():
     # define a parser to identify what component to import / export
@@ -130,7 +131,7 @@ def main():
         hive_c = HiveClient(client_config, checkpoint_service)
         # log job configs
         hive_c.import_hive_metastore(cluster_name=args.cluster_name, has_unicode=args.metastore_unicode,
-                                    should_repair_table=args.repair_metastore_tables)
+                                     should_repair_table=args.repair_metastore_tables)
         end = timer()
         print("Complete Metastore Import Time: " + str(timedelta(seconds=end - start)))
 
@@ -149,13 +150,15 @@ def main():
         # log table ACLS configs
         notebook_exit_value = table_acls_c.import_table_acls()
         end = timer()
-        print(f'Complete Table ACLs with exit value: {json.dumps(notebook_exit_value)}, Import Time: {timedelta(seconds=end - start)}')
+        print(
+            f'Complete Table ACLs with exit value: {json.dumps(notebook_exit_value)}, Import Time: {timedelta(seconds=end - start)}')
 
     if args.secrets:
         print("Import secret scopes configs at {0}".format(now))
         start = timer()
         sc = SecretsClient(client_config, checkpoint_service)
-        sc.import_all_secrets()
+        scopes = args.scope_names if args.scope_names else []
+        sc.import_all_secrets(secret_scopes=scopes, skip_acl_updates=args.skip_scope_acl)
         end = timer()
         print("Complete Secrets Import Time: " + str(timedelta(seconds=end - start)))
 
@@ -176,7 +179,7 @@ def main():
         jobs_c.pause_all_jobs(False)
         end = timer()
         print("Unpaused all jobs time: " + str(timedelta(seconds=end - start)))
-    
+
     if args.import_pause_status:
         print("Importing pause status for migrated jobs {0}".format(now))
         start = timer()
@@ -185,7 +188,6 @@ def main():
         jobs_c.import_pause_status()
         end = timer()
         print("Import pause jobs time: " + str(timedelta(seconds=end - start)))
-
 
     if args.delete_all_jobs:
         print("Delete all current jobs {0}".format(now))
@@ -254,14 +256,17 @@ def main():
         print("Importing MLflow experiments.")
         mlflow_c = MLFlowClient(client_config, checkpoint_service)
         mlflow_c.import_mlflow_experiments(num_parallel=args.num_parallel)
-        failed_task_log = logging_utils.get_error_log_file(wmconstants.WM_IMPORT, wmconstants.MLFLOW_EXPERIMENT_OBJECT, client_config['export_dir'])
+        failed_task_log = logging_utils.get_error_log_file(wmconstants.WM_IMPORT, wmconstants.MLFLOW_EXPERIMENT_OBJECT,
+                                                           client_config['export_dir'])
         logging_utils.raise_if_failed_task_file_exists(failed_task_log, "MLflow Runs Import.")
 
     if args.mlflow_experiments_permissions:
         print("Importing MLflow experiment permissions.")
         mlflow_c = MLFlowClient(client_config, checkpoint_service)
         mlflow_c.import_mlflow_experiments_acls(num_parallel=args.num_parallel)
-        failed_task_log = logging_utils.get_error_log_file(wmconstants.WM_IMPORT, wmconstants.MLFLOW_EXPERIMENT_PERMISSION_OBJECT, client_config['export_dir'])
+        failed_task_log = logging_utils.get_error_log_file(wmconstants.WM_IMPORT,
+                                                           wmconstants.MLFLOW_EXPERIMENT_PERMISSION_OBJECT,
+                                                           client_config['export_dir'])
         logging_utils.raise_if_failed_task_file_exists(failed_task_log, "MLflow Experiments Permissions Import.")
 
     if args.mlflow_runs:
@@ -269,11 +274,12 @@ def main():
         mlflow_c = MLFlowClient(client_config, checkpoint_service)
         assert args.src_profile is not None, "Import MLflow runs requires --src-profile flag."
         src_login_args = get_login_credentials(profile=args.src_profile)
-        src_client_config = build_client_config(args.src_profile, src_login_args['host'], src_login_args.get('token', login_args.get('password')), args)
+        src_client_config = build_client_config(args.src_profile, src_login_args['host'],
+                                                src_login_args.get('token', login_args.get('password')), args)
         mlflow_c.import_mlflow_runs(src_client_config, num_parallel=args.num_parallel)
-        failed_task_log = logging_utils.get_error_log_file(wmconstants.WM_IMPORT, wmconstants.MLFLOW_RUN_OBJECT, client_config['export_dir'])
+        failed_task_log = logging_utils.get_error_log_file(wmconstants.WM_IMPORT, wmconstants.MLFLOW_RUN_OBJECT,
+                                                           client_config['export_dir'])
         logging_utils.raise_if_failed_task_file_exists(failed_task_log, "MLflow Runs Import.")
-
 
     if args.get_repair_log:
         print("Finding partitioned tables to repair at {0}".format(now))

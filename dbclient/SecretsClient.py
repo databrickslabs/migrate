@@ -31,9 +31,12 @@ class SecretsClient(ClustersClient):
         else:
             return results_get.get('data')
 
-    def log_all_secrets(self, cluster_name=None, log_dir='secret_scopes/'):
+    def secret_scope_map(self, scope_name: str):
+        return {'name': scope_name}
+
+    def log_all_secrets(self, cluster_name=None, log_dir='secret_scopes/', secret_scopes: list = None):
         scopes_dir = self.get_export_dir() + log_dir
-        scopes_list = self.get_secret_scopes_list()
+        scopes_list = map(self.secret_scope_map, secret_scopes) if secret_scopes else self.get_secret_scopes_list()
         error_logger = logging_utils.get_error_logger(
             wmconstants.WM_EXPORT, wmconstants.SECRET_OBJECT, self.get_export_dir())
         os.makedirs(scopes_dir, exist_ok=True)
@@ -130,58 +133,67 @@ class SecretsClient(ClustersClient):
                 scope_perms.pop('MANAGE')
         return scope_perms
 
-    def import_all_secrets(self, log_dir='secret_scopes/'):
+    def import_all_secrets(self, log_dir='secret_scopes/', secret_scopes: list = [], skip_acl_updates: bool = False):
         scopes_dir = self.get_export_dir() + log_dir
         error_logger = logging_utils.get_error_logger(
             wmconstants.WM_IMPORT, wmconstants.SECRET_OBJECT, self.get_export_dir())
-        scopes_acl_dict = self.load_acl_dict()
+        scopes_acl_dict = self.load_acl_dict() if not skip_acl_updates else {}
+        contains_elements = any(secret_scopes)
         for root, subdirs, files in self.walk(scopes_dir):
             for scope_name in files:
-                file_path = root + scope_name
-                # print('Log file: ', file_path)
-                # check if scopes acls are empty, then skip
-                if scopes_acl_dict.get(scope_name, None) is None:
-                    print("Scope is empty with no manage permissions. Skipping...")
-                    continue
-                # check if users has can manage perms then we can add during creation time
-                has_user_manage = self.has_users_can_manage_permission(scope_name, scopes_acl_dict)
-                create_scope_args = {'scope': scope_name}
-                if has_user_manage:
-                    create_scope_args['initial_manage_principal'] = 'users'
-                other_permissions = self.get_all_other_permissions(scope_name, scopes_acl_dict)
-                create_resp = self.post('/secrets/scopes/create', create_scope_args)
-                logging_utils.log_response_error(
-                    error_logger, create_resp, ignore_error_list=['RESOURCE_ALREADY_EXISTS'])
-                if other_permissions:
-                    # use this dict minus the `users:MANAGE` permissions and apply the other permissions to the scope
-                    for perm, principal_list in other_permissions.items():
-                        put_acl_args = {"scope": scope_name,
-                                        "permission": perm}
-                        for x in principal_list:
-                            put_acl_args["principal"] = x
-                            logging.info(put_acl_args)
-                            put_resp = self.post('/secrets/acls/put', put_acl_args)
-                            logging_utils.log_response_error(error_logger, put_resp)
-                # loop through the scope and create the k/v pairs
-                with open(file_path, 'r', encoding="utf-8") as fp:
-                    for s in fp:
-                        s_dict = json.loads(s)
-                        k = s_dict.get('name')
-                        v = s_dict.get('value')
-                        if 'WARNING: skipped' in v:
-                            error_logger.error(f"Skipping scope {scope_name} as value is corrupted due to being too large \n")
+                if (contains_elements and scope_name in secret_scopes) or (not contains_elements):
+                    file_path = root + scope_name
+                    # print('Log file: ', file_path)
+                    if not skip_acl_updates:
+                        # check if scopes acls are empty, then skip
+                        if scopes_acl_dict.get(scope_name, None) is None:
+                            print("Scope is empty with no manage permissions. Skipping...")
                             continue
-                        try:
-                            put_secret_args = {'scope': scope_name,
-                                               'key': k,
-                                               'string_value': base64.b64decode(v.encode('ascii')).decode('ascii')}
-                            put_resp = self.post('/secrets/put', put_secret_args)
-                            logging_utils.log_response_error(error_logger, put_resp)
-                        except Exception as error:
-                            if "Invalid base64-encoded string" in str(error) or 'decode' in str(error) or "padding" in str(error):
-                                error_msg = f"secret_scope: {scope_name} has invalid invalid data characters: {str(error)} skipping.. and logging to error file."
-                                logging.error(error_msg)
-                                error_logger.error(error_msg)
+                        # check if users has can manage perms then we can add during creation time
+                        has_user_manage = self.has_users_can_manage_permission(scope_name, scopes_acl_dict)
+                        create_scope_args = {'scope': scope_name}
+                        if has_user_manage:
+                            create_scope_args['initial_manage_principal'] = 'users'
+                        other_permissions = self.get_all_other_permissions(scope_name, scopes_acl_dict)
+                        create_resp = self.post('/secrets/scopes/create', create_scope_args)
+                        logging_utils.log_response_error(
+                            error_logger, create_resp, ignore_error_list=['RESOURCE_ALREADY_EXISTS'])
+                        if other_permissions:
+                            # use this dict minus the `users:MANAGE` permissions and apply the other permissions to the scope
+                            for perm, principal_list in other_permissions.items():
+                                put_acl_args = {"scope": scope_name,
+                                                "permission": perm}
+                                for x in principal_list:
+                                    put_acl_args["principal"] = x
+                                    logging.info(put_acl_args)
+                                    put_resp = self.post('/secrets/acls/put', put_acl_args)
+                                    logging_utils.log_response_error(error_logger, put_resp)
+                    else:
+                        logging.info("Skipping ACL Updates for {}".format(scope_name))
+                    # loop through the scope and create the k/v pairs
+                    with open(file_path, 'r', encoding="utf-8") as fp:
+                        for s in fp:
+                            s_dict = json.loads(s)
+                            k = s_dict.get('name')
+                            v = s_dict.get('value')
+                            if 'WARNING: skipped' in v:
+                                error_logger.error(
+                                    f"Skipping scope {scope_name} as value is corrupted due to being too large \n")
+                                continue
+                            try:
+                                put_secret_args = {'scope': scope_name,
+                                                   'key': k,
+                                                   'string_value': base64.b64decode(v.encode('ascii')).decode('ascii')}
+                                put_resp = self.post('/secrets/put', put_secret_args)
+                                logging_utils.log_response_error(error_logger, put_resp)
+                            except Exception as error:
+                                if "Invalid base64-encoded string" in str(error) or 'decode' in str(
+                                        error) or "padding" in str(error):
+                                    error_msg = f"secret_scope: {scope_name} has invalid invalid data characters: {str(error)} skipping.. and logging to error file."
+                                    logging.error(error_msg)
+                                    error_logger.error(error_msg)
 
-                            else:
-                                raise error
+                                else:
+                                    raise error
+                else:
+                    logging.info("Skipping import of {}".format(scope_name))
