@@ -10,6 +10,8 @@ import logging
 import logging_utils
 import re
 from dbclient import *
+from collections import defaultdict
+from dbclient.common.ViewSort import create_dependency_graph, sort_views_topology, unpack_view_db_name
 
 
 class HiveClient(ClustersClient):
@@ -361,7 +363,7 @@ class HiveClient(ClustersClient):
         return False
 
     def import_hive_metastore(self, cluster_name=None, metastore_dir='metastore/', views_dir='metastore_views/',
-                              has_unicode=False, should_repair_table=False):
+                              has_unicode=False, should_repair_table=False, sort_views=False):
         metastore_local_dir = self.get_export_dir() + metastore_dir
         metastore_view_dir = self.get_export_dir() + views_dir
         error_logger = logging_utils.get_error_logger(
@@ -413,21 +415,50 @@ class HiveClient(ClustersClient):
                 logging.error("Error: Only databases should exist at this level: {0}".format(db_name))
             self.delete_dir_if_empty(metastore_view_dir + db_name)
         views_db_list = self.listdir(metastore_view_dir)
-        for db_name in views_db_list:
-            local_view_db_path = metastore_view_dir + db_name
-            database_attributes = all_db_details_json.get(db_name, '')
-            db_path = database_attributes.get('Location')
-            if os.path.isdir(local_view_db_path):
-                views = self.listdir(local_view_db_path)
-                for view_name in views:
-                    full_view_name = f'{db_name}.{view_name}'
-                    if not checkpoint_metastore_set.contains(full_view_name):
-                        logging.info(f"Importing view {full_view_name}")
-                        local_view_ddl = metastore_view_dir + db_name + '/' + view_name
-                        resp = self.apply_table_ddl(local_view_ddl, ec_id, cid, db_path, has_unicode)
-                        if logging_utils.log_response_error(error_logger, resp):
-                            checkpoint_metastore_set.write(full_view_name)
-                        logging.info(resp)
+
+        if sort_views:
+            # To sort views, we will scan and get all the views first
+            all_view_set = set()
+            for db_name in views_db_list:
+                local_view_db_path = metastore_view_dir + db_name
+                if os.path.isdir(local_view_db_path):
+                    views = self.listdir(local_view_db_path)
+                    for v in views:
+                        all_view_set.add(f"{db_name}.{v}")
+            logging.info(f"all views: {all_view_set}")
+            # Build dependency graph of the views
+            view_parents_dct = create_dependency_graph(metastore_view_dir, all_view_set)
+            # Sort the views using the dependency graph
+            logging.info(f"view graph: {view_parents_dct}")
+            sorted_views = sort_views_topology(view_parents_dct)
+            logging.info(f"Importing order of views: {sorted_views}")
+            # Import views in the sorted order
+            for full_view_name in sorted_views:
+                if not checkpoint_metastore_set.contains(full_view_name):
+                    logging.info(f"Importing view {full_view_name}")
+                    db_name, view_name = unpack_view_db_name(full_view_name)
+                    local_view_ddl = metastore_view_dir + db_name + '/' + view_name
+                    resp = self.apply_table_ddl(local_view_ddl, ec_id, cid, db_path, has_unicode)
+                    if logging_utils.log_response_error(error_logger, resp):
+                        checkpoint_metastore_set.write(full_view_name)
+                    logging.info(resp)
+                    
+        else:
+            for db_name in views_db_list:
+                local_view_db_path = metastore_view_dir + db_name
+                database_attributes = all_db_details_json.get(db_name, '')
+                db_path = database_attributes.get('Location')
+                if os.path.isdir(local_view_db_path):
+                    views = self.listdir(local_view_db_path)
+                    for view_name in views:
+                        full_view_name = f'{db_name}.{view_name}'
+                        if not checkpoint_metastore_set.contains(full_view_name):
+                            logging.info(f"Importing view {full_view_name}")
+                            local_view_ddl = metastore_view_dir + db_name + '/' + view_name
+                            resp = self.apply_table_ddl(local_view_ddl, ec_id, cid, db_path, has_unicode)
+                            if logging_utils.log_response_error(error_logger, resp):
+                                checkpoint_metastore_set.write(full_view_name)
+                            logging.info(resp)
 
         # repair legacy tables
         if should_repair_table:
