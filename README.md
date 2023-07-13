@@ -262,7 +262,7 @@ usage: export_db.py [-h] [--users] [--workspace]
                     [--workspace-top-level-only] [--silent]
                     [--no-ssl-verification] [--debug] [--reset-exports]
                     [--set-export-dir SET_EXPORT_DIR] [--pause-all-jobs]
-                    [--unpause-all-jobs]
+                    [--unpause-all-jobs] [--skip-large-nb]
                     [--update-account-id UPDATE_ACCOUNT_ID]
                     [--old-account-id OLD_ACCOUNT_ID]
                     [--replace-old-email REPLACE_OLD_EMAIL]
@@ -294,6 +294,8 @@ optional arguments:
                         ACLs. Single database name supported
   --iam IAM             IAM Instance Profile to export metastore entires
   --skip-failed         Skip retries for any failed hive metastore exports.
+  --skip-large-nb       Skip notebooks that exceed the size limit of 10485760 instead
+                        of failing
   --mounts              Log all mount points.
   --azure               Run on Azure. (Default is AWS)
   --profile PROFILE     Profile to parse the credentials

@@ -51,6 +51,9 @@ def build_pipeline(args) -> Pipeline:
     # whether to error on missing principles
     client_config['skip_missing_users'] = args.skip_missing_users
 
+    # whether to skip large notebooks
+    client_config['skip_large_nb'] = args.skip_large_nb
+
     # Need to keep the export_dir as base_dir to find exported data from source and destination.
     client_config['base_dir'] = client_config['export_dir']
     client_config['export_dir'] = os.path.join(client_config['base_dir'], session) + '/'

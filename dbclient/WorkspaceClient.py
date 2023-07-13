@@ -29,6 +29,7 @@ class WorkspaceClient(dbclient):
         self._checkpoint_service = checkpoint_service
         self.groups_to_keep = configs.get("groups_to_keep", False)
         self.skip_missing_users = configs['skip_missing_users']
+        self.skip_large_nb = configs['skip_large_nb']
 
     _languages = {'.py': 'PYTHON',
                   '.scala': 'SCALA',
@@ -350,8 +351,11 @@ class WorkspaceClient(dbclient):
             logging_utils.log_response_error(error_logger, resp)
             return resp
         if resp.get('error_code', None):
-            resp['path'] = notebook_path
-            logging_utils.log_response_error(error_logger, resp)
+            if self.skip_large_nb and resp.message == 'Size exceeds 10485760 bytes':
+                logging.info("Notebook {} skipped due to size exceeding limit".format(notebook_path))
+            else:
+                resp['path'] = notebook_path
+                logging_utils.log_response_error(error_logger, resp)
             return resp
         nb_path = os.path.dirname(notebook_path)
         if nb_path != '/':
