@@ -8,8 +8,10 @@ import wmconstants
 class JobsClient(ClustersClient):
 
     def get_jobs_default_cluster_conf(self):
-        if self.is_aws():
+        if self.is_aws() and not self.hipaa:
             cluster_json_file = 'data/default_jobs_cluster_aws.json'
+        elif self.is_aws() and self.hipaa:
+            cluster_json_file = 'data/default_jobs_cluster_aws_hipaa.json'
         elif self.is_azure():
             cluster_json_file = 'data/default_jobs_cluster_azure.json'
         elif self.is_gcp():

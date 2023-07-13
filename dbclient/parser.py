@@ -577,4 +577,7 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
     parser.add_argument('--skip-large-nb', action='store_true', default=False,
                         help='Skip notebooks larger than 10485760 bytes; these otherwise cause an error')
 
+    parser.add_argument('--hipaa', action='store_true', default=False,
+                        help='User HIPAA-compatible cluster profiles')
+
     return parser

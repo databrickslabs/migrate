@@ -126,7 +126,7 @@ usage: migration_pipeline.py [-h] [--profile PROFILE] [--azure or gcp] [--silent
                              [--repair-metastore-tables] [--metastore-unicode] [--skip-failed] [--session SESSION] [--dry-run] [--export-pipeline] [--import-pipeline]
                              [--validate-pipeline] [--validate-source-session VALIDATE_SOURCE_SESSION] [--validate-destination-session VALIDATE_DESTINATION_SESSION]
                              [--use-checkpoint] [--skip-tasks SKIP_TASKS [SKIP_TASKS ...]] [--num-parallel NUM_PARALLEL] [--retry-total RETRY_TOTAL]
-                             [--retry-backoff RETRY_BACKOFF] [--start-date START_DATE]
+                             [--retry-backoff RETRY_BACKOFF] [--start-date START_DATE] [--hipaa] [--skip-large-nb]
                              [--exclude-work-item-prefixes EXCLUDE_WORK_ITEM_PREFIXES [EXCLUDE_WORK_ITEM_PREFIXES ...]]
 
 Export user(s) workspace artifacts from Databricks
@@ -151,9 +151,11 @@ optional arguments for import/export pipeline:
   --archive-missing     Import all missing users into the top level /Archive/ directory.
   --repair-metastore-tables
                         Repair legacy metastore tables
+  --hipaa               Use HIPAA-compatible cluster profiles
   --metastore-unicode   log all the metastore table definitions including unicode characters
   --skip-failed         Skip retries for any failed hive metastore exports.
   --skip-missing-users  Skip failed principles during ACL import; for missing principles, this will result in open ACLs
+  --skip-large-nb       Skip notebooks that exceed the size limit of 10485760 bytes instead of failing
   --session SESSION     If set, pipeline resumes from latest checkpoint of given session; Otherwise, pipeline starts from beginning and creates a new session.
   --dry-run             Dry run the pipeline i.e. will not execute tasks if true.
   --export-pipeline     Execute all export tasks.
@@ -262,7 +264,7 @@ usage: export_db.py [-h] [--users] [--workspace]
                     [--workspace-top-level-only] [--silent]
                     [--no-ssl-verification] [--debug] [--reset-exports]
                     [--set-export-dir SET_EXPORT_DIR] [--pause-all-jobs]
-                    [--unpause-all-jobs] [--skip-large-nb]
+                    [--unpause-all-jobs]
                     [--update-account-id UPDATE_ACCOUNT_ID]
                     [--old-account-id OLD_ACCOUNT_ID]
                     [--replace-old-email REPLACE_OLD_EMAIL]
@@ -294,8 +296,6 @@ optional arguments:
                         ACLs. Single database name supported
   --iam IAM             IAM Instance Profile to export metastore entires
   --skip-failed         Skip retries for any failed hive metastore exports.
-  --skip-large-nb       Skip notebooks that exceed the size limit of 10485760 instead
-                        of failing
   --mounts              Log all mount points.
   --azure               Run on Azure. (Default is AWS)
   --profile PROFILE     Profile to parse the credentials

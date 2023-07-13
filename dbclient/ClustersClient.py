@@ -13,6 +13,7 @@ class ClustersClient(dbclient):
         self._checkpoint_service = checkpoint_service
         self.groups_to_keep = configs.get("groups_to_keep", False)
         self.skip_missing_users = configs['skip_missing_users']
+        self.hipaa = configs['hipaa']
 
     create_configs = {'num_workers',
                       'autoscale',
@@ -517,7 +518,15 @@ class ClustersClient(dbclient):
         import os
         real_path = os.path.dirname(os.path.realpath(__file__))
 
-        # add _table_acls suffix to cluster config path if enable_table_acls is set
+        # add _table_acls suffix to cluster config path if enable_table_acls is set, add _hipaa if hipaa mode enabled
+        cluster_json_postfix = ''
+        if enable_table_acls and self.hipaa:
+            cluster_json_postfix = '_table_acls_hipaa'
+        elif enable_table_acls:
+            cluster_json_postfix = '_table_acls'
+        elif self.hipaa:
+            cluster_json_postfix = '_hipaa'
+
         cluster_json_postfix = '_table_acls' if enable_table_acls else ''
         if self.is_aws():
             with open(f'{real_path}/../data/aws_cluster{cluster_json_postfix}.json', 'r', encoding="utf-8") as fp:
