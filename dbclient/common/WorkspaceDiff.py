@@ -27,34 +27,14 @@ def get_updated_new_files(dir1: str, dir2: str):
         if os.path.isdir(objpath):
             new_files = get_dir_files(objpath)
             changed_files += new_files
+        else:
+            changed_files.append(objpath)
     for obj in dcmp.common_dirs:
         tmp_files = get_updated_new_files(os.path.join(dir1, obj), os.path.join(dir2, obj))
         changed_files += tmp_files
     
     return set(changed_files)
 
-
-def log_updated_new_files(dir1: str, dir2: str, logfile):
-    """ 
-    Compare old artifacts directory and current artifacts directory 
-    and log all noteboooks that have been updated or newly added to the notebook_changes.log file.
-    :param dir1: old artifacts directory
-    :param dir2: new artifacts directory
-    :param logfile: file pointer of the notebook_changes.log
-    """
-    dcmp = dircmp(dir1, dir2)
-    for file in dcmp.diff_files:
-        logfile.write(os.path.join(dir2, file) + "\n")
-    for obj in dcmp.right_only:
-        objpath = os.path.join(dir2, obj)
-        if os.path.isdir(objpath):
-            new_files = get_dir_files(objpath)
-            logfile.writelines(new_files)
-                
-    for obj in dcmp.common_dirs:
-        log_updated_new_files(os.path.join(dir1, obj), os.path.join(dir2, obj), logfile)
-    
-    return None
 
 def log_file_changes(changes_since_last: Set[str], log_file):
     """
