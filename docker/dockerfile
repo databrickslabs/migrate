@@ -1,0 +1,21 @@
+FROM python:3
+
+# mount the host dir with this file to the container DBX_DIR on container startup
+ENV DBX_DIR=/databricks
+ENV SESSIONS_DIR=${DBX_DIR}/migrate-sessions
+ENV INSTALL_DIR=/opt
+
+RUN mkdir -p ${SESSIONS_DIR}
+
+# install and configure databricks-cli
+RUN pip install --upgrade pip
+RUN pip install --upgrade databricks-cli
+
+# install and init the migrate utility
+RUN cd ${INSTALL_DIR} \
+    && git clone https://github.com/databrickslabs/migrate.git \
+    && cd migrate \
+    && python setup.py install
+
+WORKDIR ${INSTALL_DIR}/migrate
+ENTRYPOINT [ "/bin/bash" ]
