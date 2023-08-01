@@ -1,5 +1,7 @@
 # Databricks Migration Tool
 
+> **NOTE:** For a more extensive and maintained cross-workload migration solution, please use the [Databricks Terraform Exporter](https://registry.terraform.io/providers/databricks/databricks/latest/docs/guides/experimental-exporter), which creates Infrastructure-as-a-Code replicas for the entire manually-configured Databricks Workspaces.
+
 This is a migration package to log all Databricks resources for backup and/or migrating to another Databricks workspace.
 Migration allows a Databricks organization to move resources between Databricks Workspaces,
 to move between different cloud providers, or to move to different regions / accounts.
