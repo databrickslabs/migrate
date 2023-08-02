@@ -439,7 +439,7 @@ class HiveClient(ClustersClient):
                     db_name, view_name = unpack_view_db_name(full_view_name)
                     local_view_ddl = metastore_view_dir + db_name + '/' + view_name
                     resp = self.apply_table_ddl(local_view_ddl, ec_id, cid, db_path, has_unicode)
-                    if logging_utils.log_response_error(error_logger, resp):
+                    if not logging_utils.log_response_error(error_logger, resp):
                         checkpoint_metastore_set.write(full_view_name)
                     logging.info(resp)
                     
@@ -456,7 +456,7 @@ class HiveClient(ClustersClient):
                             logging.info(f"Importing view {full_view_name}")
                             local_view_ddl = metastore_view_dir + db_name + '/' + view_name
                             resp = self.apply_table_ddl(local_view_ddl, ec_id, cid, db_path, has_unicode)
-                            if logging_utils.log_response_error(error_logger, resp):
+                            if not logging_utils.log_response_error(error_logger, resp):
                                 checkpoint_metastore_set.write(full_view_name)
                             logging.info(resp)
 
