@@ -57,6 +57,8 @@ class dbclient:
         self._update_token(configs['token'])
         self._export_dir = configs['export_dir']
         self._is_aws = configs['is_aws']
+        self._is_azure = configs['is_azure']
+        self._is_gcp = configs['is_gcp']
         self._skip_failed = configs['skip_failed']
         self._is_verbose = configs['verbose']
         self._verify_ssl = configs['verify_ssl']
@@ -65,6 +67,7 @@ class dbclient:
         self._local = threading.local()
         self._retry_total = configs['retry_total']
         self._retry_backoff = configs['retry_backoff']
+        self._timeout = configs['timeout']
         if configs['debug']:
             logging.getLogger("urllib3").setLevel(logging.DEBUG)
         if self._verify_ssl:
@@ -83,6 +86,12 @@ class dbclient:
     def is_aws(self):
         return self._is_aws
 
+    def is_azure(self):
+        return self._is_azure
+
+    def is_gcp(self):
+        return self._is_gcp
+
     def is_verbose(self):
         return self._is_verbose
 
@@ -91,6 +100,9 @@ class dbclient:
 
     def get_file_format(self):
         return self._file_format
+
+    def get_timeout(self):
+        return self._timeout
 
     def is_source_file_format(self):
         if self._file_format == 'SOURCE':
@@ -143,7 +155,7 @@ class dbclient:
         for x in range(0, int(timeout / interval)):
             print(f"#{x} Migration paused due to invalid or expired token. Trying to renew...")
             login_args = parser.get_login_credentials(profile=self._profile)
-            token = login_args['token']
+            token = login_args.get('token', login_args.get('password'))
             if token == self._raw_token:
                 print("No new token found. Please renew token by running:\n" +
                       f"$ databricks configure --token --profile {self._profile}\n" +
@@ -190,9 +202,14 @@ class dbclient:
             if self.is_verbose():
                 print("Get: {0}".format(full_endpoint))
             if json_params:
-                raw_results = self.req_session().get(full_endpoint, headers=self._token, params=json_params, verify=self._verify_ssl)
+                raw_results = self.req_session().get(
+                    full_endpoint, headers=self._token, params=json_params, verify=self._verify_ssl,
+                    timeout=self.get_timeout()
+                )
             else:
-                raw_results = self.req_session().get(full_endpoint, headers=self._token, verify=self._verify_ssl)
+                raw_results = self.req_session().get(
+                    full_endpoint, headers=self._token, verify=self._verify_ssl, timeout=self.get_timeout()
+                )
 
             if self._should_retry_with_new_token(raw_results):
                 continue
@@ -220,17 +237,25 @@ class dbclient:
             if json_params:
                 if http_type == 'post':
                     if files_json:
-                        raw_results = self.req_session().post(full_endpoint, headers=self._token,
-                                                    data=json_params, files=files_json, verify=self._verify_ssl)
+                        raw_results = self.req_session().post(
+                            full_endpoint, headers=self._token, data=json_params, files=files_json,
+                            verify=self._verify_ssl, timeout=self.get_timeout()
+                        )
                     else:
-                        raw_results = self.req_session().post(full_endpoint, headers=self._token,
-                                                    json=json_params, verify=self._verify_ssl)
+                        raw_results = self.req_session().post(
+                            full_endpoint, headers=self._token, json=json_params, verify=self._verify_ssl,
+                            timeout=self.get_timeout()
+                        )
                 if http_type == 'put':
-                    raw_results = self.req_session().put(full_endpoint, headers=self._token,
-                                               json=json_params, verify=self._verify_ssl)
+                    raw_results = self.req_session().put(
+                        full_endpoint, headers=self._token, json=json_params, verify=self._verify_ssl,
+                        timeout=self.get_timeout()
+                    )
                 if http_type == 'patch':
-                    raw_results = self.req_session().patch(full_endpoint, headers=self._token,
-                                                 json=json_params, verify=self._verify_ssl)
+                    raw_results = self.req_session().patch(
+                        full_endpoint, headers=self._token, json=json_params, verify=self._verify_ssl,
+                        timeout=self.get_timeout()
+                    )
             else:
                 print("Must have a payload in json_args param.")
                 return {}
@@ -240,9 +265,19 @@ class dbclient:
 
             http_status_code = raw_results.status_code
             if http_status_code in dbclient.http_error_codes:
-                raise Exception("Error: {0} request failed with code {1}\n{2}".format(http_type,
-                                                                                      http_status_code,
-                                                                                      raw_results.text))
+                message = "Error: {0} request failed with code {1}\n{2}".format(
+                    http_type, http_status_code, raw_results.text
+                )
+                if self.is_skip_failed():
+                    logging.error(message)
+                    return {
+                        'http_status_code': raw_results.status_code,
+                        'error': raw_results.text,
+                        'url': full_endpoint,
+                        'json': json_params,
+                    }
+                else:
+                    raise Exception(message)
             results = raw_results.json()
             if logging_utils.check_error(results):
                 logging.warn(json.dumps(results) + '\n')
@@ -309,6 +344,11 @@ class dbclient:
                                   'permission_level': permissions})
                 if permissions == 'IS_OWNER':
                     current_owner = member.get('user_name')
+            elif 'service_principal_name' in member:
+                acls_list.append({'service_principal_name': member.get('service_principal_name'),
+                                  'permission_level': permissions})
+                if permissions == 'IS_OWNER':
+                    current_owner = member.get('service_principal_name')
             else:
                 if member.get('group_name') != 'admins':
                     acls_list.append({'group_name': member.get('group_name'),

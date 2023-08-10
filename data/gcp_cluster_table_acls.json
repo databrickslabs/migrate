@@ -1,0 +1,27 @@
+{
+  "cluster_name": "API_Table_ACL_Work_Leave_Me_Alone",
+  "spark_version": "10.4.x-scala2.12",
+  "spark_conf": {
+    "spark.databricks.cluster.profile": "serverless",
+    "spark.databricks.cluster.profile":"singleNode",
+    "spark.databricks.acl.dfAclsEnabled": "true",
+    "spark.databricks.pyspark.enablePy4JSecurity": "false",
+    "spark.sql.hive.metastore.version": "1.2.1",
+    "spark.sql.hive.metastore.jars": "maven"
+  },
+  "gcp_attributes": {
+    "use_preemptible_executors": false
+  },
+  "node_type_id": "n1-highmem-4",
+  "driver_node_type_id": "n1-highmem-4",
+  "ssh_public_keys": [],
+  "custom_tags": {},
+  "spark_env_vars": {
+    "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
+  },
+  "autotermination_minutes": 15,
+  "enable_elastic_disk": false,
+  "cluster_source": "API",
+  "init_scripts": [],
+  "num_workers": 1
+}

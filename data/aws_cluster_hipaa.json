@@ -1,0 +1,17 @@
+{
+  "num_workers": 1,
+  "cluster_name": "Workspace_Migration_Work_Leave_Me_Alone",
+  "spark_version": "10.4.x-scala2.12",
+  "aws_attributes": {
+      "first_on_demand": 1,
+      "availability": "SPOT_WITH_FALLBACK",
+      "spot_bid_price_percent": 100,
+      "ebs_volume_count": 0
+  },
+  "driver_node_type_id": "i4i.xlarge",
+  "node_type_id": "i4i.xlarge",
+  "spark_env_vars": {
+      "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
+  },
+  "autotermination_minutes": 15
+}

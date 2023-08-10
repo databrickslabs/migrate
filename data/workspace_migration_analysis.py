@@ -32,6 +32,12 @@ class dbclient:
     def is_aws(self):
         return self._is_aws
 
+    def is_azure(self):
+        return self._is_azure
+
+    def is_gcp(self):
+        return self._is_gcp
+
     def is_verbose(self):
         return self._is_verbose
 

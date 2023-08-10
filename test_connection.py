@@ -15,7 +15,7 @@ def main():
 
     # parse the credentials
     url = login_args['host']
-    token = login_args['token']
+    token = login_args.get('token', login_args.get('password'))
     client_config = build_client_config(profile, url, token, args)
 
     print("Test connection at {0} with profile {1}\n".format(url, args.profile))

@@ -12,6 +12,7 @@ class ScimClient(dbclient):
     def __init__(self, configs, checkpoint_service):
         super().__init__(configs)
         self._checkpoint_service = checkpoint_service
+        self.groups_to_keep = configs.get("groups_to_keep", False)
 
     def get_active_users(self):
         users = self.get('/preview/scim/v2/Users').get('Resources', None)
@@ -21,9 +22,16 @@ class ScimClient(dbclient):
         user_log = self.get_export_dir() + log_file
         users = self.get('/preview/scim/v2/Users').get('Resources', None)
         if users:
-            with open(user_log, "w") as fp:
+            with open(user_log, "w", encoding="utf-8") as fp:
                 for x in users:
                     fullname = x.get('name', None)
+
+                    # if a group list has been passed, check to see if current user is part of groups
+                    if self.groups_to_keep:
+                        user_groups = [g['display'] for g in x.get('groups')]
+                        if not set(user_groups).intersection(set(self.groups_to_keep)):
+                            continue
+
                     if fullname:
                         given_name = fullname.get('givenName', None)
                         # if user is an admin, skip this user entry
@@ -42,7 +50,7 @@ class ScimClient(dbclient):
             if user_email == current_email:
                 found_user = True
                 logging.info(user)
-                with open(single_user_log, 'w') as fp:
+                with open(single_user_log, 'w', encoding="utf-8") as fp:
                     fp.write(json.dumps(user) + '\n')
         if not found_user:
             logging.error("User not found. Emails are case sensitive. Please verify email address")
@@ -62,7 +70,7 @@ class ScimClient(dbclient):
         """
         user_logfile = self.get_export_dir() + users_log
         username_list = []
-        with open(user_logfile, 'r') as fp:
+        with open(user_logfile, 'r', encoding="utf-8") as fp:
             for u in fp:
                 user_json = json.loads(u)
                 username_list.append(user_json.get('userName'))
@@ -112,7 +120,13 @@ class ScimClient(dbclient):
         group_list = self.get("/preview/scim/v2/Groups").get('Resources', [])
         for x in group_list:
             group_name = x['displayName']
-            with open(group_dir + group_name, "w") as fp:
+
+            # if groups_to_keep is defined, check to see if current group is a member
+            if self.groups_to_keep:
+                if group_name not in self.groups_to_keep:
+                    continue
+
+            with open(group_dir + group_name, "w", encoding="utf-8") as fp:
                 fp.write(json.dumps(self.add_username_to_group(x)))
 
     @staticmethod
@@ -144,12 +158,12 @@ class ScimClient(dbclient):
                 sub_group_names = list(map(lambda z: z.get('display'), filtered_sub_groups))
                 group_name_list.extend(sub_group_names)
             member_id_list.extend(list(map(lambda y: y['value'], filtered_users)))
-            with open(group_dir + group_name, "w") as fp:
+            with open(group_dir + group_name, "w", encoding="utf-8") as fp:
                 group_details.pop('roles', None)  # removing the roles field from the groups arg
                 fp.write(json.dumps(self.add_username_to_group(group_details)))
         users_log = self.get_export_dir() + users_logfile
         user_names_list = []
-        with open(users_log, 'w') as u_fp:
+        with open(users_log, 'w', encoding="utf-8") as u_fp:
             for mid in member_id_list:
                 logging.info('Exporting', mid)
                 api = f'/preview/scim/v2/Users/{mid}'
@@ -174,7 +188,7 @@ class ScimClient(dbclient):
         # return a dictionary of { old_id : email } from the users log
         users_log = self.get_export_dir() + users_logfile
         email_dict = {}
-        with open(users_log, 'r') as fp:
+        with open(users_log, 'r', encoding="utf-8") as fp:
             for x in fp:
                 user = json.loads(x)
                 email_dict[user['id']] = user['userName']
@@ -208,14 +222,14 @@ class ScimClient(dbclient):
             return
         groups = self.listdir(group_dir)
         for group_name in groups:
-            with open(group_dir + group_name, 'r') as fp:
+            with open(group_dir + group_name, 'r', encoding="utf-8") as fp:
                 group_data = json.loads(fp.read())
                 entitlements = group_data.get('entitlements', None)
                 if entitlements:
                     g_id = group_ids[group_name]
                     update_entitlements = self.assign_entitlements_args(entitlements)
                     up_resp = self.patch(f'/preview/scim/v2/Groups/{g_id}', update_entitlements)
-                    logging_utils.log_reponse_error(error_logger, up_resp)
+                    logging_utils.log_response_error(error_logger, up_resp)
 
     def assign_group_roles(self, group_dir, error_logger):
         # assign group role ACLs, which are only available via SCIM apis
@@ -225,20 +239,20 @@ class ScimClient(dbclient):
             return
         groups = self.listdir(group_dir)
         for group_name in groups:
-            with open(group_dir + group_name, 'r') as fp:
+            with open(group_dir + group_name, 'r', encoding="utf-8") as fp:
                 group_data = json.loads(fp.read())
                 roles = group_data.get('roles', None)
                 if roles:
                     g_id = group_ids[group_name]
                     update_roles = self.assign_roles_args(roles)
                     up_resp = self.patch(f'/preview/scim/v2/Groups/{g_id}', update_roles)
-                    logging_utils.log_reponse_error(error_logger, up_resp)
+                    logging_utils.log_response_error(error_logger, up_resp)
                 entitlements = group_data.get('entitlements', None)
                 if entitlements:
                     g_id = group_ids[group_name]
                     update_entitlements = self.assign_entitlements_args(entitlements)
                     up_resp = self.patch(f'/preview/scim/v2/Groups/{g_id}', update_entitlements)
-                    logging_utils.log_reponse_error(error_logger, up_resp)
+                    logging_utils.log_response_error(error_logger, up_resp)
 
     def get_current_group_ids(self):
         # return a dict of group displayName and id mappings
@@ -275,7 +289,7 @@ class ScimClient(dbclient):
         if not os.path.exists(user_log):
             logging.info("Skipping user entitlement assignment. Logfile does not exist")
             return
-        with open(user_log, 'r') as fp:
+        with open(user_log, 'r', encoding="utf-8") as fp:
             # loop through each user in the file
             for line in fp:
                 user = json.loads(line)
@@ -289,7 +303,7 @@ class ScimClient(dbclient):
                 if user_entitlements:
                     entitlements_args = self.assign_entitlements_args(user_entitlements)
                     update_resp = self.patch(f'/preview/scim/v2/Users/{user_id}', entitlements_args)
-                    logging_utils.log_reponse_error(error_logger, update_resp)
+                    logging_utils.log_response_error(error_logger, update_resp)
 
     def assign_user_roles(self, current_user_ids, error_logger, user_log_file='users.log'):
         """
@@ -308,7 +322,7 @@ class ScimClient(dbclient):
         old_role_keys = ('userName', 'roles')
         cur_role_keys = ('schemas', 'userName', 'entitlements', 'roles', 'groups')
         # get current user id of the new environment, k,v = email, id
-        with open(user_log, 'r') as fp:
+        with open(user_log, 'r', encoding="utf-8") as fp:
             # loop through each user in the file
             for line in fp:
                 user = json.loads(line)
@@ -337,7 +351,7 @@ class ScimClient(dbclient):
                     # get the json to add the roles to the user profile
                     patch_roles = self.add_roles_arg(roles_needed)
                     update_resp = self.patch(f'/preview/scim/v2/Users/{user_id}', patch_roles)
-                    logging_utils.log_reponse_error(error_logger, update_resp)
+                    logging_utils.log_response_error(error_logger, update_resp)
 
     @staticmethod
     def get_member_args(member_id_list):
@@ -395,7 +409,7 @@ class ScimClient(dbclient):
                     "displayName": x
                 }
                 group_resp = self.post('/preview/scim/v2/Groups', create_args)
-                if not logging_utils.log_reponse_error(error_logger, group_resp):
+                if not logging_utils.log_response_error(error_logger, group_resp):
                     checkpoint_groups_set.write(x)
 
         # dict of { group_name : group_id }
@@ -404,7 +418,7 @@ class ScimClient(dbclient):
         # dict of { old_user_id : email }
         old_user_emails = self.get_old_user_emails()
         for group_name in groups:
-            with open(group_dir + group_name, 'r') as fp:
+            with open(group_dir + group_name, 'r', encoding="utf-8") as fp:
                 members = json.loads(fp.read()).get('members', None)
                 logging.info(f"Importing group {group_name} :")
                 if members:
@@ -425,12 +439,35 @@ class ScimClient(dbclient):
                         elif self.is_group(m):
                             this_group_id = current_group_ids.get(m['display'])
                             member_id_list.append(this_group_id)
+                        elif self.is_member_a_service_principal(m):
+                            logging.info(
+                                f"Importing Service Principal - AppId: {m['display']}, userId: {m['value']}")
+                            payload_service_principal = {
+                                "schemas": ["urn:ietf:params:scim:schemas:core:2.0:ServicePrincipal"],
+                                "applicationId": m['display'],
+                                "displayName": m['display'], # you can also change this to SPN AppId - m['display']
+                                "groups": [
+                                    {
+                                        "value": group_name
+                                    }
+                                ],
+                                "entitlements": [
+                                    {
+                                        "value": "allow-cluster-create"
+                                    }
+                                ]
+                            }
+                            add_azure_spns = self.post(
+                                '/preview/scim/v2/ServicePrincipals', payload_service_principal)
+                            logging_utils.log_response_error(
+                                error_logger, add_azure_spns)
                         else:
-                            logging.info("Skipping service principal members and other identities not within users/groups")
+                            logging.info(
+                                "Skipping other identities not within users/service_principal_users/groups")
                     add_members_json = self.get_member_args(member_id_list)
                     group_id = current_group_ids[group_name]
                     add_resp = self.patch('/preview/scim/v2/Groups/{0}'.format(group_id), add_members_json)
-                    logging_utils.log_reponse_error(error_logger, add_resp)
+                    logging_utils.log_response_error(error_logger, add_resp)
 
     def import_users(self, user_log, error_logger, checkpoint_set, num_parallel):
         # first create the user identities with the required fields
@@ -438,13 +475,13 @@ class ScimClient(dbclient):
         if not os.path.exists(user_log):
             logging.info("No users to import.")
             return
-        with open(user_log, 'r') as fp:
+        with open(user_log, 'r', encoding="utf-8") as fp:
             with ThreadPoolExecutor(max_workers=num_parallel) as executor:
                 futures = [executor.submit(self._import_users_helper, user_data, create_keys, checkpoint_set, error_logger) for user_data in fp]
                 concurrent.futures.wait(futures, return_when="FIRST_EXCEPTION")
                 propagate_exceptions(futures)
 
-        with open(self.get_export_dir() + "user_name_to_user_id.log", 'w') as fp:
+        with open(self.get_export_dir() + "user_name_to_user_id.log", 'w', encoding="utf-8") as fp:
             fp.write(json.dumps(self.get_user_id_mapping()))
 
     def _import_users_helper(self, user_data, create_keys, checkpoint_set, error_logger):
@@ -454,13 +491,13 @@ class ScimClient(dbclient):
             logging.info("Creating user: {0}".format(user_name))
             user_create = {k: user[k] for k in create_keys if k in user}
             create_resp = self.post('/preview/scim/v2/Users', user_create)
-            if not logging_utils.log_reponse_error(error_logger, create_resp):
+            if not logging_utils.log_response_error(error_logger, create_resp):
                 checkpoint_set.write(user_name)
 
 
 
     def log_failed_users(self, current_user_ids, user_log, error_logger):
-        with open(user_log, 'r') as fp:
+        with open(user_log, 'r', encoding="utf-8") as fp:
             # loop through each user in the file
             for line in fp:
                 user = json.loads(line)

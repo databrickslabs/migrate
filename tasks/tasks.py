@@ -182,7 +182,9 @@ class NotebookImportTask(AbstractTask):
                 raise ValueError(
                     'Overwrite notebooks only supports the SOURCE format. See Rest API docs for details')
         ws_c.import_all_workspace_items(archive_missing=self.args.archive_missing,
-                                        num_parallel=self.client_config["num_parallel"])
+                                        num_parallel=self.client_config["num_parallel"],
+                                        last_session=self.args.last_session)
+        ws_c.import_all_repos(num_parallel=self.client_config["num_parallel"])
 
 
 class ClustersExportTask(AbstractTask):
@@ -254,7 +256,11 @@ class JobsExportTask(AbstractTask):
 
     def run(self):
         jobs_c = JobsClient(self.client_config, self.checkpoint_service)
-        jobs_c.log_job_configs()
+
+        if self.client_config.get("groups_to_keep"):
+            jobs_c.log_job_configs(groups_list=self.client_config.get("groups_to_keep"))
+        else:
+            jobs_c.log_job_configs()
 
 
 class JobsImportTask(AbstractTask):
@@ -309,7 +315,8 @@ class MetastoreImportTask(AbstractTask):
         # log job configs
         hive_c.import_hive_metastore(cluster_name=self.args.cluster_name,
                                      has_unicode=self.args.metastore_unicode,
-                                     should_repair_table=self.args.repair_metastore_tables)
+                                     should_repair_table=self.args.repair_metastore_tables,
+                                     sort_views = self.args.sort_views)
 
 
 class MetastoreTableACLExportTask(AbstractTask):
@@ -424,8 +431,8 @@ def diff_files(source, destination, config):
 
 
 class DiffTask(AbstractTask):
-    def __init__(self, name, source, destination, config=None):
-        super().__init__(name, wmconstants.WM_VALIDATE, name, skip=False)
+    def __init__(self, name, source, destination, config=None, skip=False):
+        super().__init__(name, wmconstants.WM_VALIDATE, name, skip)
         self.source = source
         self.destination = destination
         self.config = config
@@ -436,8 +443,8 @@ class DiffTask(AbstractTask):
 
 
 class DirDiffTask(AbstractTask):
-    def __init__(self, name, source, destination, config, suffix=None):
-        super().__init__(name, wmconstants.WM_VALIDATE, name, skip=False)
+    def __init__(self, name, source, destination, config, suffix=None, skip=False):
+        super().__init__(name, wmconstants.WM_VALIDATE, name, skip)
         self.source = source
         self.destination = destination
         self.config = config

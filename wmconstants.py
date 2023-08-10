@@ -6,19 +6,24 @@ WORKSPACE_ITEM_LOG_OBJECT = "workspace_item_log"
 WORKSPACE_NOTEBOOK_PATH_OBJECT = "notebook_paths"
 WORKSPACE_NOTEBOOK_OBJECT = "notebooks"
 WORKSPACE_DIRECTORY_OBJECT = "directories"
+WORKSPACE_REPO_OBJECT = "repos"
 WORKSPACE_NOTEBOOK_ACL_OBJECT = "acl_notebooks"
 WORKSPACE_DIRECTORY_ACL_OBJECT = "acl_directories"
+WORKSPACE_REPO_ACL_OBJECT = "acl_repos"
 METASTORE_TABLES = "metastore"
 METASTORE_TABLES_ACL = "metastore_acl"
 CLUSTER_OBJECT = "clusters"
 INSTANCE_POOL_OBJECT = "instance_pools"
 JOB_OBJECT = "jobs"
+JOB_ACL_OBJECT = "acl_jobs"
 SECRET_OBJECT = "secrets"
 MLFLOW_EXPERIMENT_OBJECT = "mlflow_experiments"
 MLFLOW_EXPERIMENT_PERMISSION_OBJECT = "mlflow_experiments_permissions"
 MLFLOW_RUN_OBJECT = "mlflow_runs"
+
 # Migration pipeline placeholder constants
 MIGRATION_PIPELINE_OBJECT_TYPE = "tasks"
+IGNORE_ERROR_LIST = ['RESOURCE_ALREADY_EXISTS', 'FEATURE_DISABLED']
 
 # Actions
 WM_EXPORT = "export"

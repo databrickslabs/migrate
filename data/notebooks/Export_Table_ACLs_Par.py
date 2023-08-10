@@ -71,11 +71,19 @@ if not dbutils.widgets.get("OutputPath").startswith("dbfs:/"):
 
 # COMMAND ----------
 
+# DBTITLE 1,Params
+WRITE_TABLES_PER_BATCH = 100
+MAX_WORKERS = 8
+
+# COMMAND ----------
+
 # DBTITLE 1,Define Export Logic
 import pyspark.sql.functions as sf
 from typing import Callable, Iterator, Union, Optional, List
 import datetime
 import sys
+from functools import reduce
+from pyspark.sql import DataFrame
 
 def create_error_grants_df(sys_exec_info_res, database_name: str,object_type: str, object_key: str):
   msg_context = f"context: database_name: {database_name}, object_type: {object_type}, object_key: {object_key}"
@@ -113,13 +121,32 @@ def get_database_names():
       database_names.append(db.namespace)
   return database_names
 
+def write_grants_df(df, output_path, writeMode="append"):
+  try:
+    (
+      df
+     .selectExpr("Database","Principal","ActionTypes","ObjectType","ObjectKey","ExportTimestamp")
+     .sort("Database","Principal","ObjectType","ObjectKey")
+     .write
+     .format("delta")
+     .mode(writeMode)
+     .save(output_path)
+    )
+  except Exception as ex:
+    print(ex)
+
+def write_grants_dfs(dfs, output_path, writeMode="append"):
+  union_df = reduce(DataFrame.unionAll, dfs)
+  write_grants_df(union_df, output_path, writeMode)
+  write_dfs = []  
+  
 def create_grants_df(database_name: str,object_type: str, object_key: str):
   try:
     if object_type in ["CATALOG", "ANY FILE", "ANONYMOUS FUNCTION"]: #without object key
        grants_df = (
          spark.sql(f"SHOW GRANT ON {object_type}")
          .groupBy("ObjectType","ObjectKey","Principal").agg(sf.collect_set("ActionType").alias("ActionTypes"))
-         .selectExpr("NULL AS Database","Principal","ActionTypes","ObjectType","ObjectKey","Now() AS ExportTimestamp")
+         .selectExpr("CAST(NULL AS STRING) AS Database","Principal","ActionTypes","ObjectType","ObjectKey","Now() AS ExportTimestamp")
        )
     else: 
       grants_df = (
@@ -134,33 +161,43 @@ def create_grants_df(database_name: str,object_type: str, object_key: str):
   return grants_df
   
 
-def create_table_ACLSs_df_for_databases(database_names: List[str], include_catalog: bool):
+def create_table_ACLSs_df_for_databases(database_names: List[str]):
+  
+  # TODO check Catalog heuristic:
+  #  if all databases are exported, we include the Catalog grants as well
+  #. if only a few databases are exported: we exclude the Catalog
+#   if database_names is None or database_names == '':
+#     database_names = get_database_names()
+#     include_catalog = True
+#   else:
+#     include_catalog = False
+    
   num_databases_processed = len(database_names)
   num_tables_or_views_processed = 0
 
-  # ANONYMOUS FUNCTION
-  combined_grant_dfs = create_grants_df(None, "ANONYMOUS FUNCTION", None)
+#   # ANONYMOUS FUNCTION
+#   combined_grant_dfs = create_grants_df(None, "ANONYMOUS FUNCTION", None)
   
-  # ANY FILE
-  combined_grant_dfs = combined_grant_dfs.unionAll(
-    create_grants_df(None, "ANY FILE", None)
-  )
+#   # ANY FILE
+#   combined_grant_dfs = combined_grant_dfs.unionAll(
+#     create_grants_df(None, "ANY FILE", None)
+#   )
   
-  # CATALOG
-  if include_catalog:
-    combined_grant_dfs = combined_grant_dfs.unionAll(
-      create_grants_df(None, "CATALOG", None)
-    )
+#   # CATALOG
+#   if include_catalog:
+#     combined_grant_dfs = combined_grant_dfs.unionAll(
+#       create_grants_df(None, "CATALOG", None)
+#     )
   #TODO ELSE: consider pushing catalog grants down to DB level in this case
-  
   for database_name in database_names:
-    
+    print(f"processing database {database_name}")
     # DATABASE
-    combined_grant_dfs = combined_grant_dfs.unionAll(
-      create_grants_df(database_name, "DATABASE", database_name)
-    )
-    
+    grant_df = create_grants_df(database_name, "DATABASE", database_name)
+    print("writing out grant_df")
+    write_grants_df(grant_df, output_path)
+    print("finish writing")
     try:
+      print("getting tables")
       tables_and_views_rows = spark.sql(
         f"SHOW TABLES IN {database_name}"
       ).filter(sf.col("isTemporary") == False).collect()
@@ -168,92 +205,102 @@ def create_table_ACLSs_df_for_databases(database_names: List[str], include_catal
       print(f"{datetime.datetime.now()} working on database {database_name} with {len(tables_and_views_rows)} tables and views")
       num_tables_or_views_processed = num_tables_or_views_processed + len(tables_and_views_rows)
      
+      write_dfs = []
       for table_row in tables_and_views_rows:
-
         # TABLE, VIEW
-        combined_grant_dfs = combined_grant_dfs.unionAll(
-          create_grants_df(database_name, "TABLE", f"{table_row.database}.{table_row.tableName}")
-        )
+        write_dfs.append(create_grants_df(database_name, "TABLE", f"{table_row.database}.{table_row.tableName}"))
+        if len(write_dfs) == WRITE_TABLES_PER_BATCH:
+          print("writing out write_dfs")
+          write_grants_dfs(write_dfs, output_path)
+          write_dfs = []
+      if write_dfs:
+        print("Flush out what's left in write_dfs.")
+        write_grants_dfs(write_dfs, output_path)
+        write_dfs = []
+        
     except:  
       # error in SHOW TABLES IN database_name, errors in create_grants_df have already been catched
-      combined_grant_dfs = combined_grant_dfs.unionAll(
-        create_error_grants_df(sys.exc_info(), database_name ,"DATABASE", database_name)
-      )
-      
+      error_df = create_error_grants_df(sys.exc_info(), database_name ,"DATABASE", database_name)
+      write_grants_df(error_df, output_path)
      
     #TODO ADD USER FUNCTION - not supported in SQL Analytics, so this can wait a bit
     # ... SHOW USER FUNCTIONS LIKE  <my db>.`*`;
     #. function_row['function']   ... nah does not seem to work
           
-  return combined_grant_dfs, num_databases_processed, num_tables_or_views_processed
+  return num_databases_processed, num_tables_or_views_processed
 
+
+# COMMAND ----------
+
+output_path = dbutils.widgets.get("OutputPath")
 
 # COMMAND ----------
 
 # DBTITLE 1,Run Export
-def chunks(lst, n):
-  """Yield successive n-sized chunks from lst."""
-  for i in range(0, len(lst), n):
-    yield lst[i:i + n]
-
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import as_completed
+import os, fnmatch, shutil
 
 databases_raw = dbutils.widgets.get("Databases")
-output_path = dbutils.widgets.get("OutputPath")
 
+def process_db(db: str, writeMode: str):
+  print(f"processing db {db} with mode {writeMode}")
+  num_databases_processed, num_tables_or_views_processed = create_table_ACLSs_df_for_databases([db])
+  print(f"{datetime.datetime.now()} total number processed: databases: {num_databases_processed}, tables or views: {num_tables_or_views_processed}")
+
+
+def append_db_acls(db: str):
+  process_db(db, "append")  
+  
 if databases_raw.rstrip() == '':
-  # TODO check Catalog heuristic:
-  #  if all databases are exported, we include the Catalog grants as well
   databases = get_database_names()
   include_catalog = True
   print(f"Exporting all databases")
 else:
-  #. if only a few databases are exported: we exclude the Catalog
   databases = [x.rstrip().lstrip() for x in databases_raw.split(",")]
   include_catalog = False
   print(f"Exporting the following databases: {databases}")
 
-counter = 1
-for databases_chunks in chunks(databases, 1):
-  table_ACLs_df, num_databases_processed, num_tables_or_views_processed = create_table_ACLSs_df_for_databases(
-    databases_chunks, include_catalog
-  )
 
-  print(
-    f"{datetime.datetime.now()} total number processed chunk {counter}: databases: {num_databases_processed}, tables or views: {num_tables_or_views_processed}")
-  print(f"{datetime.datetime.now()} writing table ACLs to {output_path}")
 
-  # with table ACLS active, I direct write to DBFS is not allowed, so we store
-  # the dateframe as a table for single zipped JSON file sorted, for consitent file diffs
-  (
-    table_ACLs_df
-      # .coalesce(1)
-      .selectExpr("Database", "Principal", "ActionTypes", "ObjectType", "ObjectKey", "ExportTimestamp")
-      # .sort("Database","Principal","ObjectType","ObjectKey")
-      .write
-      .format("JSON")
-      .option("compression", "gzip")
-      .mode("append" if counter > 1 else "overwrite")
-      .save(output_path)
-  )
+# ANONYMOUS FUNCTION
+combined_grant_dfs = create_grants_df(None, "ANONYMOUS FUNCTION", None)
+  
+# ANY FILE
+combined_grant_dfs = combined_grant_dfs.unionAll(
+  create_grants_df(None, "ANY FILE", None)
+)
+  
+# CATALOG
+if include_catalog:
+  combined_grant_dfs = combined_grant_dfs.unionAll(
+    create_grants_df(None, "CATALOG", None)
+  )  
 
-  counter += 1
-  include_catalog = False
+write_grants_df(combined_grant_dfs, output_path, "overwrite")
 
+with ThreadPoolExecutor(max_workers = MAX_WORKERS) as executor:
+  results = executor.map(append_db_acls, databases)
+print(results)
+
+# print(f"{datetime.datetime.now()} total number processed: databases: {total_databases_processed}, tables or views: {total_tables_processed}")
+print(f"{datetime.datetime.now()} writing table ACLs to {output_path}")
+
+# COMMAND ----------
+
+# DBTITLE 1,Optimize the output data
+spark.sql(f"optimize delta.`{output_path}`")
 
 # COMMAND ----------
 
 # DBTITLE 1,Exported Table ACLs
-display(spark.read.format("json").load(output_path)) 
-
-# COMMAND ----------
-
-print(output_path)
+display(spark.read.format("delta").load(output_path)) 
 
 # COMMAND ----------
 
 # DBTITLE 1,Write total_num_acls and num_errors to the notebook exit value
 totals_df = (spark.read
-      .format("JSON")
+      .format("delta")
       .load(output_path)
       .selectExpr(
          "sum(1) AS total_num_acls"
@@ -267,10 +314,6 @@ exit_JSON_string = '{ "total_num_acls": '+str(res_rows[0]["total_num_acls"])+', 
 print(exit_JSON_string)
 
 dbutils.notebook.exit(exit_JSON_string) 
-
-# COMMAND ----------
-
-
 
 # COMMAND ----------
 

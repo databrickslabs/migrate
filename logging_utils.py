@@ -1,12 +1,14 @@
 import logging
 import json
 import os
+import re
+import wmconstants
 
 
 def set_default_logging(parent_dir, level=logging.INFO):
     os.makedirs(_get_log_dir(parent_dir), exist_ok=True)
     log_file = f"{_get_log_dir(parent_dir)}/wm_logs.log"
-    all_log_handler = logging.FileHandler(log_file)
+    all_log_handler = logging.FileHandler(log_file, encoding='utf-8')
     console_handler = logging.StreamHandler()
 
     logging.basicConfig(format="%(asctime)s;%(levelname)s;%(message)s",
@@ -38,18 +40,17 @@ def get_error_log_file(action_type, object_type, parent_dir):
 def _get_log_dir(parent_dir):
     return parent_dir + "/app_logs"
 
-default_ignore_error_list=[
-    'RESOURCE_ALREADY_EXISTS'
-]
 
-
-def log_reponse_error(error_logger,
-                      response,
-                      error_msg=None,
-                      ignore_error_list=default_ignore_error_list):
+def log_response_error(error_logger,
+                       response,
+                       error_msg=None,
+                       ignore_error_list=None):
     """
     Logs errors based on the response. Usually used when the response is the http response.
     """
+    if ignore_error_list is None:
+        ignore_error_list = wmconstants.IGNORE_ERROR_LIST
+
     if check_error(response, ignore_error_list):
         if error_msg:
             error_logger.error(error_msg)
@@ -60,15 +61,24 @@ def log_reponse_error(error_logger,
         return False
 
 
-def check_error(response, ignore_error_list=default_ignore_error_list):
+def check_error(response, ignore_error_list=None):
+    if ignore_error_list is None:
+        ignore_error_list = wmconstants.IGNORE_ERROR_LIST
+
     if type(response) is list:
         for resp in response:
-            if (_check_error_helper(resp, ignore_error_list)): return True
+            if _check_error_helper(resp, ignore_error_list):
+                return True
         return False
     else:
         return _check_error_helper(response, ignore_error_list)
 
+
 def _check_error_helper(response, ignore_error_list):
+    # suppress cluster warning for already-running clusters
+    if re.match("Cluster .*? is in unexpected state (Running|Pending)\\.", response.get("message", "")):
+        return False
+
     return ('error_code' in response and response['error_code'] not in ignore_error_list) \
             or ('error' in response and response['error'] not in ignore_error_list) \
             or (response.get('resultType', None) == 'error' and 'already exists' not in response.get('summary', None))

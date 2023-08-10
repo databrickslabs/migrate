@@ -18,13 +18,16 @@ def main():
 
     # parse the path location of the Databricks CLI configuration
     login_args = get_login_credentials(profile=args.profile)
-    if is_azure_creds(login_args) and (not args.azure):
+    if is_azure_creds(login_args) and (not args.azure) :
         raise ValueError('Login credentials do not match args. Please provide --azure flag for azure envs.')
+
+    if is_gcp_creds(login_args) and (not args.gcp) :
+        raise ValueError('Login credentials do not match args. Please provide --gcp flag for gcp envs.')
 
     # cant use netrc credentials because requests module tries to load the credentials into http basic auth headers
     # parse the credentials
     url = login_args['host']
-    token = login_args['token']
+    token = login_args.get('token', login_args.get('password'))
     client_config = build_client_config(args.profile, url, token, args)
     session = args.session if args.session else ""
     client_config['session'] = session
@@ -93,7 +96,7 @@ def main():
 
     if args.libs:
         if not client_config['is_aws']:
-            print("Databricks does not support library exports on Azure today")
+            print("Databricks does not support library exports on Azure or GCP today")
         else:
             print("Starting complete library log at {0}".format(now))
             lib_c = LibraryClient(client_config)
@@ -341,4 +344,5 @@ def main():
 
 
 if __name__ == '__main__':
+    print("Note: running export_db.py directly is not recommended. Please use migration_pipeline.py")
     main()

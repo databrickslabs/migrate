@@ -27,21 +27,43 @@ def build_pipeline(args) -> Pipeline:
         client_config = parser.build_client_config_without_profile(args)
     else:
         login_args = parser.get_login_credentials(profile=args.profile)
+
         if parser.is_azure_creds(login_args) and (not args.azure):
             raise ValueError(
                 'Login credentials do not match args. Please provide --azure flag for azure envs.')
 
+        if parser.is_gcp_creds(login_args) and (not args.gcp):
+            raise ValueError(
+                'Login credentials do not match args. Please provide --gcp flag for gcp envs.')
+
         # Cant use netrc credentials because requests module tries to load the credentials into http
         # basic auth headers parse the credentials
         url = login_args['host']
-        token = login_args['token']
+        token = login_args.get('token', login_args.get('password'))
         client_config = parser.build_client_config(args.profile, url, token, args)
 
     client_config['session'] = session
+    client_config['no_prompt'] = args.no_prompt
+
+    # list of groups to keep, if empty keep all
+    client_config['groups_to_keep'] = args.groups_to_keep
+
+    # whether to error on missing principles
+    client_config['skip_missing_users'] = args.skip_missing_users
+
+    # whether to skip large notebooks
+    client_config['skip_large_nb'] = args.skip_large_nb
+
+    # enable hipaa-compatible clusters
+    client_config['hipaa'] = args.hipaa
 
     # Need to keep the export_dir as base_dir to find exported data from source and destination.
     client_config['base_dir'] = client_config['export_dir']
     client_config['export_dir'] = os.path.join(client_config['base_dir'], session) + '/'
+
+    client_config['verbose'] = args.verbose
+
+    client_config['timeout'] = args.timeout
 
     if not args.dry_run:
         os.makedirs(client_config['export_dir'], exist_ok=True)
@@ -70,7 +92,10 @@ def build_export_pipeline(client_config, checkpoint_service, args) -> Pipeline:
                                                               -> export_notebooks
                                                               -> export_metastore -> export_metastore_table_acls
     """
-    skip_tasks = args.skip_tasks
+    if args.keep_tasks:
+        skip_tasks = [task for task in wmconstants.TASK_OBJECTS if task not in args.keep_tasks]
+    else:
+        skip_tasks = args.skip_tasks
 
     source_info_file = os.path.join(client_config['export_dir'], "source_info.txt")
     with open(source_info_file, 'w') as f:
@@ -106,14 +131,20 @@ def build_import_pipeline(client_config, checkpoint_service, args) -> Pipeline:
                                                               -> log_workspace_items -> import_notebooks -> import_workspace_acls
                                                               -> import_metastore -> import_metastore_table_acls
     """
-    skip_tasks = args.skip_tasks
+    # allow skipping/keeping tasks for import in addition to export
+    if args.keep_tasks:
+        skip_tasks = [task for task in wmconstants.TASK_OBJECTS if task not in args.keep_tasks]
+    else:
+        skip_tasks = args.skip_tasks
 
     source_info_file = os.path.join(client_config['export_dir'], "source_info.txt")
     with open(source_info_file, 'r') as f:
         source_url = f.readline()
-        confirm = input(f"Import from `{source_url}` into `{client_config['url']}`? (y/N) ")
-        if confirm.lower() not in ["y", "yes"]:
-            raise RuntimeError("User aborted import pipeline. Exiting..")
+
+        if not client_config.get("no_prompt", None):
+            confirm = input(f"Import from `{source_url}` into `{client_config['url']}`? (y/N) ")
+            if confirm.lower() not in ["y", "yes"]:
+                raise RuntimeError("User aborted import pipeline. Exiting..")
 
     completed_pipeline_steps = checkpoint_service.get_checkpoint_key_set(
         wmconstants.WM_IMPORT, wmconstants.MIGRATION_PIPELINE_OBJECT_TYPE)
@@ -143,21 +174,29 @@ def build_validate_pipeline(client_config, checkpoint_service, args):
     init_diff_logger(client_config['export_dir'])
     pipeline = Pipeline(client_config['export_dir'], completed_pipeline_steps, args.dry_run)
 
-    def add_diff_task(name, file_path, config, parents=None):
+    def add_diff_task(name, file_path, config, parents=None, skip=False):
         source_file = os.path.join(source_dir, file_path)
         destination_file = os.path.join(destination_dir, file_path)
-        return pipeline.add_task(DiffTask(name, source_file, destination_file, config), parents)
+        return pipeline.add_task(DiffTask(name, source_file, destination_file, config, skip), parents)
 
-    def add_dir_diff_task(name, dir_path, config, suffix=None, parents=None):
+    def add_dir_diff_task(name, dir_path, config, suffix=None, parents=None, skip=False):
         source = os.path.join(source_dir, dir_path)
         destination = os.path.join(destination_dir, dir_path)
-        return pipeline.add_task(DirDiffTask(name, source, destination, config, suffix), parents)
+        return pipeline.add_task(DirDiffTask(name, source, destination, config, suffix, skip), parents)
+
+    # allow skipping/keeping tasks for validation in addition to import/export
+    if args.keep_tasks:
+        skip_tasks = [task for task in wmconstants.TASK_OBJECTS if task not in args.keep_tasks]
+    else:
+        skip_tasks = args.skip_tasks
 
     # InstanceProfileExportTask
     add_diff_task(
         "validate-instance_profile", "instance_profiles.log",
         DiffConfig(primary_key='instance_profile_arn'),
+        skip=(wmconstants.INSTANCE_PROFILES in skip_tasks)
     )
+
     # UserExportTask
     add_diff_task(
         "validate-users", "users.log",
@@ -179,7 +218,9 @@ def build_validate_pipeline(client_config, checkpoint_service, args):
                     primary_key="value",
                 ),
             }),
+        skip=(wmconstants.USERS in skip_tasks)
     )
+
     # GroupExportTask
     add_dir_diff_task("validate-groups", "groups", DiffConfig(
         primary_key='displayName',
@@ -199,12 +240,14 @@ def build_validate_pipeline(client_config, checkpoint_service, args):
             "entitlements": DiffConfig(
                 primary_key="value",
             ),
-        }))
+        }), skip=(wmconstants.GROUPS in skip_tasks))
+    
     # WorkspaceItemLogExportTask
     workspace_item_config = DiffConfig(primary_key='path', ignored_keys={'object_id'})
-    add_diff_task("validate-user_dirs", "user_dirs.log", workspace_item_config)
-    add_diff_task("validate-user_workspace", "user_workspace.log", workspace_item_config)
-    add_diff_task("validate-libraries", "libraries.log", workspace_item_config)
+    add_diff_task("validate-user_dirs", "user_dirs.log", workspace_item_config, skip=(wmconstants.WORKSPACE_ITEM_LOG in skip_tasks))
+    add_diff_task("validate-user_workspace", "user_workspace.log", workspace_item_config, skip=(wmconstants.WORKSPACE_ITEM_LOG in skip_tasks))
+    add_diff_task("validate-libraries", "libraries.log", workspace_item_config, skip=(wmconstants.WORKSPACE_ITEM_LOG in skip_tasks))
+    
     # WorkspaceACLExportTask
     acl_config = DiffConfig(
         primary_key='path',
@@ -221,10 +264,10 @@ def build_validate_pipeline(client_config, checkpoint_service, args):
             )
         }
     )
-    add_diff_task("validate-acl_notebooks", "acl_notebooks.log", acl_config)
-    add_diff_task("validate-acl_directories", "acl_directories.log", acl_config)
+    add_diff_task("validate-acl_notebooks", "acl_notebooks.log", acl_config, skip=(wmconstants.WORKSPACE_ACLS in skip_tasks))
+    add_diff_task("validate-acl_directories", "acl_directories.log", acl_config, skip=(wmconstants.WORKSPACE_ACLS in skip_tasks))
     # SecretExportTask
-    add_dir_diff_task("validate-secrets_scopes", "secret_scopes", DiffConfig(primary_key='name'))
+    add_dir_diff_task("validate-secrets_scopes", "secret_scopes", DiffConfig(primary_key='name'), skip=(wmconstants.SECRETS in skip_tasks))
     add_diff_task("validate-secret_scopes_acls", "secret_scopes_acls.log", DiffConfig(
         primary_key='scope_name',
         children={
@@ -232,21 +275,25 @@ def build_validate_pipeline(client_config, checkpoint_service, args):
                 primary_key='principal'
             )
         }
-    ))
+    ), skip=(wmconstants.SECRETS in skip_tasks))
+    
     #  ClustersExportTask
     add_diff_task("validate-clusters", "clusters.log", DiffConfig(
         primary_key="cluster_name",
-        ignored_keys=["cluster_id", "policy_id", "instance_pool_id", "spark_version"],
+        ignored_keys=["cluster_id", "policy_id", "instance_pool_id", "driver_instance_pool_id", "spark_version"],
         children={
             "aws_attributes": DiffConfig(
                 ignored_keys=["zone_id"]
             )
         }
-    ))
+    ),
+    skip=(wmconstants.CLUSTERS in skip_tasks))
+
     add_diff_task("validate-cluster_policies", "cluster_policies.log", DiffConfig(
         primary_key="name",
         ignored_keys=["policy_id", "created_at_timestamp"],
-    ))
+    ), skip=(wmconstants.CLUSTERS in skip_tasks))
+
     add_diff_task("validate-acl_clusters", "acl_clusters.log", DiffConfig(
         primary_key='cluster_name',
         ignored_keys={'object_id'},
@@ -261,7 +308,8 @@ def build_validate_pipeline(client_config, checkpoint_service, args):
                 }
             )
         }
-    ))
+    ), skip=(wmconstants.CLUSTERS in skip_tasks))
+
     add_diff_task("validate-acl_cluster_policies", "acl_cluster_policies.log", DiffConfig(
         primary_key='name',
         ignored_keys={'object_id'},
@@ -276,7 +324,8 @@ def build_validate_pipeline(client_config, checkpoint_service, args):
                 }
             )
         }
-    ))
+    ), skip=(wmconstants.CLUSTERS in skip_tasks))
+
     # InstancePoolsExportTask
     add_diff_task("validate-instance_pools", "instance_pools.log", DiffConfig(
         primary_key="instance_pool_name",
@@ -289,7 +338,7 @@ def build_validate_pipeline(client_config, checkpoint_service, args):
                 ignored_keys=["DatabricksInstancePoolId", "DatabricksInstanceGroupId"]
             )
         }
-    ))
+    ), skip=(wmconstants.INSTANCE_POOLS in skip_tasks))
 
     # NotebookExportTask
     # Handled by bash script.
@@ -300,17 +349,18 @@ def build_validate_pipeline(client_config, checkpoint_service, args):
     # MetastoreExportTask
     add_diff_task("validate-database_details", "database_details.log", DiffConfig(
         primary_key="Database Name",
-    ))
+    ), skip=(wmconstants.METASTORE in skip_tasks))
+
     add_diff_task("validate-success_metastore", "success_metastore.log", DiffConfig(
         primary_key="table",
-    ))
+    ), skip=(wmconstants.METASTORE_TABLES in skip_tasks))
     # metastore/ handled by bash script.
 
     # MetastoreTableACLExportTask
     add_dir_diff_task("validate-table_acls", "table_acls", DiffConfig(
         primary_key="__HASH__",
         ignored_keys=["ExportTimestamp"]
-    ), suffix=".json")
+    ), suffix=".json", skip=(wmconstants.METASTORE_TABLE_ACLS in skip_tasks))
 
     return pipeline
 

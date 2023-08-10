@@ -38,8 +38,15 @@ def valid_date(s):
         msg = "not a valid date: {0!r}. It must be in YYYY-MM-DD".format(s)
         raise argparse.ArgumentTypeError(msg)
 
+
 def is_azure_creds(creds):
     if 'azuredatabricks.net' in creds.get('host', ''):
+        return True
+    return False
+
+
+def is_gcp_creds(creds):
+    if 'gcp.databricks.com' in creds.get('host', ''):
         return True
     return False
 
@@ -61,39 +68,6 @@ def get_login_credentials(creds_path='~/.databrickscfg', profile='DEFAULT'):
     except KeyError:
         raise ValueError(
             'Unable to find credentials to load for profile. Profile only supports tokens.')
-
-
-def get_export_user_parser():
-    # export workspace items
-    parser = argparse.ArgumentParser(
-        description='Export user(s) workspace artifacts from Databricks')
-
-    parser.add_argument('--profile', action='store', default='DEFAULT',
-                        help='Profile to parse the credentials')
-
-    parser.add_argument('--azure', action='store_true', default=False,
-                        help='Run on Azure. (Default is AWS)')
-
-    parser.add_argument('--skip-failed', action='store_true', default=False,
-                        help='Skip retries for any failed hive metastore exports.')
-
-    parser.add_argument('--silent', action='store_true', default=False,
-                        help='Silent all logging of export operations.')
-    # Don't verify ssl
-    parser.add_argument('--no-ssl-verification', action='store_true',
-                        help='Set Verify=False when making http requests.')
-
-    parser.add_argument('--debug', action='store_true',
-                        help='Enable debug logging')
-
-    parser.add_argument('--set-export-dir', action='store',
-                        help='Set the base directory to export artifacts')
-
-    parser.add_argument('--users', action='store',
-                        help='Download user(s) artifacts such as notebooks, cluster specs, jobs. '
-                             'Provide a list of user ids / emails to export')
-
-    return parser
 
 
 def get_export_parser():
@@ -181,6 +155,9 @@ def get_export_parser():
     # get azure logs
     parser.add_argument('--azure', action='store_true', default=False,
                         help='Run on Azure. (Default is AWS)')
+
+    parser.add_argument('--gcp', action='store_true', default=False,
+                        help='Run on GCP. (Default is AWS)')
     #
     parser.add_argument('--profile', action='store', default='DEFAULT',
                         help='Profile to parse the credentials')
@@ -258,6 +235,12 @@ def get_export_parser():
 
     parser.add_argument('--exclude-work-item-prefixes', nargs='+', type=str, default=[],
                         help='List of prefixes to skip export for log_all_workspace_items')
+    
+    parser.add_argument('--timeout', type=float, default=300.0,
+                        help='Timeout for the calls to Databricks\' REST API, in seconds, defaults to 300.0 --use float e.g. 100.0 to make it bigger')
+
+    parser.add_argument('--skip-missing-users', action='store_true', default=False,
+                        help='Skip missing principles during import.')
     return parser
 
 
@@ -361,6 +344,9 @@ def get_import_parser():
     # get azure logs
     parser.add_argument('--azure', action='store_true',
                         help='Run on Azure. (Default is AWS)')
+
+    parser.add_argument('--gcp', action='store_true',
+                        help='Run on GCP. (Default is AWS)')
     #
     parser.add_argument('--profile', action='store', default='DEFAULT',
                         help='Profile to parse the credentials')
@@ -407,6 +393,9 @@ def get_import_parser():
 
     parser.add_argument('--retry-backoff', type=float, default=1.0, help='Backoff factor to apply between retry attempts when making calls to Databricks API')
 
+    parser.add_argument('--sort-views', action='store_true', default=False,
+                        help='If True, the views will be sorted based upon dependencies before importing.')
+
     return parser
 
 
@@ -435,12 +424,16 @@ def build_client_config(profile, url, token, args):
     config = {'profile': profile,
               'url': url,
               'token': token,
-              'is_aws': (not args.azure),
+              'is_aws': (not args.azure and not args.gcp),
+              'is_azure': (args.azure),
+              'is_gcp': (args.gcp),
               'verbose': (not args.silent),
               'verify_ssl': (not args.no_ssl_verification),
               'skip_failed': args.skip_failed,
               'debug': args.debug,
-              'file_format': str(args.notebook_format)
+              'file_format': str(args.notebook_format), 
+              'timeout': args.timeout,
+              'skip_missing_users': args.skip_missing_users
               }
     # this option only exists during imports so we check for existence
     if 'overwrite_notebooks' in args:
@@ -454,8 +447,10 @@ def build_client_config(profile, url, token, args):
             config['export_dir'] = args.set_export_dir
     elif config['is_aws']:
         config['export_dir'] = 'logs/'
-    else:
+    elif config['is_azure']:
         config['export_dir'] = 'azure_logs/'
+    else:
+        config['export_dir'] = 'gcp_logs/'
 
     config['use_checkpoint'] = args.use_checkpoint
     config['num_parallel'] = args.num_parallel
@@ -474,14 +469,23 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
     parser.add_argument('--azure', action='store_true', default=False,
                         help='Run on Azure. (Default is AWS)')
 
+    parser.add_argument('--gcp', action='store_true', default=False,
+                        help='Run on GCP. (Default is AWS)')
+
     parser.add_argument('--silent', action='store_true', default=False,
                         help='Silent all logging of export operations.')
+
+    parser.add_argument('--verbose', action='store_true', default=False,
+                        help='Verbose logging')
 
     parser.add_argument('--no-ssl-verification', action='store_true',
                         help='Set Verify=False when making http requests.')
 
     parser.add_argument('--debug', action='store_true',
                         help='Enable debug logging')
+
+    parser.add_argument('--no-prompt', action='store_true', default=False,
+                        help='Skip interactive prompt to confirm workspace import')
 
     parser.add_argument('--set-export-dir', action='store',
                         help='Set the base directory to export artifacts')
@@ -510,6 +514,10 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
     parser.add_argument('--skip-failed', action='store_true', default=False,
                         help='Skip retries for any failed hive metastore exports.')
 
+    parser.add_argument('--skip-missing-users', action='store_true', default=False,
+                        help='Skip missing principles during import.')
+
+    # Pipeline arguments
     parser.add_argument('--session', action='store', default='',
                         help='If set, pipeline resumes from latest checkpoint of given session; '
                              'Otherwise, pipeline starts from beginning and creates a new session.')
@@ -540,6 +548,9 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
     parser.add_argument('--skip-tasks', nargs='+', type=str, action=ValidateSkipTasks, default=[],
                         help='List of tasks to skip from the pipeline.')
 
+    parser.add_argument('--keep-tasks', nargs='+', type=str, action=ValidateSkipTasks, default=[],
+                        help='List of tasks to run in the pipeline; overrides --skip-tasks.')
+
     parser.add_argument('--num-parallel', type=int, default=4, help='Number of parallel threads to use to '
                                                                           'export/import')
 
@@ -556,4 +567,22 @@ def get_pipeline_parser() -> argparse.ArgumentParser:
 
     parser.add_argument('--update-domain', action='store',
                         help='Update old domain with new domain. ')
+    parser.add_argument('--groups-to-keep', nargs='+', type=str, default=[],
+                        help='List of groups (and therefore users/notebooks) to keep if specified')
+
+    parser.add_argument('--timeout', type=float, default=300.0,
+                        help='Timeout for the calls to Databricks\' REST API, in seconds, defaults to 300.0 --use float e.g. 100.0 to make it bigger')
+
+    parser.add_argument('--last-session', action='store', default='',
+                        help='If set, the script compares current sesssion with the last session and only import updated and new notebooks.')
+
+    parser.add_argument('--sort-views', action='store_true', default=False,
+                        help='If True, the views will be sorted based upon dependencies before importing.')
+
+    parser.add_argument('--skip-large-nb', action='store_true', default=False,
+                        help='Skip notebooks larger than 10485760 bytes; these otherwise cause an error')
+
+    parser.add_argument('--hipaa', action='store_true', default=False,
+                        help='User HIPAA-compatible cluster profiles')
+   
     return parser
