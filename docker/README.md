@@ -24,8 +24,8 @@ Once the image is done building, execute the following command from your shell t
 docker run -it --name databricks-migrate -v .\databricks\.databrickscfg:/root/.databrickscfg -v .\databricks:/databricks databricks-migrate
 ```
 
-## Usage
-For CDWNG workspaces, the following commands have been used to handle migration of specific Databricks objects.
+## Example Usage
+The following commands can be used to handle migration of specific Databricks objects.
 
 Export objects from `oldWS`:
 ```
