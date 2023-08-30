@@ -393,6 +393,9 @@ def get_import_parser():
     parser.add_argument('--sort-views', action='store_true', default=False,
                         help='If True, the views will be sorted based upon dependencies before importing.')
 
+    parser.add_argument('--timeout', type=float, default=300.0,
+                        help='Timeout for the calls to Databricks\' REST API, in seconds, defaults to 300.0 --use float e.g. 100.0 to make it bigger')
+
     return parser
 
 
