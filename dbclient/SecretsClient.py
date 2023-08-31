@@ -100,13 +100,17 @@ class SecretsClient(ClustersClient):
         return acls_dict
 
     @staticmethod
-    def has_users_can_manage_permission(scope_name, acl_dict):
+    def has_users_can_manage_permission(scope_name, acl_dict, non_premium):
         """
         returns whether the users group has access permissions
         returns the true if we can have them
         :scope_name: string for the secret scope name
         :acl_dict: ACLs dict ordered by permission keys, e.g. (MANAGE, USE, etc.)
+        :non_premium: bool indicating that this is not a premium+ workspace
         """
+        if non_premium:
+            return True
+
         scope_perms = acl_dict.get(scope_name)
         # list of users/groups to manage the permissions
         manage_perms = scope_perms.get('MANAGE', [])
@@ -140,11 +144,11 @@ class SecretsClient(ClustersClient):
                 file_path = root + scope_name
                 # print('Log file: ', file_path)
                 # check if scopes acls are empty, then skip
-                if scopes_acl_dict.get(scope_name, None) is None:
+                if scopes_acl_dict.get(scope_name, None) is None and not self.bypass_secret_acl:
                     print("Scope is empty with no manage permissions. Skipping...")
                     continue
                 # check if users has can manage perms then we can add during creation time
-                has_user_manage = self.has_users_can_manage_permission(scope_name, scopes_acl_dict)
+                has_user_manage = self.has_users_can_manage_permission(scope_name, scopes_acl_dict, self.bypass_secret_acl)
                 create_scope_args = {'scope': scope_name}
                 if has_user_manage:
                     create_scope_args['initial_manage_principal'] = 'users'
