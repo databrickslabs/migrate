@@ -14,6 +14,7 @@ class ClustersClient(dbclient):
         self.groups_to_keep = configs.get("groups_to_keep", False)
         self.skip_missing_users = configs['skip_missing_users']
         self.hipaa = configs.get('hipaa', False)
+        self.bypass_secret_acl = configs.get('bypass_secret_acl', False)
 
     create_configs = {'num_workers',
                       'autoscale',
