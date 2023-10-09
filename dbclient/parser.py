@@ -78,6 +78,10 @@ def get_export_parser():
     parser.add_argument('--users', action='store_true',
                         help='Download all the users and groups in the workspace')
 
+    # convert all users to lowercase for SCIM API changes
+    parser.add_argument('--replace-email-auto', action='store_true',
+                        help='Modify exported user and related configuration with a lower case username, use after export and reference with --session $SESSION')
+
     # log all user workspace paths
     parser.add_argument('--workspace', action='store_true',
                         help='Log all the notebook paths in the workspace. (metadata only)')
