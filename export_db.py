@@ -240,6 +240,21 @@ def main():
         end = timer()
         print("Complete email update time: " + str(timedelta(seconds=end - start)))
 
+    if args.replace_email_auto:
+        print("Automatically updating old email to new email address at {0}".format(now))
+        start = timer()
+        client = dbclient(client_config)
+        scim_c = ScimClient(client_config, checkpoint_service)
+        
+        users = scim_c.get_users_from_log()
+        # print("Updating {len(users)}...")
+        for u in users:
+            print(f"Updating '{u}' to '{u.lower()}'")
+            client.update_email_addresses(u, u.lower())
+
+        end = timer()
+        print("Complete email update time: " + str(timedelta(seconds=end - start)))
+
     if args.single_user:
         user_email = args.single_user
         print(f"Export user {user_email} at {now}")
