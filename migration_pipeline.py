@@ -97,6 +97,12 @@ def build_export_pipeline(client_config, checkpoint_service, args) -> Pipeline:
     else:
         skip_tasks = args.skip_tasks
 
+    if args.skip_acls:
+        skip_tasks.append(wmconstants.WORKSPACE_ACLS)
+        skip_tasks.append(wmconstants.METASTORE_TABLE_ACLS)
+
+        skip_tasks = list(set(skip_tasks))
+
     source_info_file = os.path.join(client_config['export_dir'], "source_info.txt")
     with open(source_info_file, 'w') as f:
         f.write(client_config['url'])

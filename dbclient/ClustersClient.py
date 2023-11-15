@@ -607,6 +607,8 @@ class ClustersClient(dbclient):
                     cluster_json['aws_attributes'] = aws_conf
                 cluster_perms = self.get_cluster_acls(cluster_json['cluster_id'], cluster_json['cluster_name'])
 
+                args = parser.get_pipeline_parser().parse_args()
+
                 if users_list:
                     acls = [acl for acl in cluster_perms.get("access_control_list") if
                             (acl.get("group_name", "") in self.groups_to_keep) or
@@ -614,15 +616,16 @@ class ClustersClient(dbclient):
                             (acl.get("group_name", "") == "users")]
                     cluster_perms["access_control_list"] = acls
 
-                    if cluster_perms['http_status_code'] == 200 and acls:
+                    if not args.skip_acls:
+                        if cluster_perms['http_status_code'] == 200 and acls:
+                            acl_log_fp.write(json.dumps(cluster_perms) + '\n')
+                        else:
+                            error_logger.error(f'Failed to get cluster ACL: {cluster_perms}')
+                elif not args.skip_acls:
+                    if cluster_perms['http_status_code'] == 200:
                         acl_log_fp.write(json.dumps(cluster_perms) + '\n')
                     else:
                         error_logger.error(f'Failed to get cluster ACL: {cluster_perms}')
-
-                elif cluster_perms['http_status_code'] == 200:
-                    acl_log_fp.write(json.dumps(cluster_perms) + '\n')
-                else:
-                    error_logger.error(f'Failed to get cluster ACL: {cluster_perms}')
 
                 if filter_user:
                     if cluster_json['creator_user_name'] == filter_user:

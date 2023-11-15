@@ -123,6 +123,12 @@ class JobsClient(ClustersClient):
                 # reset the original struct with the new settings
                 x['settings'] = job_settings
 
+                args = parser.get_pipeline_parser().parse_args()
+
+                if args.skip_acls:
+                    log_fp.write(json.dumps(x) + '\n')
+                    continue
+
                 # get ACLs and check that the job has one owner before writing
                 job_perms = self.get(f'/preview/permissions/jobs/{job_id}')
                 if not logging_utils.log_response_error(error_logger, job_perms):
